@@ -65,6 +65,12 @@ class Task extends Model
         ];
     }
 
+
+    public function reference(): string
+    {
+        return $this->project->key.'-'.$this->number;
+    }
+
     public function project(): BelongsTo
     {
         return $this->belongsTo(Project::class);

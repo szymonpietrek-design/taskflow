@@ -2,6 +2,7 @@
 
 namespace App\Actions\Projects;
 
+use App\Actions\Tasks\EnsureDefaultTaskStatuses;
 use App\Enums\ProjectRole;
 use App\Enums\ProjectType;
 use App\Enums\ProjectVisibility;
@@ -16,6 +17,10 @@ use InvalidArgumentException;
 
 final class CreateProject
 {
+    public function __construct(
+        private readonly EnsureDefaultTaskStatuses $ensureDefaultTaskStatuses,
+    ) {}
+
     public function handle(
         User $creator,
         Workspace $workspace,
@@ -73,6 +78,8 @@ final class CreateProject
                 'user_id' => $creator->id,
                 'role' => ProjectRole::MANAGER,
             ]);
+
+            $this->ensureDefaultTaskStatuses->handle($project);
 
             return $project;
         });

@@ -6,6 +6,7 @@ use App\Actions\Projects\CreateProject;
 use App\Enums\ProjectRole;
 use App\Enums\ProjectType;
 use App\Enums\ProjectVisibility;
+use App\Enums\TaskStatusCategory;
 use App\Enums\WorkspaceRole;
 use App\Models\Project;
 use App\Models\User;
@@ -51,6 +52,31 @@ class CreateProjectTest extends TestCase
             'project_id' => $project->id,
             'user_id' => $user->id,
             'role' => ProjectRole::MANAGER->value,
+        ]);
+
+
+        $this->assertDatabaseCount('task_statuses', 4);
+        $this->assertDatabaseHas('task_statuses', [
+            'project_id' => $project->id,
+            'name' => 'Todo',
+            'slug' => 'todo',
+            'category' => TaskStatusCategory::TODO->value,
+            'position' => 1000,
+        ]);
+        $this->assertDatabaseHas('task_statuses', [
+            'project_id' => $project->id,
+            'name' => 'In Progress',
+            'category' => TaskStatusCategory::IN_PROGRESS->value,
+        ]);
+        $this->assertDatabaseHas('task_statuses', [
+            'project_id' => $project->id,
+            'name' => 'Done',
+            'category' => TaskStatusCategory::DONE->value,
+        ]);
+        $this->assertDatabaseHas('task_statuses', [
+            'project_id' => $project->id,
+            'name' => 'Canceled',
+            'category' => TaskStatusCategory::CANCELED->value,
         ]);
     }
 
