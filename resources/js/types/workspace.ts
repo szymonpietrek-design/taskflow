@@ -7,3 +7,8 @@ export type WorkspaceSummary = {
     role: WorkspaceRole;
     is_current: boolean;
 };
+
+export type WorkspaceContext = {
+    current: WorkspaceSummary | null;
+    items: WorkspaceSummary[];
+};

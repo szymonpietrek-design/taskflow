@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { Form, Head } from '@inertiajs/vue3';
+import { Form, Head, usePage } from '@inertiajs/vue3';
 import { Check, Plus, Users } from '@lucide/vue';
+import { computed } from 'vue';
 import Heading from '@/components/Heading.vue';
 import InputError from '@/components/InputError.vue';
 import { Badge } from '@/components/ui/badge';
@@ -16,9 +17,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { WorkspaceSummary } from '@/types';
 
-const props = defineProps<{
-    workspaces: WorkspaceSummary[];
-}>();
+const page = usePage();
+const workspaces = computed(() => page.props.workspace.items);
 
 defineOptions({
     layout: {
@@ -51,16 +51,16 @@ function roleLabel(role: WorkspaceSummary['role']): string {
                     <div>
                         <h2 class="text-base font-medium">Your workspaces</h2>
                         <p class="text-sm text-muted-foreground">
-                            {{ props.workspaces.length }}
-                            {{ props.workspaces.length === 1 ? 'workspace' : 'workspaces' }}
+                            {{ workspaces.length }}
+                            {{ workspaces.length === 1 ? 'workspace' : 'workspaces' }}
                         </p>
                     </div>
                 </div>
 
-                <div v-if="props.workspaces.length" class="grid gap-3">
+                <div v-if="workspaces.length" class="grid gap-3">
                     <Card
-                        v-for="workspace in props.workspaces"
-                        :key="workspace.id"
+                        v-for="workspaceItem in workspaces"
+                        :key="workspaceItem.id"
                         class="gap-4 py-5"
                     >
                         <CardContent class="flex items-center gap-4 px-5">
@@ -73,21 +73,21 @@ function roleLabel(role: WorkspaceSummary['role']): string {
                             <div class="min-w-0 flex-1">
                                 <div class="flex flex-wrap items-center gap-2">
                                     <p class="truncate font-medium">
-                                        {{ workspace.name }}
+                                        {{ workspaceItem.name }}
                                     </p>
-                                    <Badge v-if="workspace.is_current" variant="secondary">
+                                    <Badge v-if="workspaceItem.is_current" variant="secondary">
                                         <Check class="size-3" />
                                         Current
                                     </Badge>
                                 </div>
                                 <p class="text-sm text-muted-foreground">
-                                    {{ roleLabel(workspace.role) }} · {{ workspace.slug }}
+                                    {{ roleLabel(workspaceItem.role) }} · {{ workspaceItem.slug }}
                                 </p>
                             </div>
 
                             <Form
-                                v-if="!workspace.is_current"
-                                :action="`/workspaces/${workspace.id}/current`"
+                                v-if="!workspaceItem.is_current"
+                                :action="`/workspaces/${workspaceItem.id}/current`"
                                 method="put"
                                 v-slot="{ processing }"
                             >

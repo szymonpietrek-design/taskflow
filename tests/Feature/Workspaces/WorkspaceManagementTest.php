@@ -28,12 +28,13 @@ class WorkspaceManagementTest extends TestCase
             ->assertSessionHas('current_workspace_id', $alpha->id)
             ->assertInertia(fn (Assert $page) => $page
                 ->component('workspaces/Index')
-                ->has('workspaces', 2)
-                ->where('workspaces.0.name', 'Alpha Team')
-                ->where('workspaces.0.role', 'owner')
-                ->where('workspaces.0.is_current', true)
-                ->where('workspaces.1.name', 'Beta Team')
-                ->where('workspaces.1.is_current', false),
+                ->has('workspace.items', 2)
+                ->where('workspace.current.id', $alpha->id)
+                ->where('workspace.items.0.name', 'Alpha Team')
+                ->where('workspace.items.0.role', 'owner')
+                ->where('workspace.items.0.is_current', true)
+                ->where('workspace.items.1.name', 'Beta Team')
+                ->where('workspace.items.1.is_current', false),
             );
     }
 

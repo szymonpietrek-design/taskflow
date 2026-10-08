@@ -4,7 +4,9 @@ import { BookOpen, FolderGit2, LayoutGrid, PanelsTopLeft } from '@lucide/vue';
 import AppLogo from '@/components/AppLogo.vue';
 import NavFooter from '@/components/NavFooter.vue';
 import NavMain from '@/components/NavMain.vue';
+import NavProjectsPlaceholder from '@/components/NavProjectsPlaceholder.vue';
 import NavUser from '@/components/NavUser.vue';
+import WorkspaceSwitcher from '@/components/WorkspaceSwitcher.vue';
 import {
     Sidebar,
     SidebarContent,
@@ -56,10 +58,13 @@ const footerNavItems: NavItem[] = [
                     </SidebarMenuButton>
                 </SidebarMenuItem>
             </SidebarMenu>
+
+            <WorkspaceSwitcher />
         </SidebarHeader>
 
         <SidebarContent>
             <NavMain :items="mainNavItems" />
+            <NavProjectsPlaceholder />
         </SidebarContent>
 
         <SidebarFooter>
