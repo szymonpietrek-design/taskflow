@@ -100,4 +100,14 @@ class Task extends Model
     {
         return $this->belongsTo(User::class, 'created_by');
     }
+
+    public function messages(): HasMany
+    {
+        return $this->hasMany(TaskMessage::class);
+    }
+
+    public function activities(): HasMany
+    {
+        return $this->hasMany(TaskActivity::class);
+    }
 }

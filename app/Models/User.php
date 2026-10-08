@@ -90,4 +90,14 @@ class User extends Authenticatable implements MustVerifyEmail, PasskeyUser
     {
         return $this->hasMany(Task::class, 'assignee_id');
     }
+
+    public function taskMessages(): HasMany
+    {
+        return $this->hasMany(TaskMessage::class);
+    }
+
+    public function taskActivities(): HasMany
+    {
+        return $this->hasMany(TaskActivity::class);
+    }
 }
