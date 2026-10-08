@@ -80,4 +80,14 @@ class User extends Authenticatable implements MustVerifyEmail, PasskeyUser
             ->withPivot('role')
             ->withTimestamps();
     }
+
+    public function createdTasks(): HasMany
+    {
+        return $this->hasMany(Task::class, 'created_by');
+    }
+
+    public function assignedTasks(): HasMany
+    {
+        return $this->hasMany(Task::class, 'assignee_id');
+    }
 }
