@@ -1,5 +1,6 @@
 import type { Directive } from 'vue';
 import type { Auth } from '@/types/auth';
+import type { ProjectContext } from '@/types/project';
 import type { WorkspaceContext } from '@/types/workspace';
 
 // Extend ImportMeta interface for Vite...
@@ -21,6 +22,7 @@ declare module '@inertiajs/core' {
             name: string;
             auth: Auth;
             workspace: WorkspaceContext;
+            projects: ProjectContext;
             sidebarOpen: boolean;
             [key: string]: unknown;
         };

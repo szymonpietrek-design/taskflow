@@ -28,9 +28,11 @@ function switchWorkspace(workspaceId: number): void {
         return;
     }
 
+    const redirectTo = page.url.startsWith('/projects/') ? '/projects' : undefined;
+
     router.put(
         `/workspaces/${workspaceId}/current`,
-        {},
+        redirectTo ? { redirect_to: redirectTo } : {},
         {
             preserveScroll: true,
         },

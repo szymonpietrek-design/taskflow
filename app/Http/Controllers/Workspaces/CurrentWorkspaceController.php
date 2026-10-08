@@ -22,6 +22,12 @@ class CurrentWorkspaceController extends Controller
             'message' => __('Workspace switched.'),
         ]);
 
+        $redirectTo = $request->string('redirect_to')->toString();
+
+        if ($redirectTo !== '' && str_starts_with($redirectTo, '/') && ! str_starts_with($redirectTo, '//')) {
+            return redirect($redirectTo);
+        }
+
         return back();
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Support\Projects\ProjectContext;
 use App\Support\Workspaces\WorkspaceContext;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -43,6 +44,7 @@ class HandleInertiaRequests extends Middleware
                 'user' => $request->user(),
             ],
             'workspace' => fn (): array => app(WorkspaceContext::class)->resolve($request),
+            'projects' => fn (): array => app(ProjectContext::class)->resolve($request),
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];
     }
