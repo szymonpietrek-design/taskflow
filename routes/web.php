@@ -3,6 +3,7 @@
 use App\Http\Controllers\Projects\ProjectController;
 use App\Http\Controllers\Tasks\TaskController;
 use App\Http\Controllers\Tasks\TaskMessageController;
+use App\Http\Controllers\Tasks\TaskStatusController;
 use App\Http\Controllers\Workspaces\CurrentWorkspaceController;
 use App\Http\Controllers\Workspaces\WorkspaceController;
 use Illuminate\Support\Facades\Route;
@@ -15,6 +16,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('projects', [ProjectController::class, 'index'])->name('projects.index');
     Route::post('projects', [ProjectController::class, 'store'])->name('projects.store');
     Route::get('projects/{project}', [ProjectController::class, 'show'])->name('projects.show');
+
+    Route::get('projects/{project}/statuses', [TaskStatusController::class, 'index'])->name('projects.statuses.index');
+    Route::post('projects/{project}/statuses', [TaskStatusController::class, 'store'])->name('projects.statuses.store');
+    Route::patch('projects/{project}/statuses/{status}', [TaskStatusController::class, 'update'])->name('projects.statuses.update');
+    Route::patch('projects/{project}/statuses/{status}/move', [TaskStatusController::class, 'move'])->name('projects.statuses.move');
+    Route::delete('projects/{project}/statuses/{status}', [TaskStatusController::class, 'destroy'])->name('projects.statuses.destroy');
 
     Route::get('projects/{project}/tasks', [TaskController::class, 'index'])->name('tasks.index');
     Route::post('projects/{project}/tasks', [TaskController::class, 'store'])->name('tasks.store');

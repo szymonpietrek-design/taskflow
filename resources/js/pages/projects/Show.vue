@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
-import { AppWindow, FolderKanban, ListTodo, LockKeyhole, Users } from '@lucide/vue';
+import { AppWindow, FolderKanban, ListTodo, LockKeyhole, Settings2, Users } from '@lucide/vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -50,6 +50,12 @@ defineOptions({
                 <Link :href="`/projects/${project.id}/tasks`">
                     <ListTodo class="size-4" />
                     View tasks
+                </Link>
+            </Button>
+            <Button v-if="project.can_manage" as-child variant="outline">
+                <Link :href="`/projects/${project.id}/statuses`">
+                    <Settings2 class="size-4" />
+                    Manage statuses
                 </Link>
             </Button>
         </div>
