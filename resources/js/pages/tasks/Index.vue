@@ -1,21 +1,54 @@
 <script setup lang="ts">
-import { Form, Head, Link } from '@inertiajs/vue3';
-import { ArrowLeft, CheckCircle2, Circle, ClipboardList, Plus } from '@lucide/vue';
+import { Form, Head, Link, router } from '@inertiajs/vue3';
+import { reactive, watch } from 'vue';
+import { ArrowLeft, CheckCircle2, Circle, ClipboardList, Plus, Search, SlidersHorizontal } from '@lucide/vue';
 import InputError from '@/components/InputError.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import type { TaskProjectSummary, TaskStatusSummary, TaskSummary, TaskUserSummary } from '@/types/task';
+import type { TaskParentSummary, TaskProjectSummary, TaskStatusSummary, TaskSummary, TaskUserSummary } from '@/types/task';
 
 const props = defineProps<{
     project: TaskProjectSummary;
     tasks: TaskSummary[];
+    pagination: {
+        current_page: number;
+        last_page: number;
+        total: number;
+        from: number | null;
+        to: number | null;
+        previous_page_url: string | null;
+        next_page_url: string | null;
+    };
+    filters: {
+        q: string;
+        status_id: string;
+        priority: string;
+        assignee_id: string;
+        sort: string;
+    };
+    filter_assignees: TaskUserSummary[];
+    parent_tasks: TaskParentSummary[];
     statuses: TaskStatusSummary[];
     assignees: TaskUserSummary[];
     can_create: boolean;
 }>();
+
+const indexUrl = `/projects/${props.project.id}/tasks`;
+const filterForm = reactive({ ...props.filters });
+watch(() => props.filters, (filters) => Object.assign(filterForm, filters));
+
+function applyFilters() {
+    router.get(indexUrl, {
+        q: filterForm.q.trim() || undefined,
+        status_id: filterForm.status_id || undefined,
+        priority: filterForm.priority || undefined,
+        assignee_id: filterForm.assignee_id || undefined,
+        sort: filterForm.sort !== 'newest' ? filterForm.sort : undefined,
+    }, { replace: true, preserveState: true, preserveScroll: true });
+}
 
 const taskUrl = (id: number) => `/projects/${props.project.id}/tasks/${id}`;
 const selectClass = 'h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50';
@@ -49,8 +82,61 @@ defineOptions({
             <section class="min-w-0 space-y-3">
                 <div class="flex items-center justify-between gap-3">
                     <h2 class="text-sm font-medium">Project tasks</h2>
-                    <span class="text-xs text-muted-foreground">{{ tasks.length }} {{ tasks.length === 1 ? 'task' : 'tasks' }}</span>
+                    <span class="text-xs text-muted-foreground">{{ pagination.total }} {{ pagination.total === 1 ? 'task' : 'tasks' }}</span>
                 </div>
+
+                <Card class="gap-0 p-4">
+                    <form class="space-y-3" @submit.prevent="applyFilters">
+                        <div class="flex items-center gap-2 text-sm font-medium"><SlidersHorizontal class="size-4" /> Filters</div>
+                        <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-4">
+                            <div class="grid gap-1.5">
+                                <Label for="task-search">Search</Label>
+                                <Input id="task-search" v-model="filterForm.q" maxlength="100" placeholder="Title, description, APP-1" />
+                            </div>
+                            <div class="grid gap-1.5">
+                                <Label for="task-filter-status">Status</Label>
+                                <select id="task-filter-status" v-model="filterForm.status_id" :class="selectClass">
+                                    <option value="">All statuses</option>
+                                    <option v-for="status in statuses" :key="status.id" :value="String(status.id)">{{ status.name }}</option>
+                                </select>
+                            </div>
+                            <div class="grid gap-1.5">
+                                <Label for="task-filter-priority">Priority</Label>
+                                <select id="task-filter-priority" v-model="filterForm.priority" :class="selectClass">
+                                    <option value="">All priorities</option>
+                                    <option value="1">Low</option>
+                                    <option value="2">Normal</option>
+                                    <option value="3">High</option>
+                                    <option value="4">Urgent</option>
+                                </select>
+                            </div>
+                            <div class="grid gap-1.5">
+                                <Label for="task-filter-assignee">Assignee</Label>
+                                <select id="task-filter-assignee" v-model="filterForm.assignee_id" :class="selectClass">
+                                    <option value="">Anyone</option>
+                                    <option value="unassigned">Unassigned</option>
+                                    <option v-for="person in filter_assignees" :key="person.id" :value="String(person.id)">{{ person.name }}</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="flex flex-wrap items-end justify-between gap-3">
+                            <div class="grid gap-1.5">
+                                <Label for="task-filter-sort">Sort by</Label>
+                                <select id="task-filter-sort" v-model="filterForm.sort" :class="selectClass" class="min-w-36">
+                                    <option value="newest">Newest first</option>
+                                    <option value="oldest">Oldest first</option>
+                                    <option value="priority">Highest priority</option>
+                                    <option value="due_date">Due date</option>
+                                    <option value="title">Title A–Z</option>
+                                </select>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <Link :href="indexUrl" class="rounded-md px-3 py-2 text-sm text-muted-foreground hover:text-foreground">Clear filters</Link>
+                                <Button type="submit" size="sm"><Search class="size-4" /> Apply</Button>
+                            </div>
+                        </div>
+                    </form>
+                </Card>
 
                 <Card v-if="tasks.length" class="gap-0 overflow-hidden py-0">
                     <div class="overflow-x-auto">
@@ -89,10 +175,21 @@ defineOptions({
                 <Card v-else class="border-dashed">
                     <CardContent class="flex flex-col items-center gap-2 py-12 text-center">
                         <ClipboardList class="size-7 text-muted-foreground" />
-                        <p class="font-medium">No tasks yet</p>
-                        <p class="max-w-sm text-sm text-muted-foreground">{{ can_create ? 'Create the first task to start tracking work.' : 'Tasks will appear here when project members add them.' }}</p>
+                        <p class="font-medium">{{ pagination.total === 0 && (filters.q || filters.status_id || filters.priority || filters.assignee_id) ? 'No matching tasks' : 'No tasks yet' }}</p>
+                        <p class="max-w-sm text-sm text-muted-foreground">{{ filters.q || filters.status_id || filters.priority || filters.assignee_id ? 'Try changing or clearing your filters.' : (can_create ? 'Create the first task to start tracking work.' : 'Tasks will appear here when project members add them.') }}</p>
+                        <Link v-if="filters.q || filters.status_id || filters.priority || filters.assignee_id" :href="indexUrl" class="text-sm underline">Clear filters</Link>
                     </CardContent>
                 </Card>
+                <div v-if="pagination.total > 0" class="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
+                    <span>Showing {{ pagination.from }}–{{ pagination.to }} of {{ pagination.total }}</span>
+                    <nav v-if="pagination.last_page > 1" class="flex items-center gap-3" aria-label="Task pages">
+                        <Link v-if="pagination.previous_page_url" :href="pagination.previous_page_url" preserve-scroll class="rounded-md border px-3 py-1.5 text-foreground hover:bg-muted">Previous</Link>
+                        <span v-else aria-disabled="true" class="rounded-md border px-3 py-1.5 opacity-40">Previous</span>
+                        <span>Page {{ pagination.current_page }} of {{ pagination.last_page }}</span>
+                        <Link v-if="pagination.next_page_url" :href="pagination.next_page_url" preserve-scroll class="rounded-md border px-3 py-1.5 text-foreground hover:bg-muted">Next</Link>
+                        <span v-else aria-disabled="true" class="rounded-md border px-3 py-1.5 opacity-40">Next</span>
+                    </nav>
+                </div>
             </section>
 
             <Card v-if="can_create" class="h-fit">
@@ -154,7 +251,7 @@ defineOptions({
                             <Label for="task-parent">Parent task</Label>
                             <select id="task-parent" name="parent_id" :class="selectClass">
                                 <option value="">None (regular task)</option>
-                                <option v-for="task in tasks.filter((item) => !item.parent)" :key="task.id" :value="task.id">{{ task.reference }} — {{ task.title }}</option>
+                                <option v-for="task in parent_tasks" :key="task.id" :value="task.id">{{ task.reference }} — {{ task.title }}</option>
                             </select>
                             <InputError :message="errors.parent_id" />
                         </div>

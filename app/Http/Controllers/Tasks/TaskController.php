@@ -9,6 +9,7 @@ use App\Enums\TaskPriority;
 use App\Enums\TaskType;
 use App\Enums\WorkspaceRole;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Tasks\FilterTasksRequest;
 use App\Http\Requests\Tasks\StoreTaskRequest;
 use App\Http\Requests\Tasks\UpdateTaskRequest;
 use App\Http\Requests\Tasks\UpdateTaskStatusRequest;
@@ -19,31 +20,104 @@ use App\Models\TaskStatus;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class TaskController extends Controller
 {
-    public function index(Request $request, Project $project): Response
+    public function index(FilterTasksRequest $request, Project $project): Response
     {
         Gate::forUser($request->user())->authorize('viewAny', [Task::class, $project]);
         $this->syncWorkspace($request, $project);
 
-        $tasks = $project->tasks()
-            ->with(['project', 'status', 'assignee', 'parent'])
-            ->orderBy('position')
-            ->orderBy('number')
-            ->get();
+        $input = $request->validated();
+        $search = trim((string) ($input['q'] ?? ''));
+        $statusId = isset($input['status_id']) ? (int) $input['status_id'] : null;
+        $priority = isset($input['priority']) ? (int) $input['priority'] : null;
+        $assignee = (string) ($input['assignee_id'] ?? '');
+        $sort = $input['sort'] ?? 'newest';
+
+        $query = $project->tasks()->with(['project', 'status', 'assignee', 'parent']);
+
+        if ($search !== '') {
+            // Treat %, _ and ! as literal characters rather than LIKE wildcards.
+            $pattern = '%'.str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $search).'%';
+            $referenceNumber = null;
+            if (preg_match('/^'.preg_quote($project->key, '/').'-(\d+)$/i', $search, $matches)) {
+                $referenceNumber = (int) $matches[1];
+            }
+
+            $query->where(function (Builder $builder) use ($pattern, $referenceNumber): void {
+                $builder->whereRaw("title LIKE ? ESCAPE '!'", [$pattern])
+                    ->orWhereRaw("description LIKE ? ESCAPE '!'", [$pattern]);
+                if ($referenceNumber !== null) {
+                    $builder->orWhere('number', $referenceNumber);
+                }
+            });
+        }
+
+        if ($statusId !== null) {
+            $query->where('status_id', $statusId);
+        }
+        if ($priority !== null) {
+            $query->where('priority', $priority);
+        }
+        if ($assignee === 'unassigned') {
+            $query->whereNull('assignee_id');
+        } elseif ($assignee !== '') {
+            $query->where('assignee_id', (int) $assignee);
+        }
+
+        match ($sort) {
+            'oldest' => $query->orderBy('number'),
+            'priority' => $query->orderByDesc('priority')->orderByDesc('number'),
+            'due_date' => $query->orderByRaw('due_date IS NULL')->orderBy('due_date')->orderByDesc('number'),
+            'title' => $query->orderBy('title')->orderByDesc('number'),
+            default => $query->orderByDesc('number'),
+        };
+
+        $tasks = $query->paginate(15)->withQueryString();
+        $canCreate = $request->user()->can('create', [Task::class, $project]);
 
         return Inertia::render('tasks/Index', [
             'project' => $this->projectData($project),
-            'tasks' => $tasks->map(fn (Task $task): array => $this->taskData($task))->all(),
+            'tasks' => $tasks->getCollection()->map(fn (Task $task): array => $this->taskData($task))->all(),
+            'pagination' => [
+                'current_page' => $tasks->currentPage(),
+                'last_page' => $tasks->lastPage(),
+                'total' => $tasks->total(),
+                'from' => $tasks->firstItem(),
+                'to' => $tasks->lastItem(),
+                'previous_page_url' => $tasks->previousPageUrl(),
+                'next_page_url' => $tasks->nextPageUrl(),
+            ],
+            'filters' => [
+                'q' => $search,
+                'status_id' => $statusId === null ? '' : (string) $statusId,
+                'priority' => $priority === null ? '' : (string) $priority,
+                'assignee_id' => $assignee,
+                'sort' => $sort,
+            ],
             'statuses' => $this->statusOptions($project),
-            'assignees' => $request->user()->can('create', [Task::class, $project])
-                ? $this->eligibleAssignees($project)
-                : [],
-            'can_create' => $request->user()->can('create', [Task::class, $project]),
+            'filter_assignees' => User::query()
+                ->whereIn('id', $project->tasks()->whereNotNull('assignee_id')->select('assignee_id'))
+                ->orderBy('name')
+                ->get(['id', 'name'])
+                ->map(fn (User $user): array => ['id' => $user->id, 'name' => $user->name])->all(),
+            // Options for creating subtasks must not be limited to the filtered/paginated list.
+            'parent_tasks' => $canCreate ? $project->tasks()
+                ->whereNull('parent_id')
+                ->orderByDesc('number')
+                ->get(['id', 'number', 'title'])
+                ->map(fn (Task $task): array => [
+                    'id' => $task->id,
+                    'reference' => $project->key.'-'.$task->number,
+                    'title' => $task->title,
+                ])->all() : [],
+            'assignees' => $canCreate ? $this->eligibleAssignees($project) : [],
+            'can_create' => $canCreate,
         ]);
     }
 
