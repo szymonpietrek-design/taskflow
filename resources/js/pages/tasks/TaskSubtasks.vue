@@ -1,13 +1,19 @@
 <script setup lang="ts">
 import { Form, Link } from '@inertiajs/vue3';
-import { CheckCircle2, Circle, Plus } from '@lucide/vue';
-import { computed, ref } from 'vue';
+import { CalendarDays, CheckCircle2, Circle, LoaderCircle, Plus } from '@lucide/vue';
+import type { DateValue } from '@internationalized/date';
+import { DateFormatter, getLocalTimeZone, today } from '@internationalized/date';
+import { toast } from 'vue-sonner';
+import { computed, ref, shallowRef } from 'vue';
 import InputError from '@/components/InputError.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { TaskStatusSummary, TaskSubtaskSummary, TaskUserSummary } from '@/types/task';
 
 const props = defineProps<{
@@ -21,6 +27,13 @@ const props = defineProps<{
 }>();
 
 const creating = ref(false);
+const subtaskPriority = ref('2');
+const subtaskStatus = ref('default');
+const subtaskAssignee = ref('unassigned');
+const subtaskDueDate = shallowRef<DateValue | undefined>();
+const dateFormatter = new DateFormatter('en-US', { dateStyle: 'medium' });
+const notifyError = () => toast.error('Could not create the subtask. Check the form and try again.');
+const stayOnTask = { preserveScroll: true, preserveState: true };
 const percentage = computed(() => props.progress.total === 0
     ? 0
     : Math.round((props.progress.done / props.progress.total) * 100));
@@ -71,7 +84,7 @@ function taskUrl(id: number): string {
             <p v-else-if="!creating" class="text-sm text-muted-foreground">No subtasks yet.</p>
 
             <Form v-if="canCreate && creating" :action="`/projects/${projectId}/tasks`" method="post"
-                class="space-y-3 rounded-md border bg-muted/20 p-4" reset-on-success v-slot="{ errors, processing }">
+                class="space-y-3 rounded-md border bg-muted/20 p-4" :options="stayOnTask" reset-on-success @error="notifyError" v-slot="{ errors, processing }">
                 <input type="hidden" name="parent_id" :value="parentTaskId" />
                 <input type="hidden" name="type" value="1" />
                 <div class="grid gap-1.5">
@@ -82,38 +95,65 @@ function taskUrl(id: number): string {
                 <div class="grid gap-3 sm:grid-cols-2">
                     <div class="grid gap-1.5">
                         <Label for="subtask-priority">Priority</Label>
-                        <select id="subtask-priority" name="priority" class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm">
-                            <option value="2">Normal</option>
-                            <option value="1">Low</option>
-                            <option value="3">High</option>
-                            <option value="4">Urgent</option>
-                        </select>
+                        <input type="hidden" name="priority" :value="subtaskPriority" />
+                        <Select v-model="subtaskPriority" :disabled="processing">
+                            <SelectTrigger id="subtask-priority" class="w-full"><SelectValue placeholder="Select priority" /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="2">Normal</SelectItem>
+                                <SelectItem value="1">Low</SelectItem>
+                                <SelectItem value="3">High</SelectItem>
+                                <SelectItem value="4">Urgent</SelectItem>
+                            </SelectContent>
+                        </Select>
                         <InputError :message="errors.priority" />
                     </div>
                     <div class="grid gap-1.5">
                         <Label for="subtask-status">Status</Label>
-                        <select id="subtask-status" name="status_id" class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm">
-                            <option value="">Default (Todo)</option>
-                            <option v-for="status in statuses" :key="status.id" :value="status.id">{{ status.name }}</option>
-                        </select>
+                        <input type="hidden" name="status_id" :value="subtaskStatus === 'default' ? '' : subtaskStatus" />
+                        <Select v-model="subtaskStatus" :disabled="processing">
+                            <SelectTrigger id="subtask-status" class="w-full"><SelectValue placeholder="Select status" /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="default">Default (Todo)</SelectItem>
+                                <SelectItem v-for="status in statuses" :key="status.id" :value="String(status.id)">{{ status.name }}</SelectItem>
+                            </SelectContent>
+                        </Select>
                         <InputError :message="errors.status_id" />
                     </div>
                     <div class="grid gap-1.5">
                         <Label for="subtask-assignee">Assignee</Label>
-                        <select id="subtask-assignee" name="assignee_id" class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm">
-                            <option value="">Unassigned</option>
-                            <option v-for="person in assignees" :key="person.id" :value="person.id">{{ person.name }}</option>
-                        </select>
+                        <input type="hidden" name="assignee_id" :value="subtaskAssignee === 'unassigned' ? '' : subtaskAssignee" />
+                        <Select v-model="subtaskAssignee" :disabled="processing">
+                            <SelectTrigger id="subtask-assignee" class="w-full"><SelectValue placeholder="Select assignee" /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="unassigned">Unassigned</SelectItem>
+                                <SelectItem v-for="person in assignees" :key="person.id" :value="String(person.id)">{{ person.name }}</SelectItem>
+                            </SelectContent>
+                        </Select>
                         <InputError :message="errors.assignee_id" />
                     </div>
                     <div class="grid gap-1.5">
                         <Label for="subtask-due-date">Due date</Label>
-                        <Input id="subtask-due-date" name="due_date" type="date" />
+                        <input type="hidden" name="due_date" :value="subtaskDueDate?.toString() ?? ''" />
+                        <Popover v-slot="{ close }">
+                            <PopoverTrigger as-child>
+                                <Button id="subtask-due-date" type="button" variant="outline" class="w-full justify-between text-left font-normal"
+                                    :class="!subtaskDueDate && 'text-muted-foreground'" :disabled="processing">
+                                    <span>{{ subtaskDueDate ? dateFormatter.format(subtaskDueDate.toDate(getLocalTimeZone())) : 'Select a date' }}</span>
+                                    <CalendarDays class="size-4 shrink-0 opacity-70" />
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent align="start" class="w-auto p-0">
+                                <Calendar v-model="subtaskDueDate" :default-placeholder="today(getLocalTimeZone())" layout="month-and-year"
+                                    initial-focus @update:model-value="close" />
+                                <div class="border-t p-2"><Button type="button" variant="ghost" size="sm" class="w-full"
+                                    :disabled="!subtaskDueDate" @click="subtaskDueDate = undefined; close()">Clear date</Button></div>
+                            </PopoverContent>
+                        </Popover>
                         <InputError :message="errors.due_date" />
                     </div>
                 </div>
                 <div class="flex gap-2">
-                    <Button size="sm" :disabled="processing"><Plus class="size-4" /> Create subtask</Button>
+                    <Button size="sm" :disabled="processing"><LoaderCircle v-if="processing" class="size-4 animate-spin" /><Plus v-else class="size-4" />{{ processing ? 'Creating…' : 'Create subtask' }}</Button>
                     <Button type="button" size="sm" variant="outline" :disabled="processing" @click="creating = false">Cancel</Button>
                 </div>
             </Form>

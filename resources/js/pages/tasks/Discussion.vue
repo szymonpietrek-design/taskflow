@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { Form, Link } from '@inertiajs/vue3';
-import { MessageSquare, Pencil, Plus, Send, Trash2 } from '@lucide/vue';
-import { ref } from 'vue';
+import { LoaderCircle, MessageSquare, Pencil, Plus, Send, Trash2 } from '@lucide/vue';
+import { computed, ref, watch } from 'vue';
+import { toast } from 'vue-sonner';
 import InputError from '@/components/InputError.vue';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -25,7 +26,11 @@ const props = defineProps<{
 }>();
 
 const editingId = ref<number | null>(null);
-const messagesUrl = `/projects/${props.projectId}/tasks/${props.taskId}/messages`;
+const deletingId = ref<number | null>(null);
+const messagesUrl = computed(() => `/projects/${props.projectId}/tasks/${props.taskId}/messages`);
+watch(() => props.taskId, () => { editingId.value = null; deletingId.value = null; });
+const stayOnTask = { preserveScroll: true, preserveState: true };
+const notifyError = () => toast.error('Could not save the message. Check the form and try again.');
 
 function initials(name: string): string {
     return name.split(/\s+/).filter(Boolean).slice(0, 2).map(part => part.charAt(0)).join('').toUpperCase() || '?';
@@ -64,7 +69,7 @@ function formattedDate(value: string): string {
                                 <Button v-if="message.can_update" type="button" variant="ghost" size="sm" :aria-label="`Edit message by ${message.author?.name ?? 'user'}`" @click="editingId = message.id">
                                     <Pencil class="size-3.5" /> Edit
                                 </Button>
-                                <Dialog v-if="message.can_delete">
+                                <Dialog v-if="message.can_delete" :open="deletingId === message.id" @update:open="(value) => deletingId = value ? message.id : null">
                                     <DialogTrigger as-child>
                                         <Button type="button" variant="ghost" size="sm" :aria-label="`Delete message by ${message.author?.name ?? 'user'}`">
                                             <Trash2 class="size-3.5" /> Delete
@@ -76,8 +81,8 @@ function formattedDate(value: string): string {
                                             <DialogDescription>This permanently removes your message from the discussion.</DialogDescription>
                                         </DialogHeader>
                                         <DialogFooter>
-                                            <Form :action="`${messagesUrl}/${message.id}`" method="delete" v-slot="{ processing }">
-                                                <Button type="submit" variant="destructive" :disabled="processing">Delete message</Button>
+                                            <Form :action="`${messagesUrl}/${message.id}`" method="delete" :options="stayOnTask" @success="deletingId = null" @error="notifyError" v-slot="{ processing }">
+                                                <Button type="submit" variant="destructive" :disabled="processing"><LoaderCircle v-if="processing" class="size-4 animate-spin" />{{ processing ? 'Deleting…' : 'Delete message' }}</Button>
                                             </Form>
                                         </DialogFooter>
                                     </DialogContent>
@@ -88,6 +93,8 @@ function formattedDate(value: string): string {
                             v-if="editingId === message.id"
                             :action="`${messagesUrl}/${message.id}`"
                             method="patch"
+                            :options="stayOnTask"
+                            @error="notifyError"
                             class="space-y-2"
                             @success="editingId = null"
                             v-slot="{ errors, processing }"
@@ -96,6 +103,7 @@ function formattedDate(value: string): string {
                                 :id="`edit-message-${message.id}`"
                                 name="body"
                                 :value="message.body"
+                                :disabled="processing"
                                 rows="3"
                                 maxlength="10000"
                                 required
@@ -104,7 +112,7 @@ function formattedDate(value: string): string {
                             />
                             <InputError :message="errors.body" />
                             <div class="flex gap-2">
-                                <Button size="sm" :disabled="processing">Save changes</Button>
+                                <Button size="sm" :disabled="processing"><LoaderCircle v-if="processing" class="size-4 animate-spin" />{{ processing ? 'Saving…' : 'Save changes' }}</Button>
                                 <Button type="button" size="sm" variant="outline" :disabled="processing" @click="editingId = null">Cancel</Button>
                             </div>
                         </Form>
@@ -117,11 +125,12 @@ function formattedDate(value: string): string {
             </div>
             <p v-else class="text-sm text-muted-foreground">No messages yet. Start the discussion below.</p>
 
-            <Form v-if="canPost" :action="messagesUrl" method="post" class="space-y-3 border-t pt-5" reset-on-success v-slot="{ errors, processing }">
+            <Form v-if="canPost" :action="messagesUrl" method="post" :options="stayOnTask" @error="notifyError" class="space-y-3 border-t pt-5" reset-on-success v-slot="{ errors, processing }">
                 <label :for="`new-task-message-${taskId}`" class="text-sm font-medium">Write a message</label>
                 <textarea
                     :id="`new-task-message-${taskId}`"
                     name="body"
+                    :disabled="processing"
                     rows="4"
                     maxlength="10000"
                     required
@@ -130,7 +139,7 @@ function formattedDate(value: string): string {
                 />
                 <InputError :message="errors.body" />
                 <div class="flex justify-end">
-                    <Button :disabled="processing"><Send class="size-4" /> Post message</Button>
+                    <Button :disabled="processing"><LoaderCircle v-if="processing" class="size-4 animate-spin" /><Send v-else class="size-4" />{{ processing ? 'Posting…' : 'Post message' }}</Button>
                 </div>
             </Form>
             <p v-else class="border-t pt-4 text-xs text-muted-foreground">You can read this discussion, but only project contributors can post messages.</p>

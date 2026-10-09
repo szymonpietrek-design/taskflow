@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { Form, Head, Link } from '@inertiajs/vue3';
-import { ArrowLeft, CalendarDays, Pencil } from '@lucide/vue';
-import { ref } from 'vue';
+import { ArrowLeft, CalendarDays, LoaderCircle, Pencil } from '@lucide/vue';
+import { computed, ref, watch } from 'vue';
+import { toast } from 'vue-sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,6 +11,7 @@ import TaskDiscussion from './Discussion.vue';
 import TaskDetailsForm from './TaskDetailsForm.vue';
 import TaskSubtasks from './TaskSubtasks.vue';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { TaskDetail, TaskMessageSummary, TaskProjectSummary, TaskStatusSummary, TaskUserSummary } from '@/types/task';
 
 const props = defineProps<{
@@ -24,7 +26,14 @@ const props = defineProps<{
 }>();
 
 const editingDetails = ref(false);
-const statusUrl = `/projects/${props.project.id}/tasks/${props.task.id}/status`;
+// The same Inertia page may be reused when a new subtask is opened.
+watch(() => props.task.id, () => { editingDetails.value = false; });
+const statusUrl = computed(() => `/projects/${props.project.id}/tasks/${props.task.id}/status`);
+const selectedStatus = ref(String(props.task.status.id));
+watch(() => props.task.status.id, (id) => { selectedStatus.value = String(id); });
+const hasStatusChange = computed(() => selectedStatus.value !== String(props.task.status.id));
+const stayOnTask = { preserveScroll: true, preserveState: true };
+const notifyError = () => toast.error('Could not update the status. Check the selection and try again.');
 
 defineOptions({
     layout: {
@@ -103,12 +112,19 @@ defineOptions({
                 <CardContent class="space-y-4 text-sm">
                     <div>
                         <p class="text-xs text-muted-foreground">Status</p>
-                        <Form v-if="can_update" :action="statusUrl" method="patch" class="mt-2 space-y-2" v-slot="{ errors, processing }">
-                            <select name="status_id" :value="task.status.id" class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-xs">
-                                <option v-for="status in statuses" :key="status.id" :value="status.id">{{ status.name }}</option>
-                            </select>
+                        <Form v-if="can_update" :action="statusUrl" method="patch" :options="stayOnTask" @error="notifyError"
+                            class="mt-2 space-y-2" v-slot="{ errors, processing }">
+                            <input type="hidden" name="status_id" :value="selectedStatus" />
+                            <Select v-model="selectedStatus" :disabled="processing">
+                                <SelectTrigger aria-label="Task status" class="w-full"><SelectValue placeholder="Select status" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem v-for="status in statuses" :key="status.id" :value="String(status.id)">{{ status.name }}</SelectItem>
+                                </SelectContent>
+                            </Select>
                             <InputError :message="errors.status_id" />
-                            <Button variant="secondary" size="sm" :disabled="processing">Update status</Button>
+                            <Button type="submit" variant="secondary" size="sm" :disabled="processing || !hasStatusChange">
+                                <LoaderCircle v-if="processing" class="size-4 animate-spin" />{{ processing ? 'Updating…' : 'Update status' }}
+                            </Button>
                         </Form>
                         <Badge v-else class="mt-2" variant="secondary">{{ task.status.name }}</Badge>
                     </div>
