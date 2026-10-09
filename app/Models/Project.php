@@ -86,6 +86,11 @@ class Project extends Model
         return $this->hasMany(TaskStatus::class);
     }
 
+    public function releases(): HasMany
+    {
+        return $this->hasMany(Release::class);
+    }
+
     public function tasks(): HasMany
     {
         return $this->hasMany(Task::class);
