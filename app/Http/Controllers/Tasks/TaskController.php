@@ -4,11 +4,13 @@ namespace App\Http\Controllers\Tasks;
 
 use App\Actions\Tasks\ChangeTaskStatus;
 use App\Actions\Tasks\CreateTask;
+use App\Actions\Tasks\UpdateTaskDetails;
 use App\Enums\TaskPriority;
 use App\Enums\TaskType;
 use App\Enums\WorkspaceRole;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Tasks\StoreTaskRequest;
+use App\Http\Requests\Tasks\UpdateTaskRequest;
 use App\Http\Requests\Tasks\UpdateTaskStatusRequest;
 use App\Models\Project;
 use App\Models\Task;
@@ -84,6 +86,7 @@ class TaskController extends Controller
             ->orderBy('id')
             ->get();
         $canPostMessage = $request->user()->can('create', [TaskMessage::class, $task]);
+        $canUpdate = $request->user()->can('update', $task);
 
         return Inertia::render('tasks/Show', [
             'project' => $this->projectData($project),
@@ -101,7 +104,8 @@ class TaskController extends Controller
                 ])->all(),
             ],
             'statuses' => $this->statusOptions($project),
-            'can_update' => $request->user()->can('update', $task),
+            'can_update' => $canUpdate,
+            'assignees' => $canUpdate ? $this->eligibleAssignees($project) : [],
             'can_post_message' => $canPostMessage,
             'messages' => $messages->map(fn (TaskMessage $message): array => [
                 'id' => $message->id,
@@ -116,6 +120,34 @@ class TaskController extends Controller
                 'can_delete' => $canPostMessage && $message->user_id === $request->user()->id,
             ])->all(),
         ]);
+    }
+
+    public function update(
+        UpdateTaskRequest $request,
+        Project $project,
+        Task $task,
+        UpdateTaskDetails $updateTaskDetails,
+    ): RedirectResponse {
+        abort_unless($task->project_id === $project->id, 404);
+
+        $data = $request->validated();
+
+        $updateTaskDetails->handle(
+            $request->user(),
+            $task,
+            $data['title'],
+            $data['description'] ?? null,
+            TaskPriority::from((int) $data['priority']),
+            isset($data['assignee_id']) ? User::query()->findOrFail($data['assignee_id']) : null,
+            isset($data['due_date']) ? new \DateTimeImmutable($data['due_date']) : null,
+        );
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => __('Task updated.'),
+        ]);
+
+        return to_route('tasks.show', [$project, $task]);
     }
 
     public function updateStatus(

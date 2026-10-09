@@ -1,23 +1,27 @@
 <script setup lang="ts">
 import { Form, Head, Link } from '@inertiajs/vue3';
-import { ArrowLeft, CalendarDays } from '@lucide/vue';
+import { ArrowLeft, CalendarDays, Pencil } from '@lucide/vue';
+import { ref } from 'vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import InputError from '@/components/InputError.vue';
 import TaskDiscussion from './Discussion.vue';
+import TaskDetailsForm from './TaskDetailsForm.vue';
 import { Label } from '@/components/ui/label';
-import type { TaskDetail, TaskMessageSummary, TaskProjectSummary, TaskStatusSummary } from '@/types/task';
+import type { TaskDetail, TaskMessageSummary, TaskProjectSummary, TaskStatusSummary, TaskUserSummary } from '@/types/task';
 
 const props = defineProps<{
     project: TaskProjectSummary;
     task: TaskDetail;
     statuses: TaskStatusSummary[];
     can_update: boolean;
+    assignees: TaskUserSummary[];
     can_post_message: boolean;
     messages: TaskMessageSummary[];
 }>();
 
+const editingDetails = ref(false);
 const statusUrl = `/projects/${props.project.id}/tasks/${props.task.id}/status`;
 
 defineOptions({
@@ -40,12 +44,19 @@ defineOptions({
                 <Badge variant="outline">{{ task.type_label }}</Badge>
                 <Badge variant="outline">{{ task.priority_label }} priority</Badge>
             </div>
-            <h1 class="mt-3 text-2xl font-semibold tracking-tight">{{ task.title }}</h1>
+            <div class="mt-3 flex items-start justify-between gap-4">
+                <h1 class="text-2xl font-semibold tracking-tight">{{ task.title }}</h1>
+                <Button v-if="can_update && !editingDetails" type="button" size="sm" variant="outline" @click="editingDetails = true">
+                    <Pencil class="size-4" /> Edit task
+                </Button>
+            </div>
         </div>
 
         <div class="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_19rem]">
             <div class="space-y-5">
-                <Card>
+                <TaskDetailsForm v-if="editingDetails && can_update" :project-id="project.id" :task="task" :assignees="assignees"
+                    @saved="editingDetails = false" @cancel="editingDetails = false" />
+                <Card v-else>
                     <CardHeader>
                         <CardTitle>Description</CardTitle>
                     </CardHeader>
