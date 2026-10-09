@@ -24,6 +24,7 @@ type ReleaseTask = { id: number; reference: string; title: string; status: strin
 const props = defineProps<{
     project: { id: number; name: string; key: string };
     release: Release;
+    can_manage_release: boolean;
     can_manage_tasks: boolean;
     tasks: {
         data: ReleaseTask[];
@@ -39,6 +40,12 @@ const props = defineProps<{
 }>();
 
 const releaseUrl = `/projects/${props.project.id}/releases/${props.release.id}`;
+
+const confirmFinalAction = (event: MouseEvent, message: string) => {
+    if (!window.confirm(message)) {
+        event.preventDefault();
+    }
+};
 
 defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }] } });
 </script>
@@ -70,6 +77,48 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
                 <CardContent class="font-medium">{{ release.released_at ? new Date(release.released_at).toLocaleString() : 'Not released' }}</CardContent>
             </Card>
         </div>
+        <Card>
+            <CardHeader>
+                <CardTitle>Release lifecycle</CardTitle>
+            </CardHeader>
+            <CardContent class="space-y-4">
+                <p v-if="release.status === 'released'" class="text-sm text-muted-foreground">
+                    This release has been published and is now locked. Its tasks cannot be reassigned.
+                </p>
+                <p v-else-if="release.status === 'canceled'" class="text-sm text-muted-foreground">
+                    This release was canceled and is now locked.
+                </p>
+                <p v-else-if="!can_manage_release" class="text-sm text-muted-foreground">
+                    Only project managers can change the release status.
+                </p>
+                <template v-else>
+                    <p class="text-sm text-muted-foreground">
+                        <template v-if="release.status === 'draft'">Plan this draft or cancel it. Planning does not publish the release.</template>
+                        <template v-else>Publish this planned release or cancel it. Both actions are final.</template>
+                    </p>
+                    <Form v-if="release.status === 'draft'" :action="`${releaseUrl}/status`" method="patch" class="space-y-3" v-slot="{ errors, processing }">
+                        <input type="hidden" name="status" value="2" />
+                        <div class="space-y-1.5">
+                            <label for="release-planned-date" class="text-sm font-medium">Planned date (optional)</label>
+                            <Input id="release-planned-date" name="planned_for" type="date" :default-value="release.planned_for ?? ''" class="max-w-xs" />
+                            <InputError :message="errors.planned_for" />
+                        </div>
+                        <InputError :message="errors.status" />
+                        <Button type="submit" :disabled="processing"><CalendarDays class="size-4" /> Mark as planned</Button>
+                    </Form>
+                    <Form v-if="release.status === 'planned'" :action="`${releaseUrl}/status`" method="patch" v-slot="{ errors, processing }" class="space-y-2">
+                        <input type="hidden" name="status" value="3" />
+                        <InputError :message="errors.status" />
+                        <Button type="submit" :disabled="processing" @click="confirmFinalAction($event, 'Publish this release? You will not be able to change its status or task assignments.')"><Package class="size-4" /> Publish release</Button>
+                    </Form>
+                    <Form :action="`${releaseUrl}/status`" method="patch" v-slot="{ errors, processing }" class="space-y-2">
+                        <input type="hidden" name="status" value="4" />
+                        <InputError :message="errors.status" />
+                        <Button type="submit" variant="outline" :disabled="processing" @click="confirmFinalAction($event, 'Cancel this release? This cannot be undone.')"><X class="size-4" /> Cancel release</Button>
+                    </Form>
+                </template>
+            </CardContent>
+        </Card>
         <Card>
             <CardHeader><CardTitle class="flex items-center gap-2"><Package class="size-4" /> Release notes</CardTitle></CardHeader>
             <CardContent>
@@ -118,6 +167,6 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
                 </Form>
             </CardContent>
         </Card>
-        <p class="text-xs text-muted-foreground">Publishing releases and generating AI changelogs will be added in later stages.</p>
+        <p class="text-xs text-muted-foreground">AI-generated changelogs will be added in a later stage.</p>
     </div>
 </template>

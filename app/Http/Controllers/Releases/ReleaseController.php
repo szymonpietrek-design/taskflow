@@ -100,9 +100,12 @@ class ReleaseController extends Controller
             $available = $query->orderByDesc('number')->limit(30)->get();
         }
 
+        $canManageRelease = $project->archived_at === null && $request->user()->can('update', $project);
+
         return Inertia::render('releases/Show', [
             'project' => $this->projectData($project),
             'release' => $this->releaseData($release),
+            'can_manage_release' => $canManageRelease,
             'can_manage_tasks' => $canManage,
             'tasks' => $assigned->through(fn (Task $task): array => $this->taskData($project, $task)),
             'task_count' => $release->tasks()->count(),

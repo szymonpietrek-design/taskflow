@@ -3,6 +3,7 @@
 use App\Http\Controllers\Projects\ProjectController;
 use App\Http\Controllers\Releases\ReleaseController;
 use App\Http\Controllers\Releases\ReleaseTaskController;
+use App\Http\Controllers\Releases\ReleaseStatusController;
 use App\Http\Controllers\Tasks\TaskController;
 use App\Http\Controllers\Tasks\TaskFromMessageController;
 use App\Http\Controllers\Tasks\TaskMessageController;
@@ -23,6 +24,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('projects/{project}/releases', [ReleaseController::class, 'index'])->name('releases.index');
     Route::post('projects/{project}/releases', [ReleaseController::class, 'store'])->name('releases.store');
     Route::get('projects/{project}/releases/{release}', [ReleaseController::class, 'show'])->name('releases.show');
+    Route::patch('projects/{project}/releases/{release}/status', [ReleaseStatusController::class, 'update'])->name('releases.status.update');
     Route::post('projects/{project}/releases/{release}/tasks', [ReleaseTaskController::class, 'store'])->name('releases.tasks.store');
     Route::delete('projects/{project}/releases/{release}/tasks/{task}', [ReleaseTaskController::class, 'destroy'])->name('releases.tasks.destroy');
 
