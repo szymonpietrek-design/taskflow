@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 use InvalidArgumentException;
@@ -101,17 +102,39 @@ class ReleaseController extends Controller
         }
 
         $canManageRelease = $project->archived_at === null && $request->user()->can('update', $project);
+        $canEditChangelog = $canManageRelease && $release->status !== ReleaseStatus::CANCELED;
+        $changelog = $release->changelog;
+        $draft = $canEditChangelog ? ($changelog?->draft_body ?? '') : '';
+        $published = $changelog?->published_body;
+
 
         return Inertia::render('releases/Show', [
             'project' => $this->projectData($project),
             'release' => $this->releaseData($release),
             'can_manage_release' => $canManageRelease,
+            'can_edit_changelog' => $canEditChangelog,
+            'changelog' => [
+                'draft_body' => $draft,
+                'draft_html' => $canEditChangelog ? $this->renderMarkdown($draft) : null,
+                'published_html' => $published !== null ? $this->renderMarkdown($published) : null,
+                'published_at' => $changelog?->published_at?->toIso8601String(),
+                'has_unpublished_changes' => $canEditChangelog
+                    && $draft !== '' && $draft !== ($published ?? ''),
+            ],
             'can_manage_tasks' => $canManage,
             'tasks' => $assigned->through(fn (Task $task): array => $this->taskData($project, $task)),
             'task_count' => $release->tasks()->count(),
             'available_tasks' => $available->map(fn (Task $task): array => $this->taskData($project, $task))->all(),
             'available_count' => $availableCount,
             'task_search' => $search,
+        ]);
+    }
+
+    private function renderMarkdown(string $body): string
+    {
+        return Str::markdown($body, [
+            'html_input' => 'strip',
+            'allow_unsafe_links' => false,
         ]);
     }
 

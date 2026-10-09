@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { Form, Head, Link } from '@inertiajs/vue3';
-import { ArrowLeft, CalendarDays, Clock3, Package, Plus, X } from '@lucide/vue';
+import { ArrowLeft, CalendarDays, Clock3, FileText, Package, Plus, X } from '@lucide/vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import InputError from '@/components/InputError.vue';
 import { Input } from '@/components/ui/input';
+import { ref, watch } from 'vue';
 
 type Release = {
     id: number;
@@ -19,6 +20,14 @@ type Release = {
     created_at: string | null;
 };
 
+type Changelog = {
+    draft_body: string;
+    draft_html: string | null;
+    published_html: string | null;
+    published_at: string | null;
+    has_unpublished_changes: boolean;
+};
+
 type ReleaseTask = { id: number; reference: string; title: string; status: string; completed: boolean };
 
 const props = defineProps<{
@@ -26,6 +35,8 @@ const props = defineProps<{
     release: Release;
     can_manage_release: boolean;
     can_manage_tasks: boolean;
+    can_edit_changelog: boolean;
+    changelog: Changelog;
     tasks: {
         data: ReleaseTask[];
         current_page: number;
@@ -38,6 +49,9 @@ const props = defineProps<{
     available_count: number;
     task_search: string;
 }>();
+
+const draftBody = ref(props.changelog.draft_body);
+watch(() => props.changelog.draft_body, (body) => { draftBody.value = body; });
 
 const releaseUrl = `/projects/${props.project.id}/releases/${props.release.id}`;
 
@@ -123,7 +137,52 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
             <CardHeader><CardTitle class="flex items-center gap-2"><Package class="size-4" /> Release notes</CardTitle></CardHeader>
             <CardContent>
                 <p v-if="release.description" class="whitespace-pre-wrap text-sm leading-relaxed">{{ release.description }}</p>
-                <p v-else class="text-sm text-muted-foreground">No description yet. Tasks and changelog generation will be added in a later stage.</p>
+                <p v-else class="text-sm text-muted-foreground">No internal release notes provided.</p>
+            </CardContent>
+        </Card>
+        <Card>
+            <CardHeader>
+                <CardTitle class="flex items-center gap-2"><FileText class="size-4" /> Release changelog</CardTitle>
+            </CardHeader>
+            <CardContent class="space-y-6">
+                <div class="space-y-2">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <Badge :variant="changelog.published_at ? 'secondary' : 'outline'">{{ changelog.published_at ? 'Published' : 'Not published' }}</Badge>
+                        <span v-if="changelog.published_at" class="text-xs text-muted-foreground">{{ new Date(changelog.published_at).toLocaleString() }}</span>
+                    </div>
+                    <template v-if="changelog.published_html">
+                        <p class="text-sm font-medium">Published content</p>
+                        <div class="max-w-none break-words rounded-md border p-4 text-sm [&_a]:underline [&_h1]:text-lg [&_h2]:text-base [&_ul]:list-disc [&_ol]:list-decimal [&_li]:ml-5 [&_p]:mb-2 [&_strong]:font-semibold [&_code]:font-mono" v-html="changelog.published_html"></div>
+                    </template>
+                    <p v-else class="text-sm text-muted-foreground">No published changelog yet.</p>
+                </div>
+                <template v-if="can_edit_changelog">
+                    <div class="space-y-3 border-t pt-5">
+                        <h3 class="text-sm font-semibold">Edit draft (Markdown)</h3>
+                        <p class="text-xs text-muted-foreground">Saving a draft never changes published content. Save before previewing.</p>
+                        <Form :action="`${releaseUrl}/changelog`" method="put" v-slot="{ errors, processing }" class="space-y-3">
+                            <textarea v-model="draftBody" name="draft_body" rows="9" maxlength="50000" class="w-full rounded-md border border-input bg-background px-3 py-2 font-mono text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" placeholder="## Added
+- New feature ..."></textarea>
+                            <InputError :message="errors.draft_body" />
+                            <Button type="submit" :disabled="processing">Save changelog draft</Button>
+                        </Form>
+                    </div>
+                    <div class="space-y-2">
+                        <h3 class="text-sm font-semibold">Saved draft preview</h3>
+                        <div v-if="changelog.draft_body.trim()" class="max-w-none break-words rounded-md border bg-muted/20 p-4 text-sm [&_a]:underline [&_h1]:text-lg [&_h2]:text-base [&_ul]:list-disc [&_ol]:list-decimal [&_li]:ml-5 [&_p]:mb-2 [&_strong]:font-semibold [&_code]:font-mono" v-html="changelog.draft_html"></div>
+                        <p v-else class="text-sm text-muted-foreground">Save some Markdown to see its preview here.</p>
+                    </div>
+                    <div v-if="release.status === 'released'" class="space-y-2 border-t pt-4">
+                        <Form :action="`${releaseUrl}/changelog/publish`" method="post" v-slot="{ errors, processing }">
+                            <InputError :message="errors.changelog" class="mb-2" />
+                            <Button type="submit" :disabled="processing || !changelog.has_unpublished_changes" @click="confirmFinalAction($event, 'Publish the saved changelog? This updates the published snapshot.')">
+                                <Package class="size-4" /> {{ changelog.published_at ? 'Publish changes' : 'Publish changelog' }}
+                            </Button>
+                        </Form>
+                        <p class="text-xs text-muted-foreground">Only a saved draft can be published. Later edits remain private until published again.</p>
+                    </div>
+                    <p v-else class="text-xs text-muted-foreground">Publish the Release before publishing its changelog.</p>
+                </template>
             </CardContent>
         </Card>
         <Card>
@@ -167,6 +226,6 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
                 </Form>
             </CardContent>
         </Card>
-        <p class="text-xs text-muted-foreground">AI-generated changelogs will be added in a later stage.</p>
+        <p class="text-xs text-muted-foreground">AI-assisted changelog generation will be added in a later stage.</p>
     </div>
 </template>
