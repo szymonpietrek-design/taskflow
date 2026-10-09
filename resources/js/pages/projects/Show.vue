@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { Head } from '@inertiajs/vue3';
-import { AppWindow, FolderKanban, LockKeyhole, Users } from '@lucide/vue';
+import { Head, Link } from '@inertiajs/vue3';
+import { AppWindow, FolderKanban, ListTodo, LockKeyhole, Users } from '@lucide/vue';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { ProjectDetail } from '@/types';
 
@@ -42,6 +43,15 @@ defineOptions({
                 {{ project.description }}
             </p>
             <p v-else class="mt-2 text-sm text-muted-foreground">No project description yet.</p>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-3">
+            <Button as-child>
+                <Link :href="`/projects/${project.id}/tasks`">
+                    <ListTodo class="size-4" />
+                    View tasks
+                </Link>
+            </Button>
         </div>
 
         <div class="grid gap-4 md:grid-cols-3">
