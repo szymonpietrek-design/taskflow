@@ -12,6 +12,7 @@ use App\Http\Requests\Tasks\StoreTaskRequest;
 use App\Http\Requests\Tasks\UpdateTaskStatusRequest;
 use App\Models\Project;
 use App\Models\Task;
+use App\Models\TaskMessage;
 use App\Models\TaskStatus;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
@@ -77,6 +78,13 @@ class TaskController extends Controller
 
         $task->load(['project', 'status', 'assignee', 'creator', 'parent', 'subtasks.status']);
 
+        $messages = $task->messages()
+            ->with('author:id,name')
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->get();
+        $canPostMessage = $request->user()->can('create', [TaskMessage::class, $task]);
+
         return Inertia::render('tasks/Show', [
             'project' => $this->projectData($project),
             'task' => $this->taskData($task) + [
@@ -94,6 +102,19 @@ class TaskController extends Controller
             ],
             'statuses' => $this->statusOptions($project),
             'can_update' => $request->user()->can('update', $task),
+            'can_post_message' => $canPostMessage,
+            'messages' => $messages->map(fn (TaskMessage $message): array => [
+                'id' => $message->id,
+                'body' => $message->body,
+                'author' => $message->author === null ? null : [
+                    'id' => $message->author->id,
+                    'name' => $message->author->name,
+                ],
+                'created_at' => $message->created_at?->toIso8601String(),
+                'updated_at' => $message->updated_at?->toIso8601String(),
+                'can_update' => $canPostMessage && $message->user_id === $request->user()->id,
+                'can_delete' => $canPostMessage && $message->user_id === $request->user()->id,
+            ])->all(),
         ]);
     }
 

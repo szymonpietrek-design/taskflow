@@ -1,18 +1,21 @@
 <script setup lang="ts">
 import { Form, Head, Link } from '@inertiajs/vue3';
-import { ArrowLeft, CalendarDays, MessageSquare } from '@lucide/vue';
+import { ArrowLeft, CalendarDays } from '@lucide/vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import InputError from '@/components/InputError.vue';
+import TaskDiscussion from './Discussion.vue';
 import { Label } from '@/components/ui/label';
-import type { TaskDetail, TaskProjectSummary, TaskStatusSummary } from '@/types/task';
+import type { TaskDetail, TaskMessageSummary, TaskProjectSummary, TaskStatusSummary } from '@/types/task';
 
 const props = defineProps<{
     project: TaskProjectSummary;
     task: TaskDetail;
     statuses: TaskStatusSummary[];
     can_update: boolean;
+    can_post_message: boolean;
+    messages: TaskMessageSummary[];
 }>();
 
 const statusUrl = `/projects/${props.project.id}/tasks/${props.task.id}/status`;
@@ -66,12 +69,12 @@ defineOptions({
                     </CardContent>
                 </Card>
 
-                <Card class="border-dashed">
-                    <CardHeader>
-                        <CardTitle class="flex items-center gap-2"><MessageSquare class="size-4" /> Discussion</CardTitle>
-                        <CardDescription>Task messages will be available in Stage 3D.2.</CardDescription>
-                    </CardHeader>
-                </Card>
+                <TaskDiscussion
+                    :project-id="project.id"
+                    :task-id="task.id"
+                    :messages="messages"
+                    :can-post="can_post_message"
+                />
             </div>
 
             <Card>

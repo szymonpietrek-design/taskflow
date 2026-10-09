@@ -44,3 +44,13 @@ export type TaskDetail = TaskSummary & {
     creator: TaskUserSummary;
     subtasks: Array<{ id: number; reference: string; title: string; status: string }>;
 };
+
+export type TaskMessageSummary = {
+    id: number;
+    body: string;
+    author: TaskUserSummary | null;
+    created_at: string;
+    updated_at: string;
+    can_update: boolean;
+    can_delete: boolean;
+};
