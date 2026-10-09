@@ -40,7 +40,7 @@ class TaskController extends Controller
         $assignee = (string) ($input['assignee_id'] ?? '');
         $sort = $input['sort'] ?? 'newest';
 
-        $query = $project->tasks()->with(['project', 'status', 'assignee', 'parent']);
+        $query = $project->tasks()->with(['project', 'status', 'assignee', 'parent', 'release']);
 
         if ($search !== '') {
             // Treat %, _ and ! as literal characters rather than LIKE wildcards.
@@ -153,7 +153,7 @@ class TaskController extends Controller
         Gate::forUser($request->user())->authorize('view', $task);
         $this->syncWorkspace($request, $project);
 
-        $task->load(['project', 'status', 'assignee', 'creator', 'parent', 'subtasks.status', 'subtasks.assignee', 'sourceTask', 'sourceMessage']);
+        $task->load(['project', 'status', 'assignee', 'creator', 'parent', 'subtasks.status', 'subtasks.assignee', 'sourceTask', 'sourceMessage', 'release']);
 
         $messages = $task->messages()
             ->with('author:id,name')
@@ -302,6 +302,10 @@ class TaskController extends Controller
             ],
             'due_date' => $task->due_date?->toDateString(),
             'completed_at' => $task->completed_at?->toIso8601String(),
+            'release' => $task->release === null ? null : [
+                'id' => $task->release->id,
+                'version' => $task->release->version,
+            ],
         ];
     }
 

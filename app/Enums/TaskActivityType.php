@@ -10,4 +10,5 @@ enum TaskActivityType: int
     case PRIORITY_CHANGED = 4;
     case ASSIGNEE_CHANGED = 5;
     case DUE_DATE_CHANGED = 6;
+    case RELEASE_CHANGED = 7;
 }

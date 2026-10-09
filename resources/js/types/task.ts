@@ -25,6 +25,7 @@ export type TaskParentSummary = {
 };
 
 export type TaskSummary = {
+    release: { id: number; version: string } | null;
     id: number;
     reference: string;
     title: string;

@@ -15,6 +15,7 @@ use Illuminate\Support\Carbon;
 /**
  * @property int $id
  * @property int $project_id
+ * @property int|null $release_id
  * @property int|null $parent_id
  * @property int|null $source_task_id
  * @property int|null $source_message_id
@@ -34,6 +35,7 @@ use Illuminate\Support\Carbon;
  */
 #[Fillable([
     'project_id',
+    'release_id',
     'parent_id',
     'source_task_id',
     'source_message_id',
@@ -78,6 +80,11 @@ class Task extends Model
     public function project(): BelongsTo
     {
         return $this->belongsTo(Project::class);
+    }
+
+    public function release(): BelongsTo
+    {
+        return $this->belongsTo(Release::class);
     }
 
     public function parent(): BelongsTo

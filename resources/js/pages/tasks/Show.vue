@@ -112,6 +112,10 @@ defineOptions({
                         </Form>
                         <Badge v-else class="mt-2" variant="secondary">{{ task.status.name }}</Badge>
                     </div>
+                    <div v-if="task.release">
+                        <Label class="text-xs text-muted-foreground">Release</Label>
+                        <p class="mt-1"><Link :href="`/projects/${project.id}/releases/${task.release.id}`" class="underline">v{{ task.release.version }}</Link></p>
+                    </div>
                     <div>
                         <Label class="text-xs text-muted-foreground">Assigned to</Label>
                         <p class="mt-1">{{ task.assignee?.name ?? 'Unassigned' }}</p>

@@ -4,12 +4,15 @@ namespace App\Http\Controllers\Releases;
 
 use App\Actions\Releases\CreateRelease;
 use App\Enums\ProjectType;
+use App\Enums\ReleaseStatus;
+use App\Models\Task;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Releases\StoreReleaseRequest;
 use App\Models\Project;
 use App\Models\Release;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
@@ -68,10 +71,57 @@ class ReleaseController extends Controller
         abort_unless($release->project_id === $project->id, 404);
         $request->session()->put('current_workspace_id', $project->workspace_id);
 
+        $editable = $project->archived_at === null
+            && in_array($release->status, [ReleaseStatus::DRAFT, ReleaseStatus::PLANNED], true);
+        $canManage = $editable && $request->user()->can('create', [Task::class, $project]);
+        $search = trim(is_string($request->query('q')) ? $request->query('q') : '');
+        if (mb_strlen($search) > 80) {
+            $search = mb_substr($search, 0, 80);
+        }
+
+        $assigned = $release->tasks()->with('status')->orderByDesc('number')
+            ->paginate(15, ['*'], 'tasks_page')->withQueryString();
+        $available = collect();
+        $availableCount = 0;
+        if ($canManage) {
+            $query = $project->tasks()->with('status')->whereNull('release_id');
+            if ($search !== '') {
+                $pattern = '%'.str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $search).'%';
+                $number = preg_match('/^'.preg_quote($project->key, '/').'-(\d+)$/i', $search, $matches)
+                    ? (int) $matches[1] : null;
+                $query->where(function (Builder $builder) use ($pattern, $number): void {
+                    $builder->whereRaw("title LIKE ? ESCAPE '!'", [$pattern]);
+                    if ($number !== null) {
+                        $builder->orWhere('number', $number);
+                    }
+                });
+            }
+            $availableCount = (clone $query)->count();
+            $available = $query->orderByDesc('number')->limit(30)->get();
+        }
+
         return Inertia::render('releases/Show', [
             'project' => $this->projectData($project),
             'release' => $this->releaseData($release),
+            'can_manage_tasks' => $canManage,
+            'tasks' => $assigned->through(fn (Task $task): array => $this->taskData($project, $task)),
+            'task_count' => $release->tasks()->count(),
+            'available_tasks' => $available->map(fn (Task $task): array => $this->taskData($project, $task))->all(),
+            'available_count' => $availableCount,
+            'task_search' => $search,
         ]);
+    }
+
+    /** @return array{id:int,reference:string,title:string,status:string,completed:bool} */
+    private function taskData(Project $project, Task $task): array
+    {
+        return [
+            'id' => $task->id,
+            'reference' => $project->key.'-'.$task->number,
+            'title' => $task->title,
+            'status' => $task->relationLoaded('status') ? $task->status->name : '',
+            'completed' => $task->completed_at !== null,
+        ];
     }
 
     private function authorizeApplication(Request $request, Project $project): void
