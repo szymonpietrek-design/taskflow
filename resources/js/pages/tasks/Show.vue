@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import InputError from '@/components/InputError.vue';
 import TaskDiscussion from './Discussion.vue';
 import TaskDetailsForm from './TaskDetailsForm.vue';
+import TaskSubtasks from './TaskSubtasks.vue';
 import { Label } from '@/components/ui/label';
 import type { TaskDetail, TaskMessageSummary, TaskProjectSummary, TaskStatusSummary, TaskUserSummary } from '@/types/task';
 
@@ -16,6 +17,7 @@ const props = defineProps<{
     task: TaskDetail;
     statuses: TaskStatusSummary[];
     can_update: boolean;
+    can_create_subtask: boolean;
     assignees: TaskUserSummary[];
     can_post_message: boolean;
     messages: TaskMessageSummary[];
@@ -70,15 +72,16 @@ defineOptions({
                     </CardContent>
                 </Card>
 
-                <Card v-if="task.subtasks.length">
-                    <CardHeader><CardTitle>Subtasks</CardTitle></CardHeader>
-                    <CardContent class="space-y-3">
-                        <Link v-for="child in task.subtasks" :key="child.id" :href="`/projects/${project.id}/tasks/${child.id}`" class="flex items-center justify-between gap-3 text-sm hover:underline">
-                            <span><span class="text-muted-foreground">{{ child.reference }}</span> {{ child.title }}</span>
-                            <Badge variant="secondary">{{ child.status }}</Badge>
-                        </Link>
-                    </CardContent>
-                </Card>
+                <TaskSubtasks
+                    v-if="task.parent === null"
+                    :project-id="project.id"
+                    :parent-task-id="task.id"
+                    :subtasks="task.subtasks"
+                    :progress="task.subtask_progress"
+                    :statuses="statuses"
+                    :assignees="assignees"
+                    :can-create="can_create_subtask"
+                />
 
                 <TaskDiscussion
                     :project-id="project.id"

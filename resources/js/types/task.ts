@@ -39,10 +39,20 @@ export type TaskSummary = {
     completed_at: string | null;
 };
 
+export type TaskSubtaskSummary = {
+    id: number;
+    reference: string;
+    title: string;
+    status: TaskStatusSummary;
+    assignee: TaskUserSummary | null;
+    due_date: string | null;
+};
+
 export type TaskDetail = TaskSummary & {
     description: string | null;
     creator: TaskUserSummary;
-    subtasks: Array<{ id: number; reference: string; title: string; status: string }>;
+    subtasks: TaskSubtaskSummary[];
+    subtask_progress: { total: number; done: number };
 };
 
 export type TaskMessageSummary = {

@@ -6,6 +6,7 @@ use App\Actions\Tasks\ChangeTaskStatus;
 use App\Actions\Tasks\CreateTask;
 use App\Actions\Tasks\UpdateTaskDetails;
 use App\Enums\TaskPriority;
+use App\Enums\TaskStatusCategory;
 use App\Enums\TaskType;
 use App\Enums\WorkspaceRole;
 use App\Http\Controllers\Controller;
@@ -152,7 +153,7 @@ class TaskController extends Controller
         Gate::forUser($request->user())->authorize('view', $task);
         $this->syncWorkspace($request, $project);
 
-        $task->load(['project', 'status', 'assignee', 'creator', 'parent', 'subtasks.status']);
+        $task->load(['project', 'status', 'assignee', 'creator', 'parent', 'subtasks.status', 'subtasks.assignee']);
 
         $messages = $task->messages()
             ->with('author:id,name')
@@ -170,15 +171,32 @@ class TaskController extends Controller
                     'id' => $task->creator->id,
                     'name' => $task->creator->name,
                 ],
-                'subtasks' => $task->subtasks->map(fn (Task $child): array => [
+                'subtasks' => $task->subtasks->sortBy('number')->values()->map(fn (Task $child): array => [
                     'id' => $child->id,
                     'reference' => $project->key.'-'.$child->number,
                     'title' => $child->title,
-                    'status' => $child->status->name,
+                    'status' => [
+                        'id' => $child->status->id,
+                        'name' => $child->status->name,
+                        'category' => strtolower($child->status->category->name),
+                    ],
+                    'assignee' => $child->assignee === null ? null : [
+                        'id' => $child->assignee->id,
+                        'name' => $child->assignee->name,
+                    ],
+                    'due_date' => $child->due_date?->toDateString(),
                 ])->all(),
+                'subtask_progress' => [
+                    'total' => $task->subtasks->count(),
+                    'done' => $task->subtasks->filter(
+                        fn (Task $child): bool => $child->status->category === TaskStatusCategory::DONE,
+                    )->count(),
+                ],
             ],
             'statuses' => $this->statusOptions($project),
             'can_update' => $canUpdate,
+            'can_create_subtask' => $task->parent_id === null
+                && $request->user()->can('create', [Task::class, $project]),
             'assignees' => $canUpdate ? $this->eligibleAssignees($project) : [],
             'can_post_message' => $canPostMessage,
             'messages' => $messages->map(fn (TaskMessage $message): array => [
