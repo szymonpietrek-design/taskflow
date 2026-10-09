@@ -53,6 +53,7 @@ export type TaskDetail = TaskSummary & {
     creator: TaskUserSummary;
     subtasks: TaskSubtaskSummary[];
     subtask_progress: { total: number; done: number };
+    source_task: { id: number; reference: string; message_id: number | null } | null;
 };
 
 export type TaskMessageSummary = {
@@ -63,4 +64,5 @@ export type TaskMessageSummary = {
     updated_at: string;
     can_update: boolean;
     can_delete: boolean;
+    can_create_task: boolean;
 };

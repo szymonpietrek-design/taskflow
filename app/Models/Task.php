@@ -16,6 +16,8 @@ use Illuminate\Support\Carbon;
  * @property int $id
  * @property int $project_id
  * @property int|null $parent_id
+ * @property int|null $source_task_id
+ * @property int|null $source_message_id
  * @property int $number
  * @property string $title
  * @property string|null $description
@@ -33,6 +35,8 @@ use Illuminate\Support\Carbon;
 #[Fillable([
     'project_id',
     'parent_id',
+    'source_task_id',
+    'source_message_id',
     'number',
     'title',
     'description',
@@ -84,6 +88,16 @@ class Task extends Model
     public function subtasks(): HasMany
     {
         return $this->hasMany(self::class, 'parent_id');
+    }
+
+    public function sourceTask(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'source_task_id');
+    }
+
+    public function sourceMessage(): BelongsTo
+    {
+        return $this->belongsTo(TaskMessage::class, 'source_message_id');
     }
 
     public function status(): BelongsTo

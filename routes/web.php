@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Projects\ProjectController;
 use App\Http\Controllers\Tasks\TaskController;
+use App\Http\Controllers\Tasks\TaskFromMessageController;
 use App\Http\Controllers\Tasks\TaskMessageController;
 use App\Http\Controllers\Tasks\TaskStatusController;
 use App\Http\Controllers\Workspaces\CurrentWorkspaceController;
@@ -29,6 +30,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::patch('projects/{project}/tasks/{task}', [TaskController::class, 'update'])->name('tasks.update');
     Route::patch('projects/{project}/tasks/{task}/status', [TaskController::class, 'updateStatus'])
         ->name('tasks.status.update');
+
+    Route::get('projects/{project}/tasks/{task}/messages/{message}/create-task', [TaskFromMessageController::class, 'create'])
+        ->name('tasks.messages.create-task');
+    Route::post('projects/{project}/tasks/{task}/messages/{message}/create-task', [TaskFromMessageController::class, 'store'])
+        ->name('tasks.messages.store-task');
 
     Route::post('projects/{project}/tasks/{task}/messages', [TaskMessageController::class, 'store'])
         ->name('tasks.messages.store');

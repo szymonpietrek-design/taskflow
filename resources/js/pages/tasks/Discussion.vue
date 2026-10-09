@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { Form } from '@inertiajs/vue3';
-import { MessageSquare, Pencil, Send, Trash2 } from '@lucide/vue';
+import { Form, Link } from '@inertiajs/vue3';
+import { MessageSquare, Pencil, Plus, Send, Trash2 } from '@lucide/vue';
 import { ref } from 'vue';
 import InputError from '@/components/InputError.vue';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -47,7 +47,7 @@ function formattedDate(value: string): string {
         </CardHeader>
         <CardContent class="space-y-6">
             <div v-if="messages.length" class="space-y-5">
-                <article v-for="message in messages" :key="message.id" class="flex items-start gap-3">
+                <article v-for="message in messages" :id="`message-${message.id}`" :key="message.id" class="flex items-start gap-3">
                     <Avatar class="size-9 shrink-0">
                         <AvatarFallback>{{ initials(message.author?.name ?? '?') }}</AvatarFallback>
                     </Avatar>
@@ -109,6 +109,9 @@ function formattedDate(value: string): string {
                             </div>
                         </Form>
                         <p v-else class="whitespace-pre-wrap break-words text-sm leading-relaxed">{{ message.body }}</p>
+                        <Button v-if="message.can_create_task && editingId !== message.id" as-child size="sm" variant="outline">
+                            <Link :href="`${messagesUrl}/${message.id}/create-task`"><Plus class="size-3.5" /> Create task</Link>
+                        </Button>
                     </div>
                 </article>
             </div>

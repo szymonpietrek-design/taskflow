@@ -65,6 +65,13 @@ defineOptions({
                     <CardContent>
                         <p v-if="task.description" class="whitespace-pre-wrap text-sm leading-relaxed">{{ task.description }}</p>
                         <p v-else class="text-sm text-muted-foreground">No description yet.</p>
+                        <p v-if="task.source_task" class="mt-4 text-xs text-muted-foreground">
+                            Created from a message in
+                            <Link :href="`/projects/${project.id}/tasks/${task.source_task.id}${task.source_task.message_id ? '#message-' + task.source_task.message_id : ''}`" class="underline">
+                                {{ task.source_task.reference }}
+                            </Link>
+                            <span v-if="!task.source_task.message_id"> (source message removed)</span>
+                        </p>
                         <p v-if="task.parent" class="mt-4 text-xs text-muted-foreground">
                             Subtask of
                             <Link :href="`/projects/${project.id}/tasks/${task.parent.id}`" class="underline">{{ task.parent.reference }} — {{ task.parent.title }}</Link>

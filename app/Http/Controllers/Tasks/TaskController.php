@@ -153,7 +153,7 @@ class TaskController extends Controller
         Gate::forUser($request->user())->authorize('view', $task);
         $this->syncWorkspace($request, $project);
 
-        $task->load(['project', 'status', 'assignee', 'creator', 'parent', 'subtasks.status', 'subtasks.assignee']);
+        $task->load(['project', 'status', 'assignee', 'creator', 'parent', 'subtasks.status', 'subtasks.assignee', 'sourceTask', 'sourceMessage']);
 
         $messages = $task->messages()
             ->with('author:id,name')
@@ -167,6 +167,12 @@ class TaskController extends Controller
             'project' => $this->projectData($project),
             'task' => $this->taskData($task) + [
                 'description' => $task->description,
+                'source_task' => $task->sourceTask !== null && $task->sourceTask->project_id === $project->id
+                    && $request->user()->can('view', $task->sourceTask) ? [
+                        'id' => $task->sourceTask->id,
+                        'reference' => $project->key.'-'.$task->sourceTask->number,
+                        'message_id' => $task->sourceMessage?->id,
+                    ] : null,
                 'creator' => [
                     'id' => $task->creator->id,
                     'name' => $task->creator->name,
@@ -210,6 +216,7 @@ class TaskController extends Controller
                 'updated_at' => $message->updated_at?->toIso8601String(),
                 'can_update' => $canPostMessage && $message->user_id === $request->user()->id,
                 'can_delete' => $canPostMessage && $message->user_id === $request->user()->id,
+                'can_create_task' => $request->user()->can('create', [Task::class, $project]),
             ])->all(),
         ]);
     }
