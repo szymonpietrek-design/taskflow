@@ -1,11 +1,16 @@
 <script setup lang="ts">
 import { Form, Head, Link, router } from '@inertiajs/vue3';
-import { reactive, watch } from 'vue';
-import { ArrowLeft, CheckCircle2, Circle, ClipboardList, Plus, Search, SlidersHorizontal } from '@lucide/vue';
+import { computed, reactive, ref, shallowRef, watch } from 'vue';
+import { ArrowLeft, CalendarDays, CheckCircle2, Circle, ClipboardList, LoaderCircle, Plus, Search, SlidersHorizontal } from '@lucide/vue';
+import type { DateValue } from '@internationalized/date';
+import { DateFormatter, getLocalTimeZone, today } from '@internationalized/date';
 import InputError from '@/components/InputError.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { TaskParentSummary, TaskProjectSummary, TaskStatusSummary, TaskSummary, TaskUserSummary } from '@/types/task';
@@ -37,21 +42,74 @@ const props = defineProps<{
 }>();
 
 const indexUrl = `/projects/${props.project.id}/tasks`;
-const filterForm = reactive({ ...props.filters });
-watch(() => props.filters, (filters) => Object.assign(filterForm, filters));
+const filterForm = reactive({ ...props.filters, sort: props.filters.sort || 'newest' });
+const filterProcessing = ref(false);
+watch(() => props.filters, (filters) => Object.assign(filterForm, filters, { sort: filters.sort || 'newest' }));
+
+// Reka UI Select requires non-empty item values. The filter URL must still
+// use empty strings for the unfiltered states expected by Laravel.
+const filterStatus = computed({
+    get: () => filterForm.status_id || 'all',
+    set: (value: string) => { filterForm.status_id = value === 'all' ? '' : value; },
+});
+const filterPriority = computed({
+    get: () => filterForm.priority || 'all',
+    set: (value: string) => { filterForm.priority = value === 'all' ? '' : value; },
+});
+const filterAssignee = computed({
+    get: () => filterForm.assignee_id || 'anyone',
+    set: (value: string) => { filterForm.assignee_id = value === 'anyone' ? '' : value; },
+});
+const filterSort = computed({
+    get: () => filterForm.sort || 'newest',
+    set: (value: string) => { filterForm.sort = value; },
+});
+const hasActiveFilters = computed(() => Boolean(
+    filterForm.q.trim() || filterForm.status_id || filterForm.priority || filterForm.assignee_id || (filterForm.sort && filterForm.sort !== 'newest')
+));
+
+function clearFilters() {
+    if (filterProcessing.value) return;
+    Object.assign(filterForm, { q: '', status_id: '', priority: '', assignee_id: '', sort: 'newest' });
+    applyFilters();
+}
 
 function applyFilters() {
+    if (filterProcessing.value) return;
     router.get(indexUrl, {
         q: filterForm.q.trim() || undefined,
         status_id: filterForm.status_id || undefined,
         priority: filterForm.priority || undefined,
         assignee_id: filterForm.assignee_id || undefined,
         sort: filterForm.sort !== 'newest' ? filterForm.sort : undefined,
-    }, { replace: true, preserveState: true, preserveScroll: true });
+    }, {
+        replace: true, preserveState: true, preserveScroll: true,
+        onStart: () => { filterProcessing.value = true; },
+        onFinish: () => { filterProcessing.value = false; },
+    });
 }
 
 const taskUrl = (id: number) => `/projects/${props.project.id}/tasks/${id}`;
-const selectClass = 'h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50';
+
+// shadcn-vue Select and Calendar are controlled Vue components rather than
+// native form inputs. Hidden inputs keep the request payload unchanged.
+const newTaskType = ref('1');
+const newTaskPriority = ref('2');
+const newTaskStatus = ref('default');
+const newTaskAssignee = ref('unassigned');
+const newTaskParent = ref('none');
+const newTaskDueDate = shallowRef<DateValue | undefined>();
+const dueDateFormatter = new DateFormatter('en-US', { dateStyle: 'medium' });
+
+function resetNewTaskFields() {
+    newTaskType.value = '1';
+    newTaskPriority.value = '2';
+    newTaskStatus.value = 'default';
+    newTaskAssignee.value = 'unassigned';
+    newTaskParent.value = 'none';
+    newTaskDueDate.value = undefined;
+}
+
 
 function badgeVariant(category: TaskStatusSummary['category']): 'secondary' | 'outline' | 'default' {
     if (category === 'done') return 'default';
@@ -86,53 +144,69 @@ defineOptions({
                 </div>
 
                 <Card class="gap-0 p-4">
-                    <form class="space-y-3" @submit.prevent="applyFilters">
+                    <form class="space-y-4" @submit.prevent="applyFilters">
                         <div class="flex items-center gap-2 text-sm font-medium"><SlidersHorizontal class="size-4" /> Filters</div>
-                        <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-4">
-                            <div class="grid gap-1.5">
+                        <div class="grid gap-3 sm:grid-cols-2 2xl:grid-cols-4">
+                            <div class="grid min-w-0 gap-1.5">
                                 <Label for="task-search">Search</Label>
-                                <Input id="task-search" v-model="filterForm.q" maxlength="100" placeholder="Title, description, APP-1" />
+                                <Input id="task-search" v-model="filterForm.q" maxlength="100" :placeholder="`Title, description, ${project.key}-1`" :disabled="filterProcessing" />
                             </div>
-                            <div class="grid gap-1.5">
+                            <div class="grid min-w-0 gap-1.5">
                                 <Label for="task-filter-status">Status</Label>
-                                <select id="task-filter-status" v-model="filterForm.status_id" :class="selectClass">
-                                    <option value="">All statuses</option>
-                                    <option v-for="status in statuses" :key="status.id" :value="String(status.id)">{{ status.name }}</option>
-                                </select>
+                                <Select v-model="filterStatus" :disabled="filterProcessing">
+                                    <SelectTrigger id="task-filter-status" class="w-full"><SelectValue placeholder="All statuses" /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">All statuses</SelectItem>
+                                        <SelectItem v-for="status in statuses" :key="status.id" :value="String(status.id)">{{ status.name }}</SelectItem>
+                                    </SelectContent>
+                                </Select>
                             </div>
-                            <div class="grid gap-1.5">
+                            <div class="grid min-w-0 gap-1.5">
                                 <Label for="task-filter-priority">Priority</Label>
-                                <select id="task-filter-priority" v-model="filterForm.priority" :class="selectClass">
-                                    <option value="">All priorities</option>
-                                    <option value="1">Low</option>
-                                    <option value="2">Normal</option>
-                                    <option value="3">High</option>
-                                    <option value="4">Urgent</option>
-                                </select>
+                                <Select v-model="filterPriority" :disabled="filterProcessing">
+                                    <SelectTrigger id="task-filter-priority" class="w-full"><SelectValue placeholder="All priorities" /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">All priorities</SelectItem>
+                                        <SelectItem value="1">Low</SelectItem>
+                                        <SelectItem value="2">Normal</SelectItem>
+                                        <SelectItem value="3">High</SelectItem>
+                                        <SelectItem value="4">Urgent</SelectItem>
+                                    </SelectContent>
+                                </Select>
                             </div>
-                            <div class="grid gap-1.5">
+                            <div class="grid min-w-0 gap-1.5">
                                 <Label for="task-filter-assignee">Assignee</Label>
-                                <select id="task-filter-assignee" v-model="filterForm.assignee_id" :class="selectClass">
-                                    <option value="">Anyone</option>
-                                    <option value="unassigned">Unassigned</option>
-                                    <option v-for="person in filter_assignees" :key="person.id" :value="String(person.id)">{{ person.name }}</option>
-                                </select>
+                                <Select v-model="filterAssignee" :disabled="filterProcessing">
+                                    <SelectTrigger id="task-filter-assignee" class="w-full"><SelectValue placeholder="Anyone" /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="anyone">Anyone</SelectItem>
+                                        <SelectItem value="unassigned">Unassigned</SelectItem>
+                                        <SelectItem v-for="person in filter_assignees" :key="person.id" :value="String(person.id)">{{ person.name }}</SelectItem>
+                                    </SelectContent>
+                                </Select>
                             </div>
                         </div>
                         <div class="flex flex-wrap items-end justify-between gap-3">
-                            <div class="grid gap-1.5">
+                            <div class="grid w-full min-w-0 gap-1.5 sm:w-48">
                                 <Label for="task-filter-sort">Sort by</Label>
-                                <select id="task-filter-sort" v-model="filterForm.sort" :class="selectClass" class="min-w-36">
-                                    <option value="newest">Newest first</option>
-                                    <option value="oldest">Oldest first</option>
-                                    <option value="priority">Highest priority</option>
-                                    <option value="due_date">Due date</option>
-                                    <option value="title">Title A–Z</option>
-                                </select>
+                                <Select v-model="filterSort" :disabled="filterProcessing">
+                                    <SelectTrigger id="task-filter-sort" class="w-full"><SelectValue placeholder="Sort by" /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="newest">Newest first</SelectItem>
+                                        <SelectItem value="oldest">Oldest first</SelectItem>
+                                        <SelectItem value="priority">Highest priority</SelectItem>
+                                        <SelectItem value="due_date">Due date</SelectItem>
+                                        <SelectItem value="title">Title A–Z</SelectItem>
+                                    </SelectContent>
+                                </Select>
                             </div>
                             <div class="flex items-center gap-2">
-                                <Link :href="indexUrl" class="rounded-md px-3 py-2 text-sm text-muted-foreground hover:text-foreground">Clear filters</Link>
-                                <Button type="submit" size="sm"><Search class="size-4" /> Apply</Button>
+                                <Button type="button" variant="ghost" :disabled="filterProcessing || !hasActiveFilters" @click="clearFilters">Clear filters</Button>
+                                <Button type="submit" :disabled="filterProcessing">
+                                    <LoaderCircle v-if="filterProcessing" class="size-4 animate-spin" />
+                                    <Search v-else class="size-4" />
+                                    {{ filterProcessing ? 'Applying…' : 'Apply' }}
+                                </Button>
                             </div>
                         </div>
                     </form>
@@ -198,7 +272,7 @@ defineOptions({
                     <CardDescription>Task numbers are assigned automatically.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <Form :action="`/projects/${project.id}/tasks`" method="post" class="space-y-4" reset-on-success v-slot="{ errors, processing }">
+                    <Form :action="`/projects/${project.id}/tasks`" method="post" class="space-y-4" reset-on-success @success="resetNewTaskFields" v-slot="{ errors, processing }">
                         <div class="grid gap-2">
                             <Label for="task-title">Title</Label>
                             <Input id="task-title" name="title" maxlength="200" required placeholder="Implement dashboard" />
@@ -209,58 +283,107 @@ defineOptions({
                             <textarea id="task-description" name="description" rows="3" maxlength="10000" placeholder="Optional details" class="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50" />
                             <InputError :message="errors.description" />
                         </div>
-                        <div class="grid grid-cols-2 gap-3">
-                            <div class="grid gap-2">
+                        <div class="grid gap-3 sm:grid-cols-2">
+                            <div class="grid min-w-0 gap-2">
                                 <Label for="task-type">Type</Label>
-                                <select id="task-type" name="type" :class="selectClass" required>
-                                    <option value="1">Task</option>
-                                    <option value="2">Feature</option>
-                                    <option value="3">Improvement</option>
-                                    <option value="4">Bug</option>
-                                </select>
+                                <input type="hidden" name="type" :value="newTaskType" />
+                                <Select v-model="newTaskType" :disabled="processing">
+                                    <SelectTrigger id="task-type" class="w-full"><SelectValue placeholder="Select type" /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="1">Task</SelectItem>
+                                        <SelectItem value="2">Feature</SelectItem>
+                                        <SelectItem value="3">Improvement</SelectItem>
+                                        <SelectItem value="4">Bug</SelectItem>
+                                    </SelectContent>
+                                </Select>
                                 <InputError :message="errors.type" />
                             </div>
-                            <div class="grid gap-2">
+                            <div class="grid min-w-0 gap-2">
                                 <Label for="task-priority">Priority</Label>
-                                <select id="task-priority" name="priority" :class="selectClass" required>
-                                    <option value="2">Normal</option>
-                                    <option value="1">Low</option>
-                                    <option value="3">High</option>
-                                    <option value="4">Urgent</option>
-                                </select>
+                                <input type="hidden" name="priority" :value="newTaskPriority" />
+                                <Select v-model="newTaskPriority" :disabled="processing">
+                                    <SelectTrigger id="task-priority" class="w-full"><SelectValue placeholder="Select priority" /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="1">Low</SelectItem>
+                                        <SelectItem value="2">Normal</SelectItem>
+                                        <SelectItem value="3">High</SelectItem>
+                                        <SelectItem value="4">Urgent</SelectItem>
+                                    </SelectContent>
+                                </Select>
                                 <InputError :message="errors.priority" />
                             </div>
                         </div>
                         <div class="grid gap-2">
                             <Label for="task-status">Status</Label>
-                            <select id="task-status" name="status_id" :class="selectClass">
-                                <option value="">Default (Todo)</option>
-                                <option v-for="status in statuses" :key="status.id" :value="status.id">{{ status.name }}</option>
-                            </select>
+                            <input type="hidden" name="status_id" :value="newTaskStatus === 'default' ? '' : newTaskStatus" />
+                            <Select v-model="newTaskStatus" :disabled="processing">
+                                <SelectTrigger id="task-status" class="w-full"><SelectValue placeholder="Select status" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="default">Default (Todo)</SelectItem>
+                                    <SelectItem v-for="status in statuses" :key="status.id" :value="String(status.id)">{{ status.name }}</SelectItem>
+                                </SelectContent>
+                            </Select>
                             <InputError :message="errors.status_id" />
                         </div>
                         <div class="grid gap-2">
                             <Label for="task-assignee">Assignee</Label>
-                            <select id="task-assignee" name="assignee_id" :class="selectClass">
-                                <option value="">Unassigned</option>
-                                <option v-for="person in assignees" :key="person.id" :value="person.id">{{ person.name }}</option>
-                            </select>
+                            <input type="hidden" name="assignee_id" :value="newTaskAssignee === 'unassigned' ? '' : newTaskAssignee" />
+                            <Select v-model="newTaskAssignee" :disabled="processing">
+                                <SelectTrigger id="task-assignee" class="w-full"><SelectValue placeholder="Select assignee" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="unassigned">Unassigned</SelectItem>
+                                    <SelectItem v-for="person in assignees" :key="person.id" :value="String(person.id)">{{ person.name }}</SelectItem>
+                                </SelectContent>
+                            </Select>
                             <InputError :message="errors.assignee_id" />
                         </div>
                         <div class="grid gap-2">
                             <Label for="task-parent">Parent task</Label>
-                            <select id="task-parent" name="parent_id" :class="selectClass">
-                                <option value="">None (regular task)</option>
-                                <option v-for="task in parent_tasks" :key="task.id" :value="task.id">{{ task.reference }} — {{ task.title }}</option>
-                            </select>
+                            <input type="hidden" name="parent_id" :value="newTaskParent === 'none' ? '' : newTaskParent" />
+                            <Select v-model="newTaskParent" :disabled="processing">
+                                <SelectTrigger id="task-parent" class="w-full"><SelectValue placeholder="Select parent task" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="none">None (regular task)</SelectItem>
+                                    <SelectItem v-for="task in parent_tasks" :key="task.id" :value="String(task.id)">{{ task.reference }} — {{ task.title }}</SelectItem>
+                                </SelectContent>
+                            </Select>
                             <InputError :message="errors.parent_id" />
                         </div>
                         <div class="grid gap-2">
-                            <Label for="task-due-date">Due date</Label>
-                            <Input id="task-due-date" name="due_date" type="date" />
+                            <Label for="task-due-date">Due date (optional)</Label>
+                            <input type="hidden" name="due_date" :value="newTaskDueDate?.toString() ?? ''" />
+                            <Popover v-slot="{ close }">
+                                <PopoverTrigger as-child>
+                                    <Button
+                                        id="task-due-date"
+                                        type="button"
+                                        variant="outline"
+                                        class="w-full justify-between text-left font-normal"
+                                        :class="!newTaskDueDate && 'text-muted-foreground'"
+                                        :disabled="processing"
+                                    >
+                                        <span>{{ newTaskDueDate ? dueDateFormatter.format(newTaskDueDate.toDate(getLocalTimeZone())) : 'Select a date' }}</span>
+                                        <CalendarDays class="size-4 shrink-0 opacity-70" />
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent align="start" class="w-auto p-0">
+                                    <Calendar
+                                        v-model="newTaskDueDate"
+                                        :default-placeholder="today(getLocalTimeZone())"
+                                        layout="month-and-year"
+                                        initial-focus
+                                        @update:model-value="close"
+                                    />
+                                    <div class="border-t p-2">
+                                        <Button type="button" variant="ghost" size="sm" class="w-full" :disabled="!newTaskDueDate" @click="newTaskDueDate = undefined; close()">
+                                            Clear date
+                                        </Button>
+                                    </div>
+                                </PopoverContent>
+                            </Popover>
                             <InputError :message="errors.due_date" />
                         </div>
-                        <Button :disabled="processing" class="w-full"><Plus class="size-4" /> Create task</Button>
+                        <Button type="submit" :disabled="processing" class="w-full"><LoaderCircle v-if="processing" class="size-4 animate-spin" /><Plus v-else class="size-4" /> {{ processing ? 'Creating task…' : 'Create task' }}</Button>
                     </Form>
                 </CardContent>
             </Card>
