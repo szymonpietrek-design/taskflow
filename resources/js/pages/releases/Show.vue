@@ -1,12 +1,24 @@
 <script setup lang="ts">
 import { Form, Head, Link } from '@inertiajs/vue3';
-import { ArrowLeft, CalendarDays, Clock3, FileText, Package, Plus, X } from '@lucide/vue';
+import { ArrowLeft, CalendarDays, Clock3, FileText, LoaderCircle, Package, Plus, X } from '@lucide/vue';
+import type { DateValue } from '@internationalized/date';
+import { DateFormatter, getLocalTimeZone, parseDate, today } from '@internationalized/date';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import InputError from '@/components/InputError.vue';
 import { Input } from '@/components/ui/input';
-import { ref, watch } from 'vue';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import { computed, ref, shallowRef, watch } from 'vue';
+import { toast } from 'vue-sonner';
 
 type Release = {
     id: number;
@@ -22,6 +34,8 @@ type Release = {
 
 type Changelog = {
     draft_body: string;
+    draft_locale: string | null;
+    published_locale: string | null;
     draft_html: string | null;
     published_html: string | null;
     published_at: string | null;
@@ -36,6 +50,8 @@ const props = defineProps<{
     can_manage_release: boolean;
     can_manage_tasks: boolean;
     can_edit_changelog: boolean;
+    ai_configured: boolean;
+    default_ai_language: string;
     changelog: Changelog;
     tasks: {
         data: ReleaseTask[];
@@ -50,10 +66,64 @@ const props = defineProps<{
     task_search: string;
 }>();
 
+// The date picker holds a calendar day without a time zone. The hidden
+// form field still submits YYYY-MM-DD, as required by the Laravel request.
+const plannedDate = shallowRef<DateValue | undefined>(
+    props.release.planned_for ? parseDate(props.release.planned_for.slice(0, 10)) : undefined,
+);
+const plannedDateFormatter = new DateFormatter('en-US', { dateStyle: 'medium' });
+watch(() => props.release.planned_for, (value) => {
+    plannedDate.value = value ? parseDate(value.slice(0, 10)) : undefined;
+});
+
 const draftBody = ref(props.changelog.draft_body);
+const hasUnsavedDraftChanges = computed(() => draftBody.value !== props.changelog.draft_body);
+const selectedTaskId = ref('');
+watch(() => props.available_tasks, (tasks) => {
+    if (!tasks.some((task) => String(task.id) === selectedTaskId.value)) {
+        selectedTaskId.value = '';
+    }
+});
+const languageOptions = [
+    { value: 'en', label: 'English' },
+    { value: 'pl', label: 'Polski' },
+    { value: 'de', label: 'Deutsch' },
+    { value: 'fr', label: 'Français' },
+    { value: 'es', label: 'Español' },
+    { value: 'it', label: 'Italiano' },
+    { value: 'pt', label: 'Português' },
+    { value: 'pt-BR', label: 'Português (Brasil)' },
+    { value: 'nl', label: 'Nederlands' },
+    { value: 'uk', label: 'Українська' },
+    { value: 'tr', label: 'Türkçe' },
+    { value: 'ja', label: '日本語' },
+    { value: 'ko', label: '한국어' },
+    { value: 'zh-Hans', label: '简体中文' },
+    { value: 'zh-Hant', label: '繁體中文' },
+    { value: 'ar', label: 'العربية' },
+] as const;
+
+const isPresetLanguage = (code: string) => languageOptions.some((option) => option.value === code);
+const selectedLanguage = ref(isPresetLanguage(props.default_ai_language) ? props.default_ai_language : '__other');
+const customLanguage = ref(isPresetLanguage(props.default_ai_language) ? '' : props.default_ai_language);
+const outputLanguage = computed(() => selectedLanguage.value === '__other' ? customLanguage.value.trim() : selectedLanguage.value);
+const languageLabel = (code: string | null) => {
+    if (!code) return null;
+    try {
+        return new Intl.DisplayNames([props.default_ai_language], { type: 'language' }).of(code) ?? code;
+    } catch {
+        return code;
+    }
+};
 watch(() => props.changelog.draft_body, (body) => { draftBody.value = body; });
 
 const releaseUrl = `/projects/${props.project.id}/releases/${props.release.id}`;
+
+// Inertia <Form> already sends asynchronous requests. Preserve the scroll position
+// when the server redirects back with updated props and a Sonner flash message.
+const stayOnRelease = { preserveScroll: true, preserveState: true };
+const stayOnSearch = { preserveScroll: true, preserveState: true, replace: true };
+const notifyFormError = () => toast.error('Could not complete the action. Review the form and try again.');
 
 const confirmFinalAction = (event: MouseEvent, message: string) => {
     if (!window.confirm(message)) {
@@ -95,7 +165,7 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
             <CardHeader>
                 <CardTitle>Release lifecycle</CardTitle>
             </CardHeader>
-            <CardContent class="space-y-4">
+            <CardContent class="space-y-5">
                 <p v-if="release.status === 'released'" class="text-sm text-muted-foreground">
                     This release has been published and is now locked. Its tasks cannot be reassigned.
                 </p>
@@ -110,26 +180,65 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
                         <template v-if="release.status === 'draft'">Plan this draft or cancel it. Planning does not publish the release.</template>
                         <template v-else>Publish this planned release or cancel it. Both actions are final.</template>
                     </p>
-                    <Form v-if="release.status === 'draft'" :action="`${releaseUrl}/status`" method="patch" class="space-y-3" v-slot="{ errors, processing }">
-                        <input type="hidden" name="status" value="2" />
-                        <div class="space-y-1.5">
-                            <label for="release-planned-date" class="text-sm font-medium">Planned date (optional)</label>
-                            <Input id="release-planned-date" name="planned_for" type="date" :default-value="release.planned_for ?? ''" class="max-w-xs" />
-                            <InputError :message="errors.planned_for" />
-                        </div>
-                        <InputError :message="errors.status" />
-                        <Button type="submit" :disabled="processing"><CalendarDays class="size-4" /> Mark as planned</Button>
-                    </Form>
-                    <Form v-if="release.status === 'planned'" :action="`${releaseUrl}/status`" method="patch" v-slot="{ errors, processing }" class="space-y-2">
-                        <input type="hidden" name="status" value="3" />
-                        <InputError :message="errors.status" />
-                        <Button type="submit" :disabled="processing" @click="confirmFinalAction($event, 'Publish this release? You will not be able to change its status or task assignments.')"><Package class="size-4" /> Publish release</Button>
-                    </Form>
-                    <Form :action="`${releaseUrl}/status`" method="patch" v-slot="{ errors, processing }" class="space-y-2">
-                        <input type="hidden" name="status" value="4" />
-                        <InputError :message="errors.status" />
-                        <Button type="submit" variant="outline" :disabled="processing" @click="confirmFinalAction($event, 'Cancel this release? This cannot be undone.')"><X class="size-4" /> Cancel release</Button>
-                    </Form>
+                    <div class="flex flex-col gap-3 sm:flex-row sm:items-end">
+                        <Form v-if="release.status === 'draft'" :action="`${releaseUrl}/status`" method="patch" :options="stayOnRelease" @error="notifyFormError" class="flex flex-col gap-3 sm:flex-row sm:items-end" v-slot="{ errors, processing }">
+                            <input type="hidden" name="status" value="2" />
+                            <div class="w-full space-y-1.5 sm:w-64">
+                                <label for="release-planned-date" class="block text-sm font-medium">Planned date (optional)</label>
+                                <input type="hidden" name="planned_for" :value="plannedDate?.toString() ?? ''" />
+                                <Popover v-slot="{ close }">
+                                    <PopoverTrigger as-child>
+                                        <Button
+                                            id="release-planned-date"
+                                            type="button"
+                                            variant="outline"
+                                            class="w-full justify-between text-left font-normal"
+                                            :class="!plannedDate && 'text-muted-foreground'"
+                                        >
+                                            <span>{{ plannedDate ? plannedDateFormatter.format(plannedDate.toDate(getLocalTimeZone())) : 'Select a date' }}</span>
+                                            <CalendarDays class="size-4 shrink-0 opacity-70" />
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent align="start" class="w-auto p-0">
+                                        <Calendar
+                                            v-model="plannedDate"
+                                            :default-placeholder="today(getLocalTimeZone())"
+                                            layout="month-and-year"
+                                            initial-focus
+                                            @update:model-value="close"
+                                        />
+                                        <div class="border-t p-2">
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                class="w-full"
+                                                :disabled="!plannedDate"
+                                                @click="plannedDate = undefined; close()"
+                                            >
+                                                Clear date
+                                            </Button>
+                                        </div>
+                                    </PopoverContent>
+                                </Popover>
+                                <InputError :message="errors.planned_for" />
+                            </div>
+                            <div class="space-y-1.5">
+                                <Button type="submit" class="w-full sm:w-auto" :disabled="processing"><LoaderCircle v-if="processing" class="size-4 animate-spin" /><CalendarDays v-else class="size-4" /> {{ processing ? 'Planning…' : 'Mark as planned' }}</Button>
+                                <InputError :message="errors.status" />
+                            </div>
+                        </Form>
+                        <Form v-if="release.status === 'planned'" :action="`${releaseUrl}/status`" method="patch" :options="stayOnRelease" @error="notifyFormError" class="space-y-1.5" v-slot="{ errors, processing }">
+                            <input type="hidden" name="status" value="3" />
+                            <Button type="submit" class="w-full sm:w-auto" :disabled="processing" @click="confirmFinalAction($event, 'Publish this release? You will not be able to change its status or task assignments.')"><LoaderCircle v-if="processing" class="size-4 animate-spin" /><Package v-else class="size-4" /> {{ processing ? 'Publishing…' : 'Publish release' }}</Button>
+                            <InputError :message="errors.status" />
+                        </Form>
+                        <Form :action="`${releaseUrl}/status`" method="patch" :options="stayOnRelease" @error="notifyFormError" class="space-y-1.5" v-slot="{ errors, processing }">
+                            <input type="hidden" name="status" value="4" />
+                            <Button type="submit" variant="outline" class="w-full sm:w-auto" :disabled="processing" @click="confirmFinalAction($event, 'Cancel this release? This cannot be undone.')"><LoaderCircle v-if="processing" class="size-4 animate-spin" /><X v-else class="size-4" /> {{ processing ? 'Canceling…' : 'Cancel release' }}</Button>
+                            <InputError :message="errors.status" />
+                        </Form>
+                    </div>
                 </template>
             </CardContent>
         </Card>
@@ -150,6 +259,7 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
                         <Badge :variant="changelog.published_at ? 'secondary' : 'outline'">{{ changelog.published_at ? 'Published' : 'Not published' }}</Badge>
                         <span v-if="changelog.published_at" class="text-xs text-muted-foreground">{{ new Date(changelog.published_at).toLocaleString() }}</span>
                     </div>
+                    <p v-if="changelog.published_locale" class="text-xs text-muted-foreground">Published language: {{ languageLabel(changelog.published_locale) }}</p>
                     <template v-if="changelog.published_html">
                         <p class="text-sm font-medium">Published content</p>
                         <div class="max-w-none break-words rounded-md border p-4 text-sm [&_a]:underline [&_h1]:text-lg [&_h2]:text-base [&_ul]:list-disc [&_ol]:list-decimal [&_li]:ml-5 [&_p]:mb-2 [&_strong]:font-semibold [&_code]:font-mono" v-html="changelog.published_html"></div>
@@ -159,24 +269,61 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
                 <template v-if="can_edit_changelog">
                     <div class="space-y-3 border-t pt-5">
                         <h3 class="text-sm font-semibold">Edit draft (Markdown)</h3>
+                        <div class="space-y-4 rounded-md border bg-muted/20 p-4">
+                            <div class="space-y-1">
+                                <p class="text-sm font-medium">Generate with AI</p>
+                                <p class="text-xs text-muted-foreground">Uses assigned tasks, discussion, and activity. Sends these to Agent AI; replaces only the saved draft.</p>
+                            </div>
+                            <Form :action="`${releaseUrl}/changelog/generate`" method="post" :options="stayOnRelease" @error="notifyFormError" v-slot="{ errors, processing }" class="space-y-2">
+                                <input type="hidden" name="language" :value="outputLanguage" />
+                                <div class="flex flex-col gap-3 sm:flex-row sm:items-end">
+                                    <div class="w-full space-y-1.5 sm:w-64">
+                                        <label for="changelog-language" class="block text-sm font-medium">Output language</label>
+                                        <Select v-model="selectedLanguage">
+                                            <SelectTrigger id="changelog-language" class="w-full">
+                                                <SelectValue placeholder="Choose a language" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem v-for="language in languageOptions" :key="language.value" :value="language.value">
+                                                    {{ language.label }}
+                                                </SelectItem>
+                                                <SelectItem value="__other">Other language…</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div v-if="selectedLanguage === '__other'" class="w-full space-y-1.5 sm:w-48">
+                                        <label for="changelog-custom-language" class="block text-sm font-medium">Language code</label>
+                                        <Input id="changelog-custom-language" v-model="customLanguage" type="text" required maxlength="35" pattern="[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*" autocomplete="off" placeholder="e.g. sv, hi, zh-Hant-TW" />
+                                    </div>
+                                    <Button type="submit" variant="outline" class="w-full sm:w-auto" :disabled="processing || !ai_configured || task_count === 0 || !outputLanguage" @click="confirmFinalAction($event, 'Generate with AI? Task data will be sent to an external AI provider. The saved draft will be replaced; published content stays unchanged.')">
+                                        <LoaderCircle v-if="processing" class="size-4 animate-spin" /><FileText v-else class="size-4" /> {{ processing ? 'Generating…' : 'Generate draft with AI' }}
+                                    </Button>
+                                </div>
+                                <InputError :message="errors.language" />
+                                <InputError :message="errors.ai_generation" />
+                            </Form>
+                            <p v-if="!ai_configured" class="text-xs text-muted-foreground">Configure an AI provider in your local .env to enable generation.</p>
+                            <p v-else-if="task_count === 0" class="text-xs text-muted-foreground">Assign at least one task to this release to enable generation.</p>
+                        </div>
                         <p class="text-xs text-muted-foreground">Saving a draft never changes published content. Save before previewing.</p>
-                        <Form :action="`${releaseUrl}/changelog`" method="put" v-slot="{ errors, processing }" class="space-y-3">
+                        <Form :action="`${releaseUrl}/changelog`" method="put" :options="stayOnRelease" @error="notifyFormError" v-slot="{ errors, processing }" class="space-y-3">
                             <textarea v-model="draftBody" name="draft_body" rows="9" maxlength="50000" class="w-full rounded-md border border-input bg-background px-3 py-2 font-mono text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" placeholder="## Added
 - New feature ..."></textarea>
                             <InputError :message="errors.draft_body" />
-                            <Button type="submit" :disabled="processing">Save changelog draft</Button>
+                            <Button type="submit" :disabled="processing || !hasUnsavedDraftChanges"><LoaderCircle v-if="processing" class="size-4 animate-spin" /> {{ processing ? 'Saving…' : 'Save changelog draft' }}</Button>
                         </Form>
                     </div>
                     <div class="space-y-2">
                         <h3 class="text-sm font-semibold">Saved draft preview</h3>
+                        <p v-if="changelog.draft_locale" class="text-xs text-muted-foreground">Draft language: {{ languageLabel(changelog.draft_locale) }}</p>
                         <div v-if="changelog.draft_body.trim()" class="max-w-none break-words rounded-md border bg-muted/20 p-4 text-sm [&_a]:underline [&_h1]:text-lg [&_h2]:text-base [&_ul]:list-disc [&_ol]:list-decimal [&_li]:ml-5 [&_p]:mb-2 [&_strong]:font-semibold [&_code]:font-mono" v-html="changelog.draft_html"></div>
                         <p v-else class="text-sm text-muted-foreground">Save some Markdown to see its preview here.</p>
                     </div>
                     <div v-if="release.status === 'released'" class="space-y-2 border-t pt-4">
-                        <Form :action="`${releaseUrl}/changelog/publish`" method="post" v-slot="{ errors, processing }">
+                        <Form :action="`${releaseUrl}/changelog/publish`" method="post" :options="stayOnRelease" @error="notifyFormError" v-slot="{ errors, processing }">
                             <InputError :message="errors.changelog" class="mb-2" />
                             <Button type="submit" :disabled="processing || !changelog.has_unpublished_changes" @click="confirmFinalAction($event, 'Publish the saved changelog? This updates the published snapshot.')">
-                                <Package class="size-4" /> {{ changelog.published_at ? 'Publish changes' : 'Publish changelog' }}
+                                <LoaderCircle v-if="processing" class="size-4 animate-spin" /><Package v-else class="size-4" /> {{ processing ? 'Publishing…' : (changelog.published_at ? 'Publish changes' : 'Publish changelog') }}
                             </Button>
                         </Form>
                         <p class="text-xs text-muted-foreground">Only a saved draft can be published. Later edits remain private until published again.</p>
@@ -196,36 +343,56 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
                         <Link :href="`/projects/${project.id}/tasks/${task.id}`" class="text-sm font-medium hover:underline">{{ task.reference }} · {{ task.title }}</Link>
                         <p class="text-xs text-muted-foreground">{{ task.status }} <span v-if="task.completed">· Completed</span></p>
                     </div>
-                    <Form v-if="can_manage_tasks" :action="`${releaseUrl}/tasks/${task.id}`" method="delete" v-slot="{ processing }">
-                        <Button type="submit" size="sm" variant="outline" :disabled="processing"><X class="size-4" /> Remove</Button>
+                    <Form v-if="can_manage_tasks" :action="`${releaseUrl}/tasks/${task.id}`" method="delete" :options="stayOnRelease" @error="notifyFormError" v-slot="{ processing, errors }" class="flex flex-col items-end gap-1">
+                        <Button type="submit" size="sm" variant="outline" :disabled="processing"><LoaderCircle v-if="processing" class="size-4 animate-spin" /><X v-else class="size-4" /> {{ processing ? 'Removing…' : 'Remove' }}</Button>
+                        <InputError :message="errors.release" />
                     </Form>
                 </div>
                 <div v-if="tasks.last_page > 1" class="flex items-center justify-between gap-2">
-                    <Button v-if="tasks.prev_page_url" as-child size="sm" variant="outline"><Link :href="tasks.prev_page_url">Previous</Link></Button>
+                    <Button v-if="tasks.prev_page_url" as-child size="sm" variant="outline"><Link :href="tasks.prev_page_url" preserve-scroll>Previous</Link></Button>
                     <span v-else></span>
                     <span class="text-xs text-muted-foreground">Page {{ tasks.current_page }} / {{ tasks.last_page }}</span>
-                    <Button v-if="tasks.next_page_url" as-child size="sm" variant="outline"><Link :href="tasks.next_page_url">Next</Link></Button>
+                    <Button v-if="tasks.next_page_url" as-child size="sm" variant="outline"><Link :href="tasks.next_page_url" preserve-scroll>Next</Link></Button>
                 </div>
             </CardContent>
         </Card>
         <Card v-if="can_manage_tasks">
             <CardHeader><CardTitle>Add existing task</CardTitle></CardHeader>
             <CardContent class="space-y-4">
-                <Form :action="releaseUrl" method="get" class="flex flex-wrap gap-2">
-                    <Input name="q" type="search" :default-value="task_search" placeholder="Search title or APP-12" class="min-w-48 flex-1" />
-                    <Button type="submit" variant="outline">Search</Button>
+                <Form :action="releaseUrl" method="get" :options="stayOnSearch" class="flex flex-wrap gap-2" v-slot="{ processing }">
+                    <Input name="q" type="search" :default-value="task_search" :placeholder="`Search title or ${project.key}-12`" class="min-w-48 flex-1" />
+                    <Button type="submit" variant="outline" :disabled="processing"><LoaderCircle v-if="processing" class="size-4 animate-spin" /> {{ processing ? 'Searching…' : 'Search' }}</Button>
                 </Form>
-                <p class="text-xs text-muted-foreground">{{ available_count }} available tasks<span v-if="available_count > available_tasks.length"> · showing latest {{ available_tasks.length }} — narrow your search</span></p>
-                <Form :action="`${releaseUrl}/tasks`" method="post" v-slot="{ errors, processing }" class="space-y-3">
-                    <select name="task_id" required :disabled="available_tasks.length === 0" class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm">
-                        <option value="" disabled selected>Select unassigned task</option>
-                        <option v-for="task in available_tasks" :key="task.id" :value="task.id">{{ task.reference }} · {{ task.title }}</option>
-                    </select>
+                <p v-if="available_count > 0" class="text-xs text-muted-foreground">{{ available_count }} available tasks<span v-if="available_count > available_tasks.length"> · showing latest {{ available_tasks.length }} — narrow your search</span></p>
+                <div v-else class="flex flex-col gap-2 rounded-md border border-dashed p-4 sm:flex-row sm:items-center sm:justify-between">
+                    <p class="text-sm text-muted-foreground">{{ task_search ? 'No unassigned tasks match your search.' : 'No available tasks to add.' }}</p>
+                    <Button v-if="task_search" as-child size="sm" variant="outline" class="w-fit">
+                        <Link :href="releaseUrl" preserve-scroll>Clear search</Link>
+                    </Button>
+                </div>
+                <Form v-if="available_tasks.length > 0" :action="`${releaseUrl}/tasks`" method="post" :options="stayOnRelease" @error="notifyFormError" @success="selectedTaskId = ''" v-slot="{ errors, processing }" class="space-y-2">
+                    <input type="hidden" name="task_id" :value="selectedTaskId" />
+                    <div class="flex flex-col gap-3 sm:flex-row sm:items-end">
+                        <div class="min-w-0 w-full flex-1 space-y-1.5">
+                            <label for="release-task-select" class="block text-sm font-medium">Task</label>
+                            <Select v-model="selectedTaskId" :disabled="available_tasks.length === 0">
+                                <SelectTrigger id="release-task-select" class="w-full min-w-0">
+                                    <SelectValue placeholder="Select unassigned task" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem v-for="task in available_tasks" :key="task.id" :value="String(task.id)">
+                                        {{ task.reference }} · {{ task.title }}
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <Button type="submit" class="w-full sm:w-auto" :disabled="processing || !selectedTaskId || available_tasks.length === 0">
+                            <LoaderCircle v-if="processing" class="size-4 animate-spin" /><Plus v-else class="size-4" /> {{ processing ? 'Adding…' : 'Add to release' }}
+                        </Button>
+                    </div>
                     <InputError :message="errors.task_id" />
-                    <Button type="submit" :disabled="processing || available_tasks.length === 0"><Plus class="size-4" /> Add to release</Button>
                 </Form>
             </CardContent>
         </Card>
-        <p class="text-xs text-muted-foreground">AI-assisted changelog generation will be added in a later stage.</p>
     </div>
 </template>

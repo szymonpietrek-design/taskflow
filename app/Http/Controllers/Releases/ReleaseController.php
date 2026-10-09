@@ -113,13 +113,20 @@ class ReleaseController extends Controller
             'release' => $this->releaseData($release),
             'can_manage_release' => $canManageRelease,
             'can_edit_changelog' => $canEditChangelog,
+            'default_ai_language' => preg_match('/\A[a-z]{2,3}(?:-[a-z0-9]{2,8})*\z/i', str_replace('_', '-', app()->getLocale()))
+                ? str_replace('_', '-', app()->getLocale()) : 'en',
+            'ai_configured' => config('services.ai_chat.provider') === 'deepseek'
+                && filled(config('services.ai_chat.api_key')),
             'changelog' => [
                 'draft_body' => $draft,
+                'draft_locale' => $canEditChangelog ? $changelog?->draft_locale : null,
+                'published_locale' => $changelog?->published_locale,
                 'draft_html' => $canEditChangelog ? $this->renderMarkdown($draft) : null,
                 'published_html' => $published !== null ? $this->renderMarkdown($published) : null,
                 'published_at' => $changelog?->published_at?->toIso8601String(),
                 'has_unpublished_changes' => $canEditChangelog
-                    && $draft !== '' && $draft !== ($published ?? ''),
+                    && $draft !== '' && ($draft !== ($published ?? '')
+                        || $changelog?->draft_locale !== $changelog?->published_locale),
             ],
             'can_manage_tasks' => $canManage,
             'tasks' => $assigned->through(fn (Task $task): array => $this->taskData($project, $task)),

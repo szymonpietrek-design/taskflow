@@ -29,12 +29,14 @@ final class PublishReleaseChangelog
             if ($changelog === null || trim($changelog->draft_body ?? '') === '') {
                 throw new InvalidArgumentException('Save a non-empty changelog draft before publishing.');
             }
-            if ($changelog->published_body === $changelog->draft_body) {
+            if ($changelog->published_body === $changelog->draft_body
+                && $changelog->published_locale === $changelog->draft_locale) {
                 throw new InvalidArgumentException('The published changelog is already up to date.');
             }
 
             $changelog->fill([
                 'published_body' => $changelog->draft_body,
+                'published_locale' => $changelog->draft_locale,
                 'published_by' => $actor->id,
                 'published_at' => now(),
             ])->save();

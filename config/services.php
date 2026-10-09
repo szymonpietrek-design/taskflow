@@ -14,6 +14,14 @@ return [
     |
     */
 
+    'ai_chat' => [
+        'provider' => env('AI_CHAT_PROVIDER', 'deepseek'),
+        'api_key' => env('DEEPSEEK_API_KEY'),
+        'base_url' => env('DEEPSEEK_BASE_URL', 'https://api.deepseek.com/v1'),
+        'model' => env('DEEPSEEK_CHAT_MODEL', 'deepseek-chat'),
+        'max_tokens' => (int) env('DEEPSEEK_MAX_COMPLETION_TOKENS', 2000),
+    ],
+
     'postmark' => [
         'key' => env('POSTMARK_API_KEY'),
     ],
