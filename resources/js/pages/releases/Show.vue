@@ -63,6 +63,7 @@ const props = defineProps<{
     task_count: number;
     available_tasks: ReleaseTask[];
     available_count: number;
+    completed_available_count: number;
     task_search: string;
 }>();
 
@@ -359,6 +360,18 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
         <Card v-if="can_manage_tasks">
             <CardHeader><CardTitle>Add existing task</CardTitle></CardHeader>
             <CardContent class="space-y-4">
+                <div v-if="completed_available_count > 0" class="flex flex-col gap-3 rounded-md border p-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div class="space-y-1">
+                        <p class="text-sm font-medium">{{ completed_available_count }} completed {{ completed_available_count === 1 ? 'task' : 'tasks' }} ready to add</p>
+                        <p class="text-xs text-muted-foreground">Only unassigned Done tasks are included. You can remove them individually.</p>
+                    </div>
+                    <Form :action="`${releaseUrl}/tasks/completed`" method="post" :options="stayOnRelease" @error="notifyFormError" v-slot="{ errors, processing }" class="shrink-0 space-y-1">
+                        <Button type="submit" :disabled="processing" class="w-full sm:w-auto">
+                            <LoaderCircle v-if="processing" class="size-4 animate-spin" /><Plus v-else class="size-4" /> {{ processing ? 'Adding…' : 'Add all completed' }}
+                        </Button>
+                        <InputError :message="errors.release" />
+                    </Form>
+                </div>
                 <Form :action="releaseUrl" method="get" :options="stayOnSearch" class="flex flex-wrap gap-2" v-slot="{ processing }">
                     <Input name="q" type="search" :default-value="task_search" :placeholder="`Search title or ${project.key}-12`" class="min-w-48 flex-1" />
                     <Button type="submit" variant="outline" :disabled="processing"><LoaderCircle v-if="processing" class="size-4 animate-spin" /> {{ processing ? 'Searching…' : 'Search' }}</Button>

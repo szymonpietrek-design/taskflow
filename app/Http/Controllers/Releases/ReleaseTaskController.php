@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Releases;
 
 use App\Actions\Releases\SetTaskRelease;
+use App\Actions\Releases\AttachCompletedTasks;
 use App\Enums\ProjectType;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Releases\AttachReleaseTaskRequest;
@@ -34,6 +35,29 @@ class ReleaseTaskController extends Controller
         }
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Task added to release.')]);
+
+        return to_route('releases.show', [$project, $release]);
+    }
+
+    public function attachCompleted(
+        Request $request,
+        Project $project,
+        Release $release,
+        AttachCompletedTasks $attachCompletedTasks,
+    ): RedirectResponse {
+        $this->checkRelease($request, $project, $release);
+
+        try {
+            $count = $attachCompletedTasks->handle($request->user(), $release);
+        } catch (InvalidArgumentException $exception) {
+            throw ValidationException::withMessages(['release' => $exception->getMessage()]);
+        }
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => $count === 0 ? __('No completed tasks to add.')
+                : __('Added :count completed tasks to release.', ['count' => $count]),
+        ]);
 
         return to_route('releases.show', [$project, $release]);
     }

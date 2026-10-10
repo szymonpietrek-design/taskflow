@@ -31,6 +31,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('projects/{project}/releases/{release}/changelog/generate', GenerateReleaseChangelogController::class)->name('releases.changelog.generate');
     Route::post('projects/{project}/releases/{release}/changelog/publish', [ReleaseChangelogController::class, 'publish'])->name('releases.changelog.publish');
     Route::post('projects/{project}/releases/{release}/tasks', [ReleaseTaskController::class, 'store'])->name('releases.tasks.store');
+    Route::post('projects/{project}/releases/{release}/tasks/completed', [ReleaseTaskController::class, 'attachCompleted'])->name('releases.tasks.attach-completed');
     Route::delete('projects/{project}/releases/{release}/tasks/{task}', [ReleaseTaskController::class, 'destroy'])->name('releases.tasks.destroy');
 
     Route::get('projects/{project}/statuses', [TaskStatusController::class, 'index'])->name('projects.statuses.index');

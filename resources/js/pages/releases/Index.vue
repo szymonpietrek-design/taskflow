@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { Form, Head, Link } from '@inertiajs/vue3';
+import { ref } from 'vue';
 import { ArrowLeft, CalendarDays, Package, Plus } from '@lucide/vue';
 import InputError from '@/components/InputError.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -22,6 +24,7 @@ type Release = {
 const props = defineProps<{
     project: { id: number; name: string; key: string };
     can_create: boolean;
+    completed_available_count: number;
     releases: {
         data: Release[];
         total: number;
@@ -33,6 +36,7 @@ const props = defineProps<{
 }>();
 
 const baseUrl = `/projects/${props.project.id}/releases`;
+const includeCompleted = ref(true);
 
 defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }] } });
 </script>
@@ -129,6 +133,15 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
                             <Input id="release-date" name="planned_for" type="date" />
                             <InputError :message="errors.planned_for" />
                         </div>
+                        <div class="flex items-start gap-3 rounded-md border p-3">
+                            <Checkbox id="include-completed" v-model="includeCompleted" class="mt-0.5" />
+                            <input type="hidden" name="include_completed_tasks" :value="includeCompleted ? '1' : '0'" />
+                            <label for="include-completed" class="cursor-pointer space-y-1 text-sm">
+                                <span class="block font-medium">Include completed tasks</span>
+                                <span class="block text-muted-foreground">Attach {{ completed_available_count }} unassigned, completed {{ completed_available_count === 1 ? 'task' : 'tasks' }} to this release. You can remove them later.</span>
+                            </label>
+                        </div>
+                        <InputError :message="errors.include_completed_tasks" />
                         <InputError :message="errors.release" />
                         <Button type="submit" class="w-full" :disabled="processing"><Plus class="size-4" /> Create draft release</Button>
                     </Form>

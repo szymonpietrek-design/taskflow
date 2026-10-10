@@ -41,6 +41,7 @@ class StoreReleaseRequest extends FormRequest
             'name' => ['nullable', 'string', 'max:160'],
             'description' => ['nullable', 'string', 'max:10000'],
             'planned_for' => ['nullable', 'date_format:Y-m-d'],
+            'include_completed_tasks' => ['sometimes', 'boolean'],
         ];
     }
 

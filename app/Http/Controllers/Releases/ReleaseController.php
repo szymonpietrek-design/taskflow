@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Releases;
 
 use App\Actions\Releases\CreateRelease;
+use App\Enums\TaskStatusCategory;
 use App\Enums\ProjectType;
 use App\Enums\ReleaseStatus;
 use App\Models\Task;
@@ -28,6 +29,8 @@ class ReleaseController extends Controller
         $this->authorizeApplication($request, $project);
         $request->session()->put('current_workspace_id', $project->workspace_id);
 
+        $canCreate = $request->user()->can('update', $project) && $project->archived_at === null;
+
         $releases = $project->releases()
             ->orderByDesc('version_major')
             ->orderByDesc('version_minor')
@@ -37,7 +40,13 @@ class ReleaseController extends Controller
 
         return Inertia::render('releases/Index', [
             'project' => $this->projectData($project),
-            'can_create' => $request->user()->can('update', $project) && $project->archived_at === null,
+            'can_create' => $canCreate,
+            'completed_available_count' => $canCreate
+                ? $project->tasks()->whereNull('release_id')->whereNotNull('completed_at')
+                    ->whereHas('status', fn (Builder $query) => $query->where('project_id', $project->id)
+                        ->where('category', TaskStatusCategory::DONE->value))
+                    ->count()
+                : 0,
             'releases' => $releases,
         ]);
     }
@@ -55,6 +64,7 @@ class ReleaseController extends Controller
                 $data['name'] ?? null,
                 $data['description'] ?? null,
                 isset($data['planned_for']) ? CarbonImmutable::createFromFormat('!Y-m-d', $data['planned_for']) : null,
+                $request->boolean('include_completed_tasks'),
             );
         } catch (InvalidArgumentException $exception) {
             throw ValidationException::withMessages(['release' => $exception->getMessage()]);
@@ -84,6 +94,7 @@ class ReleaseController extends Controller
             ->paginate(15, ['*'], 'tasks_page')->withQueryString();
         $available = collect();
         $availableCount = 0;
+        $completedAvailableCount = 0;
         if ($canManage) {
             $query = $project->tasks()->with('status')->whereNull('release_id');
             if ($search !== '') {
@@ -97,6 +108,10 @@ class ReleaseController extends Controller
                     }
                 });
             }
+            $completedAvailableCount = $project->tasks()->whereNull('release_id')->whereNotNull('completed_at')
+                ->whereHas('status', fn (Builder $builder) => $builder
+                    ->where('project_id', $project->id)
+                    ->where('category', TaskStatusCategory::DONE->value))->count();
             $availableCount = (clone $query)->count();
             $available = $query->orderByDesc('number')->limit(30)->get();
         }
@@ -133,6 +148,7 @@ class ReleaseController extends Controller
             'task_count' => $release->tasks()->count(),
             'available_tasks' => $available->map(fn (Task $task): array => $this->taskData($project, $task))->all(),
             'available_count' => $availableCount,
+            'completed_available_count' => $completedAvailableCount,
             'task_search' => $search,
         ]);
     }
