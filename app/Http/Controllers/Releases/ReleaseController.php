@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Releases;
 
 use App\Actions\Releases\CreateRelease;
 use App\Enums\TaskStatusCategory;
+use App\Support\Releases\ReleaseProgress;
 use App\Enums\ProjectType;
 use App\Enums\ReleaseStatus;
 use App\Models\Task;
@@ -76,7 +77,7 @@ class ReleaseController extends Controller
         return to_route('releases.show', [$project, $release]);
     }
 
-    public function show(Request $request, Project $project, Release $release): Response
+    public function show(Request $request, Project $project, Release $release, ReleaseProgress $releaseProgress): Response
     {
         $this->authorizeApplication($request, $project);
         abort_unless($release->project_id === $project->id, 404);
@@ -89,6 +90,8 @@ class ReleaseController extends Controller
         if (mb_strlen($search) > 80) {
             $search = mb_substr($search, 0, 80);
         }
+
+        $progress = $releaseProgress->forRelease($release);
 
         $assigned = $release->tasks()->with('status')->orderByDesc('number')
             ->paginate(15, ['*'], 'tasks_page')->withQueryString();
@@ -145,7 +148,8 @@ class ReleaseController extends Controller
             ],
             'can_manage_tasks' => $canManage,
             'tasks' => $assigned->through(fn (Task $task): array => $this->taskData($project, $task)),
-            'task_count' => $release->tasks()->count(),
+            'task_count' => $progress['total'],
+            'release_progress' => $progress,
             'available_tasks' => $available->map(fn (Task $task): array => $this->taskData($project, $task))->all(),
             'available_count' => $availableCount,
             'completed_available_count' => $completedAvailableCount,

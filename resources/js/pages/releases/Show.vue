@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Form, Head, Link } from '@inertiajs/vue3';
-import { ArrowLeft, CalendarDays, Clock3, FileText, LoaderCircle, Package, Plus, X } from '@lucide/vue';
+import { ArrowLeft, Ban, CalendarDays, CheckCircle2, Circle, CircleDot, Clock3, FileText, LoaderCircle, Package, Plus, X } from '@lucide/vue';
 import type { DateValue } from '@internationalized/date';
 import { DateFormatter, getLocalTimeZone, parseDate, today } from '@internationalized/date';
 import { Badge } from '@/components/ui/badge';
@@ -44,6 +44,16 @@ type Changelog = {
 
 type ReleaseTask = { id: number; reference: string; title: string; status: string; completed: boolean };
 
+type ReleaseProgress = {
+    total: number;
+    completed: number;
+    todo: number;
+    in_progress: number;
+    done: number;
+    canceled: number;
+    percentage: number;
+};
+
 const props = defineProps<{
     project: { id: number; name: string; key: string };
     release: Release;
@@ -61,6 +71,7 @@ const props = defineProps<{
         next_page_url: string | null;
     };
     task_count: number;
+    release_progress: ReleaseProgress;
     available_tasks: ReleaseTask[];
     available_count: number;
     completed_available_count: number;
@@ -118,6 +129,8 @@ const languageLabel = (code: string | null) => {
 };
 watch(() => props.changelog.draft_body, (body) => { draftBody.value = body; });
 
+const remainingTasks = computed(() => Math.max(0, props.release_progress.total - props.release_progress.completed));
+
 const releaseUrl = `/projects/${props.project.id}/releases/${props.release.id}`;
 
 // Inertia <Form> already sends asynchronous requests. Preserve the scroll position
@@ -163,84 +176,119 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
             </Card>
         </div>
         <Card>
-            <CardHeader>
-                <CardTitle>Release lifecycle</CardTitle>
+            <CardHeader class="pb-3">
+                <CardTitle>Release progress</CardTitle>
             </CardHeader>
             <CardContent class="space-y-5">
-                <p v-if="release.status === 'released'" class="text-sm text-muted-foreground">
-                    This release has been published and is now locked. Its tasks cannot be reassigned.
-                </p>
-                <p v-else-if="release.status === 'canceled'" class="text-sm text-muted-foreground">
-                    This release was canceled and is now locked.
-                </p>
-                <p v-else-if="!can_manage_release" class="text-sm text-muted-foreground">
-                    Only project managers can change the release status.
-                </p>
-                <template v-else>
+                <div class="flex flex-wrap items-baseline justify-between gap-2">
                     <p class="text-sm text-muted-foreground">
-                        <template v-if="release.status === 'draft'">Plan this draft or cancel it. Planning does not publish the release.</template>
-                        <template v-else>Publish this planned release or cancel it. Both actions are final.</template>
+                        {{ release_progress.completed }} of {{ release_progress.total }}
+                        {{ release_progress.total === 1 ? 'task' : 'tasks' }} completed
                     </p>
-                    <div class="flex flex-col gap-3 sm:flex-row sm:items-end">
-                        <Form v-if="release.status === 'draft'" :action="`${releaseUrl}/status`" method="patch" :options="stayOnRelease" @error="notifyFormError" class="flex flex-col gap-3 sm:flex-row sm:items-end" v-slot="{ errors, processing }">
-                            <input type="hidden" name="status" value="2" />
-                            <div class="w-full space-y-1.5 sm:w-64">
-                                <label for="release-planned-date" class="block text-sm font-medium">Planned date (optional)</label>
-                                <input type="hidden" name="planned_for" :value="plannedDate?.toString() ?? ''" />
-                                <Popover v-slot="{ close }">
-                                    <PopoverTrigger as-child>
-                                        <Button
-                                            id="release-planned-date"
-                                            type="button"
-                                            variant="outline"
-                                            class="w-full justify-between text-left font-normal"
-                                            :class="!plannedDate && 'text-muted-foreground'"
-                                        >
-                                            <span>{{ plannedDate ? plannedDateFormatter.format(plannedDate.toDate(getLocalTimeZone())) : 'Select a date' }}</span>
-                                            <CalendarDays class="size-4 shrink-0 opacity-70" />
-                                        </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent align="start" class="w-auto p-0">
-                                        <Calendar
-                                            v-model="plannedDate"
-                                            :default-placeholder="today(getLocalTimeZone())"
-                                            layout="month-and-year"
-                                            initial-focus
-                                            @update:model-value="close"
-                                        />
-                                        <div class="border-t p-2">
-                                            <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="sm"
-                                                class="w-full"
-                                                :disabled="!plannedDate"
-                                                @click="plannedDate = undefined; close()"
-                                            >
-                                                Clear date
-                                            </Button>
-                                        </div>
-                                    </PopoverContent>
-                                </Popover>
-                                <InputError :message="errors.planned_for" />
-                            </div>
-                            <div class="space-y-1.5">
-                                <Button type="submit" class="w-full sm:w-auto" :disabled="processing"><LoaderCircle v-if="processing" class="size-4 animate-spin" /><CalendarDays v-else class="size-4" /> {{ processing ? 'Planning…' : 'Mark as planned' }}</Button>
-                                <InputError :message="errors.status" />
-                            </div>
-                        </Form>
-                        <Form v-if="release.status === 'planned'" :action="`${releaseUrl}/status`" method="patch" :options="stayOnRelease" @error="notifyFormError" class="space-y-1.5" v-slot="{ errors, processing }">
-                            <input type="hidden" name="status" value="3" />
-                            <Button type="submit" class="w-full sm:w-auto" :disabled="processing" @click="confirmFinalAction($event, 'Publish this release? You will not be able to change its status or task assignments.')"><LoaderCircle v-if="processing" class="size-4 animate-spin" /><Package v-else class="size-4" /> {{ processing ? 'Publishing…' : 'Publish release' }}</Button>
-                            <InputError :message="errors.status" />
-                        </Form>
-                        <Form :action="`${releaseUrl}/status`" method="patch" :options="stayOnRelease" @error="notifyFormError" class="space-y-1.5" v-slot="{ errors, processing }">
-                            <input type="hidden" name="status" value="4" />
-                            <Button type="submit" variant="outline" class="w-full sm:w-auto" :disabled="processing" @click="confirmFinalAction($event, 'Cancel this release? This cannot be undone.')"><LoaderCircle v-if="processing" class="size-4 animate-spin" /><X v-else class="size-4" /> {{ processing ? 'Canceling…' : 'Cancel release' }}</Button>
-                            <InputError :message="errors.status" />
-                        </Form>
+                    <span class="text-2xl font-semibold tracking-tight tabular-nums">{{ release_progress.percentage }}%</span>
+                </div>
+                <div
+                    role="progressbar"
+                    aria-label="Release completion"
+                    :aria-valuenow="release_progress.percentage"
+                    aria-valuemin="0"
+                    aria-valuemax="100"
+                    class="h-2 w-full overflow-hidden rounded-full bg-muted"
+                >
+                    <div class="h-full rounded-full bg-primary transition-[width] duration-300" :style="{ width: `${release_progress.percentage}%` }"></div>
+                </div>
+                <div class="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
+                    <span class="inline-flex items-center gap-2"><CheckCircle2 class="size-4 text-muted-foreground" aria-hidden="true" /><span class="font-medium tabular-nums">{{ release_progress.done }}</span> Done</span>
+                    <span class="inline-flex items-center gap-2"><CircleDot class="size-4 text-muted-foreground" aria-hidden="true" /><span class="font-medium tabular-nums">{{ release_progress.in_progress }}</span> In progress</span>
+                    <span class="inline-flex items-center gap-2"><Circle class="size-4 text-muted-foreground" aria-hidden="true" /><span class="font-medium tabular-nums">{{ release_progress.todo }}</span> Todo</span>
+                    <span v-if="release_progress.canceled > 0" class="inline-flex items-center gap-2"><Ban class="size-4 text-muted-foreground" aria-hidden="true" /><span class="font-medium tabular-nums">{{ release_progress.canceled }}</span> Canceled</span>
+                </div>
+                <p v-if="release_progress.total === 0" class="text-xs text-muted-foreground">Assign tasks to this release to track its progress.</p>
+                <p v-else-if="release_progress.done > release_progress.completed" class="text-xs text-muted-foreground">Some tasks marked Done do not have a completion date and are not counted as completed.</p>
+
+                <div class="space-y-4 border-t pt-5">
+                    <div class="space-y-1.5">
+                        <h3 class="text-sm font-semibold">Release lifecycle</h3>
+                        <p v-if="release.status === 'released'" class="text-sm text-muted-foreground">
+                            This release has been published and is now locked. Its tasks cannot be reassigned.
+                        </p>
+                        <p v-else-if="release.status === 'canceled'" class="text-sm text-muted-foreground">
+                            This release was canceled and is now locked.
+                        </p>
+                        <p v-else-if="!can_manage_release" class="text-sm text-muted-foreground">
+                            Only project managers can change the release status.
+                        </p>
+                        <template v-else>
+                            <p v-if="release.status === 'draft'" class="text-sm text-muted-foreground">Plan this draft or cancel it. Planning does not publish the release.</p>
+                            <p v-else class="text-sm text-muted-foreground">Publish this planned release or cancel it. Both actions are final.</p>
+                            <p v-if="release_progress.total > 0 && remainingTasks > 0" class="text-xs text-muted-foreground">
+                                {{ remainingTasks }} {{ remainingTasks === 1 ? 'task remains' : 'tasks remain' }} to be completed.
+                            </p>
+                            <p v-else-if="release_progress.total > 0" class="text-xs text-muted-foreground">All included tasks are completed.</p>
+                        </template>
                     </div>
-                </template>
+                    <template v-if="can_manage_release && (release.status === 'draft' || release.status === 'planned')">
+                        <div class="flex flex-col gap-3 sm:flex-row sm:items-end">
+                            <Form v-if="release.status === 'draft'" :action="`${releaseUrl}/status`" method="patch" :options="stayOnRelease" @error="notifyFormError" class="flex flex-col gap-3 sm:flex-row sm:items-end" v-slot="{ errors, processing }">
+                                <input type="hidden" name="status" value="2" />
+                                <div class="w-full space-y-1.5 sm:w-64">
+                                    <label for="release-planned-date" class="block text-sm font-medium">Planned date (optional)</label>
+                                    <input type="hidden" name="planned_for" :value="plannedDate?.toString() ?? ''" />
+                                    <Popover v-slot="{ close }">
+                                        <PopoverTrigger as-child>
+                                            <Button
+                                                id="release-planned-date"
+                                                type="button"
+                                                variant="outline"
+                                                class="w-full justify-between text-left font-normal"
+                                                :class="!plannedDate && 'text-muted-foreground'"
+                                            >
+                                                <span>{{ plannedDate ? plannedDateFormatter.format(plannedDate.toDate(getLocalTimeZone())) : 'Select a date' }}</span>
+                                                <CalendarDays class="size-4 shrink-0 opacity-70" />
+                                            </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent align="start" class="w-auto p-0">
+                                            <Calendar
+                                                v-model="plannedDate"
+                                                :default-placeholder="today(getLocalTimeZone())"
+                                                layout="month-and-year"
+                                                initial-focus
+                                                @update:model-value="close"
+                                            />
+                                            <div class="border-t p-2">
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    class="w-full"
+                                                    :disabled="!plannedDate"
+                                                    @click="plannedDate = undefined; close()"
+                                                >
+                                                    Clear date
+                                                </Button>
+                                            </div>
+                                        </PopoverContent>
+                                    </Popover>
+                                    <InputError :message="errors.planned_for" />
+                                </div>
+                                <div class="space-y-1.5">
+                                    <Button type="submit" class="w-full sm:w-auto" :disabled="processing"><LoaderCircle v-if="processing" class="size-4 animate-spin" /><CalendarDays v-else class="size-4" /> {{ processing ? 'Planning…' : 'Mark as planned' }}</Button>
+                                    <InputError :message="errors.status" />
+                                </div>
+                            </Form>
+                            <Form v-if="release.status === 'planned'" :action="`${releaseUrl}/status`" method="patch" :options="stayOnRelease" @error="notifyFormError" class="space-y-1.5" v-slot="{ errors, processing }">
+                                <input type="hidden" name="status" value="3" />
+                                <Button type="submit" class="w-full sm:w-auto" :disabled="processing" @click="confirmFinalAction($event, 'Publish this release? You will not be able to change its status or task assignments.')"><LoaderCircle v-if="processing" class="size-4 animate-spin" /><Package v-else class="size-4" /> {{ processing ? 'Publishing…' : 'Publish release' }}</Button>
+                                <InputError :message="errors.status" />
+                            </Form>
+                            <Form :action="`${releaseUrl}/status`" method="patch" :options="stayOnRelease" @error="notifyFormError" class="space-y-1.5" v-slot="{ errors, processing }">
+                                <input type="hidden" name="status" value="4" />
+                                <Button type="submit" variant="outline" class="w-full sm:w-auto" :disabled="processing" @click="confirmFinalAction($event, 'Cancel this release? This cannot be undone.')"><LoaderCircle v-if="processing" class="size-4 animate-spin" /><X v-else class="size-4" /> {{ processing ? 'Canceling…' : 'Cancel release' }}</Button>
+                                <InputError :message="errors.status" />
+                            </Form>
+                        </div>
+                    </template>
+                </div>
             </CardContent>
         </Card>
         <Card>
