@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Form, Head, Link } from '@inertiajs/vue3';
-import { ArrowLeft, Ban, CalendarDays, CheckCircle2, Circle, CircleDot, Clock3, FileText, LoaderCircle, Package, Plus, X } from '@lucide/vue';
+import { AlertTriangle, ArrowLeft, Ban, CalendarDays, CheckCircle2, Circle, CircleDot, Clock3, FileText, LoaderCircle, Package, Plus, X } from '@lucide/vue';
 import type { DateValue } from '@internationalized/date';
 import { DateFormatter, getLocalTimeZone, parseDate, today } from '@internationalized/date';
 import { Badge } from '@/components/ui/badge';
@@ -44,6 +44,8 @@ type Changelog = {
 
 type ReleaseTask = { id: number; reference: string; title: string; status: string; completed: boolean };
 
+type ReleaseBlocker = { id: number; reference: string; title: string; status: string; missing_completion_date: boolean };
+
 type ReleaseProgress = {
     total: number;
     completed: number;
@@ -72,6 +74,7 @@ const props = defineProps<{
     };
     task_count: number;
     release_progress: ReleaseProgress;
+    release_blockers: ReleaseBlocker[];
     available_tasks: ReleaseTask[];
     available_count: number;
     completed_available_count: number;
@@ -206,6 +209,31 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
                 <p v-if="release_progress.total === 0" class="text-xs text-muted-foreground">Assign tasks to this release to track its progress.</p>
                 <p v-else-if="release_progress.done > release_progress.completed" class="text-xs text-muted-foreground">Some tasks marked Done do not have a completion date and are not counted as completed.</p>
 
+                <div v-if="release.status === 'planned' && remainingTasks > 0" class="space-y-3 rounded-md border border-border bg-muted/30 p-3 sm:p-4" role="status">
+                    <div class="flex items-start gap-2.5">
+                        <AlertTriangle class="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                        <div class="min-w-0 space-y-1">
+                            <p class="text-sm font-semibold">Release is not ready to publish</p>
+                            <p class="text-xs text-muted-foreground">
+                                {{ remainingTasks }} {{ remainingTasks === 1 ? 'task needs' : 'tasks need' }} attention. Complete or remove
+                                {{ remainingTasks === 1 ? 'it' : 'them' }} before publishing.
+                            </p>
+                        </div>
+                    </div>
+                    <ul v-if="release_blockers.length" class="divide-y divide-border rounded-md border bg-background px-3">
+                        <li v-for="task in release_blockers" :key="task.id" class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-2 text-sm">
+                            <Link :href="`/projects/${project.id}/tasks/${task.id}`" class="min-w-0 break-words font-medium hover:underline">
+                                {{ task.reference }} · {{ task.title }}
+                            </Link>
+                            <span class="text-xs text-muted-foreground">{{ task.missing_completion_date ? 'Done · Missing completion date' : task.status }}</span>
+                        </li>
+                    </ul>
+                    <p v-if="remainingTasks > release_blockers.length" class="text-xs text-muted-foreground">
+                        And {{ remainingTasks - release_blockers.length }} more {{ remainingTasks - release_blockers.length === 1 ? 'task' : 'tasks' }}.
+                        See the included tasks below.
+                    </p>
+                </div>
+
                 <div class="space-y-4 border-t pt-5">
                     <div class="space-y-1.5">
                         <h3 class="text-sm font-semibold">Release lifecycle</h3>
@@ -221,10 +249,8 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
                         <template v-else>
                             <p v-if="release.status === 'draft'" class="text-sm text-muted-foreground">Plan this draft or cancel it. Planning does not publish the release.</p>
                             <p v-else class="text-sm text-muted-foreground">Publish this planned release or cancel it. Both actions are final.</p>
-                            <p v-if="release_progress.total > 0 && remainingTasks > 0" class="text-xs text-muted-foreground">
-                                {{ remainingTasks }} {{ remainingTasks === 1 ? 'task remains' : 'tasks remain' }} to be completed.
-                            </p>
-                            <p v-else-if="release_progress.total > 0" class="text-xs text-muted-foreground">All included tasks are completed.</p>
+                            <p v-if="release.status === 'planned' && release_progress.total === 0" class="text-xs text-muted-foreground">There are no assigned tasks. You can still publish this release.</p>
+                            <p v-else-if="release.status === 'planned' && remainingTasks === 0" class="text-xs text-muted-foreground">All included tasks are completed.</p>
                         </template>
                     </div>
                     <template v-if="can_manage_release && (release.status === 'draft' || release.status === 'planned')">
@@ -278,7 +304,7 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
                             </Form>
                             <Form v-if="release.status === 'planned'" :action="`${releaseUrl}/status`" method="patch" :options="stayOnRelease" @error="notifyFormError" class="space-y-1.5" v-slot="{ errors, processing }">
                                 <input type="hidden" name="status" value="3" />
-                                <Button type="submit" class="w-full sm:w-auto" :disabled="processing" @click="confirmFinalAction($event, 'Publish this release? You will not be able to change its status or task assignments.')"><LoaderCircle v-if="processing" class="size-4 animate-spin" /><Package v-else class="size-4" /> {{ processing ? 'Publishing…' : 'Publish release' }}</Button>
+                                <Button type="submit" class="w-full sm:w-auto" :disabled="processing || remainingTasks > 0" @click="confirmFinalAction($event, 'Publish this release? You will not be able to change its status or task assignments.')"><LoaderCircle v-if="processing" class="size-4 animate-spin" /><Package v-else class="size-4" /> {{ processing ? 'Publishing…' : 'Publish release' }}</Button>
                                 <InputError :message="errors.status" />
                             </Form>
                             <Form :action="`${releaseUrl}/status`" method="patch" :options="stayOnRelease" @error="notifyFormError" class="space-y-1.5" v-slot="{ errors, processing }">

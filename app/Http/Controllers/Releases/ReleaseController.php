@@ -150,6 +150,8 @@ class ReleaseController extends Controller
             'tasks' => $assigned->through(fn (Task $task): array => $this->taskData($project, $task)),
             'task_count' => $progress['total'],
             'release_progress' => $progress,
+            'release_blockers' => $release->status === ReleaseStatus::PLANNED && $progress['completed'] < $progress['total']
+                ? $releaseProgress->blockingTasks($release) : [],
             'available_tasks' => $available->map(fn (Task $task): array => $this->taskData($project, $task))->all(),
             'available_count' => $availableCount,
             'completed_available_count' => $completedAvailableCount,

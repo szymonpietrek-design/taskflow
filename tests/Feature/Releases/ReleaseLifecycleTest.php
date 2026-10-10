@@ -215,12 +215,16 @@ class ReleaseLifecycleTest extends TestCase
     public function test_publishing_release_locks_its_task_membership(): void
     {
         [$owner, $project, $release] = $this->fixtures();
-        $status = TaskStatus::factory()->create(['project_id' => $project->id]);
+        $status = TaskStatus::factory()->create([
+            'project_id' => $project->id,
+            'category' => \App\Enums\TaskStatusCategory::DONE->value,
+        ]);
         $task = Task::factory()->create([
             'project_id' => $project->id,
             'created_by' => $owner->id,
             'status_id' => $status->id,
             'release_id' => $release->id,
+            'completed_at' => now(),
         ]);
         app(ChangeReleaseStatus::class)->handle($owner, $release, ReleaseStatus::PLANNED);
         app(ChangeReleaseStatus::class)->handle($owner, $release->fresh(), ReleaseStatus::RELEASED);

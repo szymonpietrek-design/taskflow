@@ -5,7 +5,9 @@ namespace App\Actions\Releases;
 use App\Enums\ProjectType;
 use App\Enums\ReleaseStatus;
 use App\Models\Release;
+use App\Models\Task;
 use App\Models\User;
+use App\Support\Releases\ReleaseProgress;
 use DateTimeInterface;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -13,6 +15,10 @@ use InvalidArgumentException;
 
 final class ChangeReleaseStatus
 {
+    public function __construct(private readonly ReleaseProgress $releaseProgress)
+    {
+    }
+
     public function handle(
         User $actor,
         Release $release,
@@ -47,6 +53,21 @@ final class ChangeReleaseStatus
             }
 
             if ($target === ReleaseStatus::RELEASED) {
+                // Read and lock assigned tasks before deciding whether to publish.
+                // Task status and membership must not change during the transition.
+                Task::query()->where('project_id', $project->id)
+                    ->where('release_id', $lockedRelease->id)
+                    ->orderBy('id')->lockForUpdate()->pluck('id');
+
+                $progress = $this->releaseProgress->forRelease($lockedRelease);
+                $remaining = $progress['total'] - $progress['completed'];
+
+                if ($remaining > 0) {
+                    throw new InvalidArgumentException(
+                        "Complete or remove {$remaining} unfinished ".($remaining === 1 ? 'task' : 'tasks').' before publishing this release.'
+                    );
+                }
+
                 $values['released_at'] = now();
             }
 
