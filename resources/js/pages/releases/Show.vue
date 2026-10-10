@@ -263,7 +263,7 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
                     <p v-if="changelog.published_locale" class="text-xs text-muted-foreground">Published language: {{ languageLabel(changelog.published_locale) }}</p>
                     <template v-if="changelog.published_html">
                         <p class="text-sm font-medium">Published content</p>
-                        <div class="max-w-none break-words rounded-md border p-4 text-sm [&_a]:underline [&_h1]:text-lg [&_h2]:text-base [&_ul]:list-disc [&_ol]:list-decimal [&_li]:ml-5 [&_p]:mb-2 [&_strong]:font-semibold [&_code]:font-mono" v-html="changelog.published_html"></div>
+                        <div class="release-changelog-preview max-w-none break-words rounded-md border p-4 text-sm [&_a]:underline [&_h1]:text-lg [&_h2]:text-base [&_ul]:list-disc [&_ol]:list-decimal [&_li]:ml-5 [&_p]:mb-2 [&_strong]:font-semibold [&_code]:font-mono" v-html="changelog.published_html"></div>
                     </template>
                     <p v-else class="text-sm text-muted-foreground">No published changelog yet.</p>
                 </div>
@@ -317,7 +317,7 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
                     <div class="space-y-2">
                         <h3 class="text-sm font-semibold">Saved draft preview</h3>
                         <p v-if="changelog.draft_locale" class="text-xs text-muted-foreground">Draft language: {{ languageLabel(changelog.draft_locale) }}</p>
-                        <div v-if="changelog.draft_body.trim()" class="max-w-none break-words rounded-md border bg-muted/20 p-4 text-sm [&_a]:underline [&_h1]:text-lg [&_h2]:text-base [&_ul]:list-disc [&_ol]:list-decimal [&_li]:ml-5 [&_p]:mb-2 [&_strong]:font-semibold [&_code]:font-mono" v-html="changelog.draft_html"></div>
+                        <div v-if="changelog.draft_body.trim()" class="release-changelog-preview max-w-none break-words rounded-md border bg-muted/20 p-4 text-sm [&_a]:underline [&_h1]:text-lg [&_h2]:text-base [&_ul]:list-disc [&_ol]:list-decimal [&_li]:ml-5 [&_p]:mb-2 [&_strong]:font-semibold [&_code]:font-mono" v-html="changelog.draft_html"></div>
                         <p v-else class="text-sm text-muted-foreground">Save some Markdown to see its preview here.</p>
                     </div>
                     <div v-if="release.status === 'released'" class="space-y-2 border-t pt-4">
@@ -409,3 +409,20 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
         </Card>
     </div>
 </template>
+
+<style scoped>
+/* v-html content needs :deep() because Vue does not scope generated Markdown nodes. */
+.release-changelog-preview :deep(h2) {
+    margin-top: 1.5rem;
+    margin-bottom: 0.75rem;
+    font-weight: 600;
+}
+
+.release-changelog-preview :deep(h2:first-child) {
+    margin-top: 0;
+}
+
+.release-changelog-preview :deep(li + li) {
+    margin-top: 0.25rem;
+}
+</style>
