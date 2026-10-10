@@ -9,6 +9,7 @@ use App\Enums\ProjectType;
 use App\Enums\ProjectVisibility;
 use App\Enums\ReleaseStatus;
 use App\Enums\TaskActivityType;
+use App\Enums\TaskStatusCategory;
 use App\Enums\WorkspaceRole;
 use App\Models\Project;
 use App\Models\Release;
@@ -16,6 +17,7 @@ use App\Models\ReleaseChangelog;
 use App\Models\Task;
 use App\Models\TaskActivity;
 use App\Models\TaskMessage;
+use App\Models\TaskStatus;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceMember;
@@ -81,6 +83,103 @@ class GenerateReleaseChangelogTest extends TestCase
         $this->assertStringContainsString('Implement notifications', $context);
         $this->assertStringContainsString('Email notification works.', $context);
         $this->assertStringContainsString('STATUS_CHANGED', $context);
+    }
+
+    public function test_only_completed_tasks_and_their_evidence_are_sent_to_ai(): void
+    {
+        [$owner, $project, $release] = $this->fixtures();
+        $done = $this->task($owner, $project, $release, 'Activity timeline delivered');
+        TaskMessage::factory()->create([
+            'task_id' => $done->id,
+            'user_id' => $owner->id,
+            'body' => 'The activity timeline is now ready.',
+        ]);
+        $pendingStatus = TaskStatus::factory()->create([
+            'project_id' => $project->id,
+            'category' => TaskStatusCategory::IN_PROGRESS,
+        ]);
+        $pending = Task::factory()->create([
+            'project_id' => $project->id,
+            'release_id' => $release->id,
+            'created_by' => $owner->id,
+            'title' => 'Future notifications not shipped',
+            'status_id' => $pendingStatus->id,
+            'completed_at' => null,
+        ]);
+        TaskMessage::factory()->create([
+            'task_id' => $pending->id,
+            'user_id' => $owner->id,
+            'body' => 'The notifications feature might ship next month.',
+        ]);
+        // A stale completion date must never override the current task status.
+        Task::factory()->create([
+            'project_id' => $project->id,
+            'release_id' => $release->id,
+            'created_by' => $owner->id,
+            'title' => 'Reopened ticket',
+            'status_id' => $pendingStatus->id,
+            'completed_at' => now(),
+        ]);
+        // Conversely, a Done status without a completion timestamp is not verified.
+        Task::factory()->create([
+            'project_id' => $project->id,
+            'release_id' => $release->id,
+            'created_by' => $owner->id,
+            'title' => 'Unverified completion',
+            'status_id' => $done->status_id,
+            'completed_at' => null,
+        ]);
+
+        $spy = new class implements ChangelogTextGenerator {
+            public ?string $input = null;
+
+            public function generate(string $context, string $language): string
+            {
+                $this->input = $context;
+
+                return "## Improved\n- A clearer activity timeline";
+            }
+        };
+        $this->app->instance(ChangelogTextGenerator::class, $spy);
+
+        $this->actingAs($owner)->post($this->url($project, $release))
+            ->assertSessionHasNoErrors();
+
+        $this->assertNotNull($spy->input);
+        $source = json_decode($spy->input, true, 512, JSON_THROW_ON_ERROR);
+        $this->assertTrue($source['only_completed_tasks']);
+        $this->assertCount(1, $source['tasks']);
+        $this->assertSame($project->key.'-'.$done->number, $source['tasks'][0]['reference']);
+        $this->assertSame('Activity timeline delivered', $source['tasks'][0]['title']);
+        $this->assertSame('The activity timeline is now ready.', $source['tasks'][0]['messages'][0]['text']);
+        $this->assertStringNotContainsString('Future notifications', $spy->input);
+        $this->assertStringNotContainsString('Reopened ticket', $spy->input);
+        $this->assertStringNotContainsString('Unverified completion', $spy->input);
+    }
+
+    public function test_only_incomplete_tasks_reject_generation_without_overwriting_the_draft(): void
+    {
+        [$owner, $project, $release] = $this->fixtures();
+        $pendingStatus = TaskStatus::factory()->create([
+            'project_id' => $project->id,
+            'category' => TaskStatusCategory::IN_PROGRESS,
+        ]);
+        Task::factory()->create([
+            'project_id' => $project->id,
+            'release_id' => $release->id,
+            'created_by' => $owner->id,
+            'title' => 'Still working',
+            'status_id' => $pendingStatus->id,
+            'completed_at' => null,
+        ]);
+        app(SaveReleaseChangelog::class)->handle($owner, $release, '## Existing draft');
+        $fake = Prism::fake();
+
+        $this->actingAs($owner)->post($this->url($project, $release))
+            ->assertSessionHasErrors(['ai_generation']);
+
+        $fake->assertCallCount(0);
+        $this->assertSame('## Existing draft', ReleaseChangelog::query()->sole()->draft_body);
     }
 
     public function test_requested_language_is_forwarded_and_saved_with_draft(): void
@@ -296,11 +395,18 @@ class GenerateReleaseChangelogTest extends TestCase
 
     private function task(User $user, Project $project, Release $release, string $title = 'Task title'): Task
     {
+        $doneStatus = TaskStatus::factory()->create([
+            'project_id' => $project->id,
+            'category' => TaskStatusCategory::DONE,
+        ]);
+
         return Task::factory()->create([
             'project_id' => $project->id,
             'release_id' => $release->id,
             'created_by' => $user->id,
             'title' => $title,
+            'status_id' => $doneStatus->id,
+            'completed_at' => now(),
         ]);
     }
 

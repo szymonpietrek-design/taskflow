@@ -2,6 +2,7 @@
 
 namespace App\Support\Releases;
 
+use App\Enums\TaskStatusCategory;
 use App\Models\Release;
 use App\Models\Task;
 use InvalidArgumentException;
@@ -12,13 +13,22 @@ final class ReleaseChangelogContext
     /** @throws JsonException */
     public function build(Release $release): string
     {
-        // Fail instead of silently omitting tasks from a large release.
-        $tasks = $release->tasks()->with('status')->orderBy('number')->limit(41)->get();
+        // The model must never receive unfinished or canceled tasks as source
+        // material. A category of Done AND a completion timestamp are required.
+        // Apply the limit after filtering: a release can contain many planned tasks.
+        $tasks = $release->tasks()
+            ->whereNotNull('completed_at')
+            ->whereHas('status', fn ($query) => $query->where('category', TaskStatusCategory::DONE->value))
+            ->with('status')
+            ->orderBy('number')
+            ->limit(41)
+            ->get();
+
         if ($tasks->isEmpty()) {
-            throw new InvalidArgumentException('Assign at least one task to this release before generating a changelog.');
+            throw new InvalidArgumentException('Complete at least one task assigned to this release before generating a changelog.');
         }
         if ($tasks->count() > 40) {
-            throw new InvalidArgumentException('This release has too many tasks for one AI request (maximum 40).');
+            throw new InvalidArgumentException('This release has too many completed tasks for one AI request (maximum 40).');
         }
 
         $items = $tasks->map(function (Task $task) use ($release): array {
@@ -51,8 +61,9 @@ final class ReleaseChangelogContext
             'project' => $release->project->name,
             'project_key' => $release->project->key,
             'release' => $release->version,
+            'release_status' => $release->status->name,
             'release_name' => $release->name,
-            'release_description' => $this->shorten($release->description, 2000),
+            'only_completed_tasks' => true,
             'tasks' => $items,
         ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
