@@ -15,9 +15,11 @@ use App\Models\Project;
 use App\Models\ProjectMember;
 use App\Models\Release;
 use App\Models\ReleaseChangelog;
+use App\Models\Report;
 use App\Models\Task;
 use App\Models\TaskActivity;
 use App\Models\TaskMessage;
+use App\Models\TaskWorklog;
 use App\Models\TaskStatus;
 use App\Models\User;
 use App\Models\Workspace;
@@ -160,7 +162,10 @@ final class DemoSeeder extends Seeder
         }
 
         $appTasks = $this->tasks($application, DemoScenario::applicationTasks(), $statuses[$application->id], $users, $releases, $base);
-        $this->tasks($website, DemoScenario::websiteTasks(), $statuses[$website->id], $users, [], $base);
+        $siteTasks = $this->tasks($website, DemoScenario::websiteTasks(), $statuses[$website->id], $users, [], $base);
+
+        $this->seedWorklogs(['application' => $appTasks, 'website' => $siteTasks], $users, $base);
+        $this->seedReports(['application' => $application, 'website' => $website], $users['owner'], $base);
 
         $messages = [];
         foreach (DemoScenario::messages() as [$number, $day, $minute, $authorKey, $text]) {
@@ -201,6 +206,59 @@ final class DemoSeeder extends Seeder
         ]);
     }
 
+    /**
+     * @param array<string, array<int, Task>> $tasksByProject
+     * @param array<string, User> $users
+     */
+    private function seedWorklogs(array $tasksByProject, array $users, CarbonImmutable $base): void
+    {
+        foreach (DemoScenario::worklogs() as [$project, $number, $day, $minute, $userKey, $duration, $description, $creative]) {
+            $task = $tasksByProject[$project][$number];
+            $user = $users[$userKey];
+            $date = $this->moment($base, $day, 0)->toDateString();
+            $createdAt = $this->moment($base, $day, $minute)->toDateTimeString();
+
+            // Keep the original entry even if someone has edited its date, time or description.
+            // A stable creation timestamp distinguishes multiple entries for the same task/day.
+            if (TaskWorklog::query()->where('task_id', $task->id)->where('created_at', $createdAt)->exists()) {
+                continue;
+            }
+
+            // Do not overbook demo users if they've added real worklogs to this demo since
+            // their last seed run. The limit applies across BOTH demo projects.
+            $logged = (int) TaskWorklog::query()->where('user_id', $user->id)
+                ->whereDate('work_date', $date)->sum('duration_minutes');
+            if ($logged + $duration > 480) {
+                continue;
+            }
+
+            $this->once(TaskWorklog::class, ['task_id' => $task->id, 'created_at' => $createdAt], [
+                'user_id' => $user->id,
+                'work_date' => $date,
+                'duration_minutes' => $duration,
+                'description' => $description,
+                'is_creative' => $creative,
+                'updated_at' => $createdAt,
+            ]);
+        }
+    }
+
+    /** @param array<string, Project> $projects */
+    private function seedReports(array $projects, User $owner, CarbonImmutable $base): void
+    {
+        foreach (DemoScenario::reports() as [$project, $title, $startDay, $endDay, $creationMinute]) {
+            $createdAt = $this->moment($base, 63, $creationMinute)->toDateTimeString();
+            $this->once(Report::class, ['project_id' => $projects[$project]->id, 'created_at' => $createdAt], [
+                'created_by' => $owner->id,
+                'title' => $title,
+                'period_start' => $this->moment($base, $startDay, 0)->toDateString(),
+                'period_end' => $this->moment($base, $endDay, 0)->toDateString(),
+                'sources' => ['tasks', 'messages', 'activity', 'worklogs'],
+                'updated_at' => $createdAt,
+            ]);
+        }
+    }
+
     private function project(Workspace $workspace, User $creator, string $slug, string $name, string $key, ProjectType $type, string $description, CarbonImmutable $when): Project
     {
         /** @var Project $project */
@@ -235,9 +293,13 @@ final class DemoSeeder extends Seeder
         foreach ($specs as $number => $row) {
             $created = $base->addDays($row['day'])->addMinutes(30);
             $completed = $row['status'] === 'done' ? $created->addDays(4) : null;
+            $releaseVersion = $row['release'] ?? null;
+            $demoRelease = ($releaseVersion === null || $releaseVersion === '')
+                ? null
+                : ($releases[$releaseVersion] ?? throw new RuntimeException("Unknown demo release {$releaseVersion} for {$project->key}-{$number}."));
             /** @var Task $task */
             $task = $this->once(Task::class, ['project_id' => $project->id, 'number' => $number], [
-                'release_id' => isset($row['release']) && $row['release'] !== null ? $releases[$row['release']]->id : null,
+                'release_id' => $demoRelease?->id,
                 'parent_id' => null,
                 'title' => $row['title'],
                 'description' => $row['description'],
@@ -266,11 +328,11 @@ final class DemoSeeder extends Seeder
                     'to' => $this->statusSnapshot($statuses['done']),
                 ], $completed);
             }
-            if ($task->release_id !== null) {
-                $release = $releases[$row['release']];
+            // A rerun must not invent demo release history for a manually reassigned task.
+            if ($demoRelease !== null && (int) $task->release_id === $demoRelease->id) {
                 $this->activity($task, $users['owner'], TaskActivityType::RELEASE_CHANGED, [
                     'from' => null,
-                    'to' => ['id' => $release->id, 'version' => $release->version],
+                    'to' => ['id' => $demoRelease->id, 'version' => $demoRelease->version],
                 ], $created->addHours(4));
             }
             if (in_array($number, [6, 8, 10], true) && $project->type === ProjectType::APPLICATION) {

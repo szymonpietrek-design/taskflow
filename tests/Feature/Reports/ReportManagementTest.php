@@ -101,6 +101,64 @@ class ReportManagementTest extends TestCase
                 ->where('source_counts.activity', 1));
     }
 
+    public function test_worklogs_source_uses_work_date_inclusively_and_only_current_project(): void
+    {
+        [$owner, $project] = $this->fixtures();
+        $report = $this->report($project, $owner, ['worklogs']);
+        $other = Project::factory()->create([
+            'workspace_id' => $project->workspace_id, 'created_by' => $owner->id,
+        ]);
+        $status = TaskStatus::factory()->create(['project_id' => $project->id]);
+        $otherStatus = TaskStatus::factory()->create(['project_id' => $other->id]);
+        $task = Task::factory()->create([
+            'project_id' => $project->id, 'created_by' => $owner->id, 'status_id' => $status->id,
+            'created_at' => '2026-09-15 10:00:00',
+        ]);
+        $otherTask = Task::factory()->create([
+            'project_id' => $other->id, 'created_by' => $owner->id, 'status_id' => $otherStatus->id,
+        ]);
+
+        foreach ([
+            ['2026-09-30', 60],
+            ['2026-10-01', 60],
+            ['2026-10-07', 105],
+            ['2026-10-08', 50],
+        ] as [$date, $minutes]) {
+            $task->worklogs()->create([
+                'user_id' => $owner->id, 'work_date' => $date,
+                'duration_minutes' => $minutes, 'description' => null, 'is_creative' => false,
+            ]);
+        }
+        $otherTask->worklogs()->create([
+            'user_id' => $owner->id, 'work_date' => '2026-10-01',
+            'duration_minutes' => 400, 'description' => null, 'is_creative' => false,
+        ]);
+
+        $this->actingAs($owner)->get(route('reports.show', [$project, $report]))
+            ->assertOk()->assertInertia(fn (Assert $page) => $page
+                ->component('reports/Show')
+                ->where('source_counts.worklogs.entries', 2)
+                ->where('source_counts.worklogs.total_minutes', 165)
+                ->where('source_counts.tasks', null)
+                ->where('source_counts.messages', null)
+                ->where('source_counts.activity', null));
+    }
+
+    public function test_report_accepts_four_sources_and_empty_worklogs_show_zero(): void
+    {
+        [$owner, $project] = $this->fixtures();
+        $this->actingAs($owner)->post(route('reports.store', $project), $this->payload([
+            'sources' => ['tasks', 'messages', 'activity', 'worklogs'],
+        ]))->assertSessionHasNoErrors();
+        $report = Report::query()->sole();
+        $this->assertSame(['tasks', 'messages', 'activity', 'worklogs'], $report->sources);
+
+        $this->actingAs($owner)->get(route('reports.show', [$project, $report]))
+            ->assertOk()->assertInertia(fn (Assert $page) => $page
+                ->where('source_counts.worklogs.entries', 0)
+                ->where('source_counts.worklogs.total_minutes', 0));
+    }
+
     public function test_unselected_sources_are_not_queried_for_preview(): void
     {
         [$owner, $project] = $this->fixtures();
@@ -109,7 +167,8 @@ class ReportManagementTest extends TestCase
             ->assertOk()->assertInertia(fn (Assert $page) => $page
                 ->where('source_counts.tasks', 0)
                 ->where('source_counts.messages', null)
-                ->where('source_counts.activity', null));
+                ->where('source_counts.activity', null)
+                ->where('source_counts.worklogs', null));
     }
 
     public function test_workspace_reader_can_view_but_not_create_or_delete_reports(): void

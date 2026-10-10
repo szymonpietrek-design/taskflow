@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, Link, useForm } from '@inertiajs/vue3';
-import { ArrowLeft, ClipboardList, FileText, LoaderCircle, MessageCircle, Activity, Trash2 } from '@lucide/vue';
+import { ArrowLeft, ClipboardList, FileText, LoaderCircle, MessageCircle, Activity, Trash2, Clock3 } from '@lucide/vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,7 +19,7 @@ type Report = {
 const props = defineProps<{
     project: { id: number; name: string; key: string };
     report: Report;
-    source_counts: { tasks: number | null; messages: number | null; activity: number | null };
+    source_counts: { tasks: number | null; messages: number | null; activity: number | null; worklogs: { entries: number; total_minutes: number } | null };
     can_delete: boolean;
 }>();
 const baseUrl = `/projects/${props.project.id}/reports`;
@@ -33,6 +33,11 @@ const selectedSources = [
     { key: 'messages' as const, title: 'Messages', icon: MessageCircle },
     { key: 'activity' as const, title: 'Activity', icon: Activity },
 ].filter((source) => props.report.sources.includes(source.key));
+function durationLabel(minutes: number): string {
+    const hours = Math.floor(minutes / 60);
+    const remaining = minutes % 60;
+    return [hours ? `${hours}h` : '', remaining ? `${remaining}m` : ''].filter(Boolean).join(' ') || '0m';
+}
 defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }] } });
 </script>
 
@@ -53,15 +58,20 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
         <Card>
             <CardHeader><CardTitle class="text-base">Selected sources</CardTitle></CardHeader>
             <CardContent>
-                <div class="grid gap-3 sm:grid-cols-3">
+                <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                     <div v-for="source in selectedSources" :key="source.key" class="rounded-lg border p-4">
                         <div class="flex items-center gap-2 text-sm text-muted-foreground">
                             <component :is="source.icon" class="size-4" /> {{ source.title }}
                         </div>
                         <p class="mt-3 text-2xl font-semibold tabular-nums">{{ source_counts[source.key] ?? 0 }}</p>
                     </div>
+                    <div v-if="report.sources.includes('worklogs')" class="rounded-lg border p-4">
+                        <div class="flex items-center gap-2 text-sm text-muted-foreground"><Clock3 class="size-4" /> Worklogs</div>
+                        <p class="mt-3 text-2xl font-semibold tabular-nums">{{ durationLabel(source_counts.worklogs?.total_minutes ?? 0) }}</p>
+                        <p class="mt-1 text-xs text-muted-foreground">{{ source_counts.worklogs?.entries ?? 0 }} entries</p>
+                    </div>
                 </div>
-                <p class="mt-4 text-xs text-muted-foreground">Live counts for the saved date range. Tasks are counted when created or completed; messages and activity are counted by their creation date. The future AI report will use the selected project sources.</p>
+                <p class="mt-4 text-xs text-muted-foreground">Live totals for this project and saved date range. Tasks are counted when created or completed; messages and activity by creation date; worklogs by work date. The future AI report will use the selected sources.</p>
             </CardContent>
         </Card>
         <Card>

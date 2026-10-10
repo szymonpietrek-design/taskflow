@@ -31,7 +31,7 @@ class StoreReportRequest extends FormRequest
             'title' => ['required', 'string', 'max:160'],
             'period_start' => ['required', 'date_format:Y-m-d'],
             'period_end' => ['required', 'date_format:Y-m-d', 'after_or_equal:period_start'],
-            'sources' => ['required', 'array', 'min:1', 'max:3'],
+            'sources' => ['required', 'array', 'min:1', 'max:4'],
             'sources.*' => ['required', 'string', Rule::in(array_map(static fn (ReportSource $source): string => $source->value, ReportSource::cases())), 'distinct'],
         ];
     }

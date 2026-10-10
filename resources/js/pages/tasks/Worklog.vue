@@ -129,7 +129,7 @@ function removeEntry(entry: TaskWorklogSummary): void {
                     </div>
                     <div class="grid gap-1.5">
                         <Label for="worklog-hours">Hours</Label>
-                        <Input id="worklog-hours" :model-value="form.hours" @update:model-value="(value) => form.hours = Number(value)" type="number" min="0" max="24" step="1" required :disabled="form.processing" />
+                        <Input id="worklog-hours" :model-value="form.hours" @update:model-value="(value) => form.hours = Number(value)" type="number" min="0" max="8" step="1" required :disabled="form.processing" />
                         <InputError :message="form.errors.hours" />
                     </div>
                     <div class="grid gap-1.5">
@@ -138,6 +138,7 @@ function removeEntry(entry: TaskWorklogSummary): void {
                         <InputError :message="form.errors.minutes" />
                     </div>
                 </div>
+                <p class="text-xs text-muted-foreground">Daily limit: 8h per person across all tasks and projects. Existing entries for the selected date count toward the limit.</p>
                 <div class="grid gap-1.5">
                     <Label for="worklog-description">Work performed / outcome <span class="text-xs text-muted-foreground">(optional)</span></Label>
                     <textarea id="worklog-description" v-model="form.description" maxlength="4000" rows="3"

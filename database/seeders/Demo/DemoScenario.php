@@ -49,6 +49,65 @@ final class DemoScenario
     }
 
     /**
+     * Entries: [project, task number, work day, creation minute-of-day, user, minutes, description, creative].
+     * Demo days and worklog timestamps are anchored to the demo workspace creation date.
+     * A person's combined entries across both projects never exceed 480 minutes per day.
+     *
+     * @return array<int, array{string,int,int,int,string,int,string|null,bool}>
+     */
+    public static function worklogs(): array
+    {
+        return [
+            ['application', 7, 35, 740, 'developer', 105, 'Outlined mention and notification rules.', false],
+            ['application', 7, 36, 760, 'developer', 95, 'Implemented the first notification handler.', false],
+            ['website', 3, 36, 900, 'developer', 180, 'Benchmarked editorial images on mobile.', false],
+            ['application', 8, 38, 720, 'owner', 135, 'Defined the CSV report scope and fields.', false],
+            ['application', 8, 39, 780, 'owner', 90, null, false],
+            ['application', 9, 40, 740, 'developer', 165, 'Built a readable activity timeline.', true],
+            ['application', 7, 40, 870, 'developer', 120, null, false],
+            ['website', 3, 40, 930, 'developer', 90, 'Updated responsive image sizes.', false],
+            ['application', 9, 41, 810, 'developer', 120, 'Polished timestamps and author details.', false],
+            ['application', 8, 42, 760, 'owner', 240, 'Prepared report filters and preview layout.', true],
+            ['website', 5, 42, 850, 'reviewer', 150, 'Planned article themes and milestones.', true],
+            ['application', 10, 44, 760, 'developer', 210, 'Profiled the task listing queries.', false],
+            ['application', 7, 44, 810, 'developer', 90, 'Refined mention parsing.', false],
+            ['website', 3, 44, 930, 'developer', 180, null, false],
+            ['website', 5, 47, 840, 'reviewer', 120, 'Reviewed the editorial schedule.', false],
+            ['application', 12, 50, 790, 'owner', 120, 'Reviewed passkey requirements.', false],
+            ['application', 12, 51, 850, 'owner', 180, 'Tested sign-in and recovery flows.', false],
+            ['application', 15, 53, 750, 'reviewer', 170, 'Audited keyboard navigation and labels.', true],
+            ['application', 15, 54, 810, 'reviewer', 210, 'Documented focus and validation improvements.', true],
+            ['application', 16, 55, 800, 'developer', 240, 'Fixed mobile release page layout.', false],
+            ['website', 3, 55, 940, 'developer', 180, 'Tuned image loading and caching.', false],
+            ['website', 5, 56, 850, 'reviewer', 180, 'Prepared the next campaign content plan.', true],
+            ['application', 15, 57, 790, 'reviewer', 160, 'Retested accessibility changes.', false],
+            ['application', 18, 58, 750, 'developer', 120, 'Outlined the mention preview interaction.', true],
+            ['application', 7, 58, 860, 'developer', 180, 'Completed notification display behavior.', false],
+            ['website', 3, 58, 950, 'developer', 180, null, false],
+            ['website', 5, 59, 860, 'reviewer', 150, null, false],
+            ['application', 18, 60, 780, 'developer', 200, null, false],
+            ['website', 3, 60, 960, 'developer', 220, 'Measured the final image improvements.', false],
+            ['application', 7, 61, 760, 'developer', 150, 'Added regression checks for notification mentions.', false],
+            ['website', 5, 61, 880, 'reviewer', 190, 'Revised the editorial calendar.', true],
+            ['application', 8, 62, 750, 'owner', 90, 'Reviewed the latest report draft.', false],
+            ['website', 3, 62, 890, 'developer', 180, 'Verified lazy loading across page templates.', false],
+        ];
+    }
+
+    /**
+     * Entries: [project, title, start day, end day, creation minute-of-day].
+     * @return array<int, array{string,string,int,int,int}>
+     */
+    public static function reports(): array
+    {
+        return [
+            ['application', 'Northstar · Last 4 weeks', 35, 62, 800],
+            ['application', 'Northstar · Recent development week', 56, 62, 820],
+            ['website', 'Studio Website · Last 4 weeks', 35, 62, 840],
+        ];
+    }
+
+    /**
      * Entries: [task number, day, minute-of-day, author key, message].
      * Multilingual material is intentional for testing AI-generated release notes.
      *

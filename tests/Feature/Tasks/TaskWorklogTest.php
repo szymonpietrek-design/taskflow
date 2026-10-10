@@ -181,10 +181,66 @@ class TaskWorklogTest extends TestCase
 
         $this->actingAs($owner)->post($url, $this->entry('2026-05-12', 0, 1, 'One minute'))
             ->assertSessionHasNoErrors();
-        $this->actingAs($owner)->post($url, $this->entry('2026-05-12', 24, 0, 'Full day'))
+        $this->actingAs($owner)->post($url, $this->entry('2026-05-13', 8, 0, 'Full working day'))
             ->assertSessionHasNoErrors();
+        $this->actingAs($owner)->post($url, $this->entry('2026-05-14', 8, 1, 'Too long'))
+            ->assertSessionHasErrors('hours');
 
-        $this->assertSame(1441, (int) $task->worklogs()->sum('duration_minutes'));
+        $this->assertSame(481, (int) $task->worklogs()->sum('duration_minutes'));
+    }
+
+    public function test_daily_limit_is_shared_across_tasks_and_projects_but_not_users(): void
+    {
+        [$project, $owner, $task] = $this->taskWithOwner();
+        $secondTask = app(CreateTask::class)->handle($owner, $project, 'Second task');
+        $otherProject = app(CreateProject::class)->handle($owner, $project->workspace, 'Second project', 'SECOND');
+        $otherTask = app(CreateTask::class)->handle($owner, $otherProject, 'Third task');
+        $date = '2026-05-12';
+
+        $this->actingAs($owner)->post(route('tasks.worklogs.store', [$project, $task]),
+            $this->entry($date, 3, 0, 'Task one'))->assertSessionHasNoErrors();
+        $this->actingAs($owner)->post(route('tasks.worklogs.store', [$project, $secondTask]),
+            $this->entry($date, 4, 30, 'Task two'))->assertSessionHasNoErrors();
+        $this->actingAs($owner)->post(route('tasks.worklogs.store', [$otherProject, $otherTask]),
+            $this->entry($date, 0, 30, 'Project two'))->assertSessionHasNoErrors();
+        $this->actingAs($owner)->post(route('tasks.worklogs.store', [$project, $task]),
+            $this->entry($date, 0, 1, 'Exceeds daily limit'))->assertSessionHasErrors('hours');
+        $this->actingAs($owner)->post(route('tasks.worklogs.store', [$project, $task]),
+            $this->entry('2026-05-13', 2, 0, 'Next day'))->assertSessionHasNoErrors();
+
+        $contributor = $this->projectContributor($project);
+        $this->actingAs($contributor)->post(route('tasks.worklogs.store', [$project, $task]),
+            $this->entry($date, 8, 0, 'Independent limit'))->assertSessionHasNoErrors();
+
+        $this->assertSame(3, $task->worklogs()->count());
+        $this->assertSame(480, (int) $task->worklogs()->where('user_id', $contributor->id)->sum('duration_minutes'));
+        $this->assertSame(480, (int) \App\Models\TaskWorklog::query()
+            ->where('user_id', $owner->id)->whereDate('work_date', $date)->sum('duration_minutes'));
+    }
+
+    public function test_edit_excludes_original_entry_but_validates_new_date_and_duration(): void
+    {
+        [$project, $owner, $task] = $this->taskWithOwner();
+        $url = route('tasks.worklogs.store', [$project, $task]);
+        $this->actingAs($owner)->post($url, $this->entry('2026-05-12', 5, 0, 'Main entry'))
+            ->assertSessionHasNoErrors();
+        $main = $task->worklogs()->sole();
+        $this->actingAs($owner)->post($url, $this->entry('2026-05-12', 3, 0, 'Other entry'))
+            ->assertSessionHasNoErrors();
+        $update = route('tasks.worklogs.update', [$project, $task, $main]);
+
+        $this->actingAs($owner)->patch($update, $this->entry('2026-05-12', 5, 0, 'Edit description'))
+            ->assertSessionHasNoErrors();
+        $this->actingAs($owner)->patch($update, $this->entry('2026-05-12', 5, 1, 'Too much'))
+            ->assertSessionHasErrors('hours');
+        $this->assertSame(300, $main->fresh()->duration_minutes);
+        $this->assertSame('Edit description', $main->fresh()->description);
+
+        $this->actingAs($owner)->patch($update, $this->entry('2026-05-13', 8, 0, 'Move entry'))
+            ->assertSessionHasNoErrors();
+        $this->assertSame('2026-05-13', $main->fresh()->work_date->toDateString());
+        $this->actingAs($owner)->post($url, $this->entry('2026-05-13', 0, 1, 'No room'))
+            ->assertSessionHasErrors('hours');
     }
 
     public function test_contributor_can_log_work_but_can_only_edit_and_delete_their_own_entries(): void

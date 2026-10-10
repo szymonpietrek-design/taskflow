@@ -46,7 +46,7 @@ class SaveTaskWorklogRequest extends FormRequest
             'work_date' => ['required', 'date_format:Y-m-d'],
             // The browser submits its local timezone so that 'today' agrees with the date picker.
             'timezone' => ['sometimes', 'required', 'timezone'],
-            'hours' => ['required', 'integer', 'between:0,24'],
+            'hours' => ['required', 'integer', 'between:0,8'],
             'minutes' => ['required', 'integer', 'between:0,59'],
             'description' => ['nullable', 'string', 'max:4000'],
             'is_creative' => ['sometimes', 'boolean'],
@@ -68,8 +68,8 @@ class SaveTaskWorklogRequest extends FormRequest
             }
 
             $minutes = (int) $this->input('hours') * 60 + (int) $this->input('minutes');
-            if ($minutes < 1 || $minutes > 1440) {
-                $validator->errors()->add('hours', 'Log between 1 minute and 24 hours per entry.');
+            if ($minutes < 1 || $minutes > 480) {
+                $validator->errors()->add('hours', 'Log between 1 minute and 8 hours per entry.');
             }
         });
     }

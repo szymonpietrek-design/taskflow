@@ -43,8 +43,10 @@ const sources = [
     { value: 'tasks', title: 'Tasks', description: 'Created or completed in this period' },
     { value: 'messages', title: 'Messages', description: 'Task discussions posted in this period' },
     { value: 'activity', title: 'Activity', description: 'Changes recorded in this period' },
+    { value: 'worklogs', title: 'Worklogs', description: 'Time logged on project tasks during this period' },
 ];
-const selected = shallowRef<string[]>(['tasks', 'messages', 'activity']);
+const selected = shallowRef<string[]>(['tasks', 'messages', 'activity', 'worklogs']);
+const sourceLabels: Record<string, string> = { tasks: 'Tasks', messages: 'Messages', activity: 'Activity', worklogs: 'Worklogs' };
 const validPeriod = computed(() => Boolean(start.value && end.value && start.value.toString() <= end.value.toString()));
 function changeSource(value: string, checked: boolean) {
     selected.value = checked ? [...selected.value, value] : selected.value.filter((source) => source !== value);
@@ -92,7 +94,7 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
                                 <div class="flex flex-wrap gap-2 text-xs text-muted-foreground">
                                     <span>{{ report.period_start }} – {{ report.period_end }}</span>
                                     <span>·</span>
-                                    <span>{{ report.sources.map((s) => s === 'activity' ? 'Activity' : s === 'messages' ? 'Messages' : 'Tasks').join(', ') }}</span>
+                                    <span>{{ report.sources.map((s) => sourceLabels[s] ?? s).join(', ') }}</span>
                                 </div>
                                 <p v-if="report.created_by" class="text-xs text-muted-foreground">By {{ report.created_by }}</p>
                             </CardContent>
