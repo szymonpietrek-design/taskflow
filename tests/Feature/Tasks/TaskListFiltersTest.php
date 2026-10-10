@@ -111,6 +111,47 @@ class TaskListFiltersTest extends TestCase
                 ->where('tasks.2.title', 'Undated'));
     }
 
+    public function test_task_list_includes_aggregated_worklogs_for_each_task_without_leaking_other_projects(): void
+    {
+        [$project, $owner] = $this->projectWithOwner();
+        [$otherProject, $otherOwner] = $this->projectWithOwner('OTHER');
+        $first = app(CreateTask::class)->handle($owner, $project, 'With time');
+        $empty = app(CreateTask::class)->handle($owner, $project, 'Without time');
+        $foreign = app(CreateTask::class)->handle($otherOwner, $otherProject, 'Foreign time');
+
+        $first->worklogs()->create([
+            'user_id' => $owner->id, 'work_date' => '2026-05-10',
+            'duration_minutes' => 90, 'description' => null, 'is_creative' => false,
+        ]);
+        $first->worklogs()->create([
+            'user_id' => $owner->id, 'work_date' => '2026-05-11',
+            'duration_minutes' => 45, 'description' => 'Review', 'is_creative' => true,
+        ]);
+        $foreign->worklogs()->create([
+            'user_id' => $otherOwner->id, 'work_date' => '2026-05-11',
+            'duration_minutes' => 480, 'description' => null, 'is_creative' => false,
+        ]);
+
+        $this->actingAs($owner)->get(route('tasks.index', $project))
+            ->assertOk()->assertInertia(fn (Assert $page) => $page
+                ->component('tasks/Index')
+                ->has('tasks', 2)
+                ->where('tasks.0.id', $empty->id)
+                ->where('tasks.0.worklog_total_minutes', 0)
+                ->where('tasks.0.worklog_entries_count', 0)
+                ->where('tasks.1.id', $first->id)
+                ->where('tasks.1.worklog_total_minutes', 135)
+                ->where('tasks.1.worklog_entries_count', 2)
+            );
+
+        $this->actingAs($owner)->get(route('tasks.index', [
+            'project' => $project, 'q' => 'With time',
+        ]))->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->has('tasks', 1)
+            ->where('tasks.0.worklog_total_minutes', 135)
+            ->where('tasks.0.worklog_entries_count', 2));
+    }
+
     public function test_invalid_filters_and_foreign_status_are_rejected(): void
     {
         [$project, $owner] = $this->projectWithOwner();

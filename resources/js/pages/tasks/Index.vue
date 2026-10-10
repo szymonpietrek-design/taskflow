@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Form, Head, Link, router } from '@inertiajs/vue3';
 import { computed, reactive, ref, shallowRef, watch } from 'vue';
-import { ArrowLeft, CalendarDays, CheckCircle2, Circle, ClipboardList, LoaderCircle, Plus, Search, SlidersHorizontal } from '@lucide/vue';
+import { ArrowLeft, CalendarDays, CheckCircle2, Circle, Clock3, ClipboardList, LoaderCircle, Plus, Search, SlidersHorizontal } from '@lucide/vue';
 import type { DateValue } from '@internationalized/date';
 import { DateFormatter, getLocalTimeZone, today } from '@internationalized/date';
 import InputError from '@/components/InputError.vue';
@@ -11,13 +11,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import type { TaskParentSummary, TaskProjectSummary, TaskStatusSummary, TaskSummary, TaskUserSummary } from '@/types/task';
+import type { TaskListSummary, TaskParentSummary, TaskProjectSummary, TaskStatusSummary, TaskUserSummary } from '@/types/task';
 
 const props = defineProps<{
     project: TaskProjectSummary;
-    tasks: TaskSummary[];
+    tasks: TaskListSummary[];
     pagination: {
         current_page: number;
         last_page: number;
@@ -110,6 +111,12 @@ function resetNewTaskFields() {
     newTaskDueDate.value = undefined;
 }
 
+
+function formatWorklogTime(totalMinutes: number): string {
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    return [hours > 0 ? `${hours}h` : '', minutes > 0 ? `${minutes}m` : ''].filter(Boolean).join(' ') || '0m';
+}
 
 function badgeVariant(category: TaskStatusSummary['category']): 'secondary' | 'outline' | 'default' {
     if (category === 'done') return 'default';
@@ -212,7 +219,8 @@ defineOptions({
                     </form>
                 </Card>
 
-                <Card v-if="tasks.length" class="gap-0 overflow-hidden py-0">
+                <TooltipProvider v-if="tasks.length">
+                    <Card class="gap-0 overflow-hidden py-0">
                     <div class="overflow-x-auto">
                         <table class="w-full min-w-[39rem] text-left text-sm">
                             <thead class="border-b bg-muted/30 text-xs text-muted-foreground">
@@ -226,17 +234,40 @@ defineOptions({
                             <tbody class="divide-y">
                                 <tr v-for="task in tasks" :key="task.id" class="transition-colors hover:bg-muted/20">
                                     <td class="px-4 py-3">
-                                        <Link :href="taskUrl(task.id)" class="flex items-start gap-2 hover:underline">
-                                            <CheckCircle2 v-if="task.status.category === 'done'" class="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-                                            <Circle v-else class="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-                                            <span class="min-w-0">
-                                                <span class="block font-medium">{{ task.title }}</span>
-                                                <span class="block text-xs text-muted-foreground">
-                                                    {{ task.reference }} · {{ task.type_label }}
-                                                    <template v-if="task.parent"> · Subtask of {{ task.parent.reference }}</template>
-                                                </span>
-                                            </span>
-                                        </Link>
+                                        <div class="flex items-start gap-2">
+                                            <Link :href="taskUrl(task.id)" :aria-label="`View ${task.reference}`" class="mt-0.5 shrink-0 text-muted-foreground">
+                                                <CheckCircle2 v-if="task.status.category === 'done'" class="size-4" />
+                                                <Circle v-else class="size-4" />
+                                            </Link>
+                                            <div class="min-w-0">
+                                                <Link :href="taskUrl(task.id)" class="block font-medium hover:underline">{{ task.title }}</Link>
+                                                <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                                                    <Link :href="taskUrl(task.id)" class="hover:underline">
+                                                        {{ task.reference }} · {{ task.type_label }}
+                                                        <template v-if="task.parent"> · Subtask of {{ task.parent.reference }}</template>
+                                                    </Link>
+                                                    <Tooltip v-if="task.worklog_entries_count > 0">
+                                                        <TooltipTrigger as-child>
+                                                            <span
+                                                                tabindex="0"
+                                                                class="inline-flex cursor-help items-center gap-1 rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                                                :aria-label="`Worklog: ${formatWorklogTime(task.worklog_total_minutes)}, ${task.worklog_entries_count} ${task.worklog_entries_count === 1 ? 'entry' : 'entries'}`"
+                                                            >
+                                                                <Clock3 class="size-3.5" aria-hidden="true" />
+                                                                {{ formatWorklogTime(task.worklog_total_minutes) }}
+                                                            </span>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>
+                                                            <div class="space-y-1">
+                                                                <p class="font-medium">Worklog</p>
+                                                                <p>Total time: {{ formatWorklogTime(task.worklog_total_minutes) }}</p>
+                                                                <p>Entries: {{ task.worklog_entries_count }}</p>
+                                                            </div>
+                                                        </TooltipContent>
+                                                    </Tooltip>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </td>
                                     <td class="px-4 py-3"><Badge :variant="badgeVariant(task.status.category)">{{ task.status.name }}</Badge></td>
                                     <td class="px-4 py-3 text-muted-foreground">{{ task.priority_label }}</td>
@@ -245,7 +276,8 @@ defineOptions({
                             </tbody>
                         </table>
                     </div>
-                </Card>
+                    </Card>
+                </TooltipProvider>
                 <Card v-else class="border-dashed">
                     <CardContent class="flex flex-col items-center gap-2 py-12 text-center">
                         <ClipboardList class="size-7 text-muted-foreground" />

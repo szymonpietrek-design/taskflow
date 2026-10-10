@@ -40,6 +40,11 @@ export type TaskSummary = {
     completed_at: string | null;
 };
 
+export type TaskListSummary = TaskSummary & {
+    worklog_total_minutes: number;
+    worklog_entries_count: number;
+};
+
 export type TaskSubtaskSummary = {
     id: number;
     reference: string;

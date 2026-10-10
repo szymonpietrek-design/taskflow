@@ -41,7 +41,11 @@ class TaskController extends Controller
         $assignee = (string) ($input['assignee_id'] ?? '');
         $sort = $input['sort'] ?? 'newest';
 
-        $query = $project->tasks()->with(['project', 'status', 'assignee', 'parent', 'release']);
+        // Aggregate across all worklog entries in SQL, without loading them per task.
+        $query = $project->tasks()
+            ->with(['project', 'status', 'assignee', 'parent', 'release'])
+            ->withCount('worklogs as worklog_entries_count')
+            ->withSum('worklogs as worklog_total_minutes', 'duration_minutes');
 
         if ($search !== '') {
             // Treat %, _ and ! as literal characters rather than LIKE wildcards.
@@ -85,7 +89,10 @@ class TaskController extends Controller
 
         return Inertia::render('tasks/Index', [
             'project' => $this->projectData($project),
-            'tasks' => $tasks->getCollection()->map(fn (Task $task): array => $this->taskData($task))->all(),
+            'tasks' => $tasks->getCollection()->map(fn (Task $task): array => $this->taskData($task) + [
+                'worklog_total_minutes' => (int) $task->worklog_total_minutes,
+                'worklog_entries_count' => (int) $task->worklog_entries_count,
+            ])->all(),
             'pagination' => [
                 'current_page' => $tasks->currentPage(),
                 'last_page' => $tasks->lastPage(),
