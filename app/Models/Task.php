@@ -127,6 +127,11 @@ class Task extends Model
         return $this->hasMany(TaskMessage::class);
     }
 
+    public function worklogs(): HasMany
+    {
+        return $this->hasMany(TaskWorklog::class);
+    }
+
     public function activities(): HasMany
     {
         return $this->hasMany(TaskActivity::class);

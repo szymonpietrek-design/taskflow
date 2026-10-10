@@ -17,6 +17,7 @@ use App\Http\Requests\Tasks\UpdateTaskStatusRequest;
 use App\Models\Project;
 use App\Models\Task;
 use App\Models\TaskMessage;
+use App\Models\TaskWorklog;
 use App\Models\TaskStatus;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
@@ -163,6 +164,15 @@ class TaskController extends Controller
         $canPostMessage = $request->user()->can('create', [TaskMessage::class, $task]);
         $canUpdate = $request->user()->can('update', $task);
 
+        $worklogs = $task->worklogs()
+            ->with('author:id,name')
+            ->orderByDesc('work_date')
+            ->orderByDesc('id')
+            ->paginate(15, ['*'], 'worklog_page')
+            ->withQueryString();
+        $totalLoggedMinutes = (int) $task->worklogs()->sum('duration_minutes');
+        $canLogWork = $request->user()->can('create', [TaskWorklog::class, $task]);
+
         return Inertia::render('tasks/Show', [
             'project' => $this->projectData($project),
             'task' => $this->taskData($task) + [
@@ -204,6 +214,28 @@ class TaskController extends Controller
             'can_create_subtask' => $task->parent_id === null
                 && $request->user()->can('create', [Task::class, $project]),
             'assignees' => $canUpdate ? $this->eligibleAssignees($project) : [],
+            'can_log_work' => $canLogWork,
+            'worklog_total_minutes' => $totalLoggedMinutes,
+            'worklogs' => [
+                'data' => $worklogs->getCollection()->map(fn (TaskWorklog $entry): array => [
+                    'id' => $entry->id,
+                    'work_date' => $entry->work_date->toDateString(),
+                    'duration_minutes' => $entry->duration_minutes,
+                    'description' => $entry->description,
+                    'is_creative' => $entry->is_creative,
+                    'author' => $entry->author === null ? null : [
+                        'id' => $entry->author->id,
+                        'name' => $entry->author->name,
+                    ],
+                    'can_update' => $request->user()->can('update', $entry),
+                    'can_delete' => $request->user()->can('delete', $entry),
+                ])->all(),
+                'total' => $worklogs->total(),
+                'current_page' => $worklogs->currentPage(),
+                'last_page' => $worklogs->lastPage(),
+                'previous_page_url' => $worklogs->previousPageUrl(),
+                'next_page_url' => $worklogs->nextPageUrl(),
+            ],
             'can_post_message' => $canPostMessage,
             'messages' => $messages->map(fn (TaskMessage $message): array => [
                 'id' => $message->id,

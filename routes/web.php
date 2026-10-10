@@ -10,6 +10,7 @@ use App\Http\Controllers\Releases\GenerateReleaseChangelogController;
 use App\Http\Controllers\Tasks\TaskController;
 use App\Http\Controllers\Tasks\TaskFromMessageController;
 use App\Http\Controllers\Tasks\TaskMessageController;
+use App\Http\Controllers\Tasks\TaskWorklogController;
 use App\Http\Controllers\Tasks\TaskStatusController;
 use App\Http\Controllers\Workspaces\CurrentWorkspaceController;
 use App\Http\Controllers\Workspaces\WorkspaceController;
@@ -52,6 +53,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::patch('projects/{project}/tasks/{task}', [TaskController::class, 'update'])->name('tasks.update');
     Route::patch('projects/{project}/tasks/{task}/status', [TaskController::class, 'updateStatus'])
         ->name('tasks.status.update');
+
+    Route::post('projects/{project}/tasks/{task}/worklogs', [TaskWorklogController::class, 'store'])
+        ->name('tasks.worklogs.store');
+    Route::patch('projects/{project}/tasks/{task}/worklogs/{worklog}', [TaskWorklogController::class, 'update'])
+        ->name('tasks.worklogs.update');
+    Route::delete('projects/{project}/tasks/{task}/worklogs/{worklog}', [TaskWorklogController::class, 'destroy'])
+        ->name('tasks.worklogs.destroy');
 
     Route::get('projects/{project}/tasks/{task}/messages/{message}/create-task', [TaskFromMessageController::class, 'create'])
         ->name('tasks.messages.create-task');

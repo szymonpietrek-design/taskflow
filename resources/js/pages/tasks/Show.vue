@@ -10,9 +10,10 @@ import InputError from '@/components/InputError.vue';
 import TaskDiscussion from './Discussion.vue';
 import TaskDetailsForm from './TaskDetailsForm.vue';
 import TaskSubtasks from './TaskSubtasks.vue';
+import TaskWorklog from './Worklog.vue';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import type { TaskDetail, TaskMessageSummary, TaskProjectSummary, TaskStatusSummary, TaskUserSummary } from '@/types/task';
+import type { TaskDetail, TaskMessageSummary, TaskProjectSummary, TaskStatusSummary, TaskUserSummary, TaskWorklogPage } from '@/types/task';
 
 const props = defineProps<{
     project: TaskProjectSummary;
@@ -23,6 +24,9 @@ const props = defineProps<{
     assignees: TaskUserSummary[];
     can_post_message: boolean;
     messages: TaskMessageSummary[];
+    worklogs: TaskWorklogPage;
+    worklog_total_minutes: number;
+    can_log_work: boolean;
 }>();
 
 const editingDetails = ref(false);
@@ -97,6 +101,14 @@ defineOptions({
                     :statuses="statuses"
                     :assignees="assignees"
                     :can-create="can_create_subtask"
+                />
+
+                <TaskWorklog
+                    :project-id="project.id"
+                    :task-id="task.id"
+                    :entries="worklogs"
+                    :total-minutes="worklog_total_minutes"
+                    :can-log="can_log_work"
                 />
 
                 <TaskDiscussion

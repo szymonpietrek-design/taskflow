@@ -67,3 +67,23 @@ export type TaskMessageSummary = {
     can_delete: boolean;
     can_create_task: boolean;
 };
+
+export type TaskWorklogSummary = {
+    id: number;
+    work_date: string;
+    duration_minutes: number;
+    description: string | null;
+    is_creative: boolean;
+    author: TaskUserSummary | null;
+    can_update: boolean;
+    can_delete: boolean;
+};
+
+export type TaskWorklogPage = {
+    data: TaskWorklogSummary[];
+    total: number;
+    current_page: number;
+    last_page: number;
+    previous_page_url: string | null;
+    next_page_url: string | null;
+};
