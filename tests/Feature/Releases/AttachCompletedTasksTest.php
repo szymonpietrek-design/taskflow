@@ -32,8 +32,8 @@ class AttachCompletedTasksTest extends TestCase
     public function test_bulk_action_attaches_only_unassigned_completed_tasks_and_records_activity(): void
     {
         [$owner, $project, $release] = $this->fixtures();
-        $done = $this->status($project, TaskStatusCategory::DONE);
-        $todo = $this->status($project, TaskStatusCategory::TODO);
+        $done = $this->createTaskStatus($project, TaskStatusCategory::DONE);
+        $todo = $this->createTaskStatus($project, TaskStatusCategory::TODO);
         $eligible = $this->task($project, $owner, $done, now());
         $second = $this->task($project, $owner, $done, now());
         $withoutCompletion = $this->task($project, $owner, $done);
@@ -45,7 +45,7 @@ class AttachCompletedTasksTest extends TestCase
             'created_by' => $owner->id,
             'type' => ProjectType::APPLICATION,
         ]);
-        $foreign = $this->task($foreignProject, $owner, $this->status($foreignProject, TaskStatusCategory::DONE), now());
+        $foreign = $this->task($foreignProject, $owner, $this->createTaskStatus($foreignProject, TaskStatusCategory::DONE), now());
 
         $this->actingAs($owner)->get(route('releases.show', [$project, $release]))
             ->assertInertia(fn (Assert $page) => $page->where('completed_available_count', 2));
@@ -85,8 +85,8 @@ class AttachCompletedTasksTest extends TestCase
     public function test_new_release_option_includes_completed_tasks_when_requested(): void
     {
         [$owner, $project] = $this->fixtures();
-        $done = $this->status($project, TaskStatusCategory::DONE);
-        $todo = $this->status($project, TaskStatusCategory::TODO);
+        $done = $this->createTaskStatus($project, TaskStatusCategory::DONE);
+        $todo = $this->createTaskStatus($project, TaskStatusCategory::TODO);
         $completed = $this->task($project, $owner, $done, now());
         $pending = $this->task($project, $owner, $todo);
 
@@ -105,7 +105,7 @@ class AttachCompletedTasksTest extends TestCase
     public function test_unchecked_or_missing_option_does_not_attach_completed_tasks(): void
     {
         [$owner, $project] = $this->fixtures();
-        $completed = $this->task($project, $owner, $this->status($project, TaskStatusCategory::DONE), now());
+        $completed = $this->task($project, $owner, $this->createTaskStatus($project, TaskStatusCategory::DONE), now());
 
         $this->actingAs($owner)->post(route('releases.store', $project), [
             'version' => '1.0.0', 'include_completed_tasks' => '0',
@@ -133,7 +133,7 @@ class AttachCompletedTasksTest extends TestCase
     public function test_closed_foreign_and_archived_releases_cannot_bulk_attach(): void
     {
         [$owner, $project, $release] = $this->fixtures();
-        $task = $this->task($project, $owner, $this->status($project, TaskStatusCategory::DONE), now());
+        $task = $this->task($project, $owner, $this->createTaskStatus($project, TaskStatusCategory::DONE), now());
 
         foreach ([ReleaseStatus::RELEASED, ReleaseStatus::CANCELED] as $status) {
             $release->update(['status' => $status]);
@@ -172,7 +172,7 @@ class AttachCompletedTasksTest extends TestCase
         return [$owner, $project, Release::factory()->create(['project_id' => $project->id, 'created_by' => $owner->id])];
     }
 
-    private function status(Project $project, TaskStatusCategory $category): TaskStatus
+    private function createTaskStatus(Project $project, TaskStatusCategory $category): TaskStatus
     {
         return TaskStatus::factory()->create(['project_id' => $project->id, 'category' => $category]);
     }
