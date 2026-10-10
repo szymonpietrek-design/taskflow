@@ -21,6 +21,30 @@ class ProfileUpdateTest extends TestCase
         $response->assertOk();
     }
 
+    public function test_settings_url_redirects_to_profile_for_authenticated_users()
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->get('/settings')
+            ->assertRedirect(route('profile.edit'));
+    }
+
+    public function test_settings_url_requires_authentication()
+    {
+        $this->get('/settings')
+            ->assertRedirect(route('login'));
+    }
+
+    public function test_settings_url_rejects_non_get_methods()
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->post('/settings')
+            ->assertStatus(405);
+    }
+
     public function test_profile_information_can_be_updated()
     {
         $user = User::factory()->create();
