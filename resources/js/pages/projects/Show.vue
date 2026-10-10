@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
-import { AppWindow, FolderKanban, ListTodo, LockKeyhole, Package, Settings2, Users } from '@lucide/vue';
+import { AppWindow, FolderKanban, ListTodo, LockKeyhole, Package, FileText, Settings2, Users } from '@lucide/vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -56,6 +56,12 @@ defineOptions({
                 <Link :href="`/projects/${project.id}/releases`">
                     <Package class="size-4" />
                     Releases
+                </Link>
+            </Button>
+            <Button as-child variant="outline">
+                <Link :href="`/projects/${project.id}/reports`">
+                    <FileText class="size-4" />
+                    Reports
                 </Link>
             </Button>
             <Button v-if="project.can_manage" as-child variant="outline">

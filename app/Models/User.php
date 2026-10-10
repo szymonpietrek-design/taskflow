@@ -81,6 +81,11 @@ class User extends Authenticatable implements MustVerifyEmail, PasskeyUser
             ->withTimestamps();
     }
 
+    public function createdReports(): HasMany
+    {
+        return $this->hasMany(Report::class, 'created_by');
+    }
+
     public function createdTasks(): HasMany
     {
         return $this->hasMany(Task::class, 'created_by');
