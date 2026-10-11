@@ -4,6 +4,8 @@ use App\Http\Controllers\Projects\ProjectController;
 use App\Http\Controllers\Releases\ReleaseController;
 use App\Http\Controllers\Reports\ReportController;
 use App\Http\Controllers\Reports\GenerateReportController;
+use App\Http\Controllers\Reports\ReportContentController;
+use App\Http\Controllers\Reports\ReportPublicationController;
 use App\Http\Controllers\Releases\ReleaseTaskController;
 use App\Http\Controllers\Releases\ReleaseStatusController;
 use App\Http\Controllers\Releases\ReleaseChangelogController;
@@ -37,6 +39,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('projects/{project}/reports', [ReportController::class, 'store'])->name('reports.store');
     Route::get('projects/{project}/reports/{report}', [ReportController::class, 'show'])->name('reports.show');
     Route::post('projects/{project}/reports/{report}/generate', GenerateReportController::class)->name('reports.generate');
+    Route::put('projects/{project}/reports/{report}/content', ReportContentController::class)->name('reports.content.update');
+    Route::post('projects/{project}/reports/{report}/publish', [ReportPublicationController::class, 'publish'])->name('reports.publish');
+    Route::post('projects/{project}/reports/{report}/unpublish', [ReportPublicationController::class, 'unpublish'])->name('reports.unpublish');
     Route::delete('projects/{project}/reports/{report}', [ReportController::class, 'destroy'])->name('reports.destroy');
 
     Route::get('projects/{project}/releases', [ReleaseController::class, 'index'])->name('releases.index');

@@ -28,6 +28,9 @@ final class GenerateReport
         $report->loadMissing('project');
         abort_unless(app(ReportAccess::class)->canEdit($actor, $report), 403);
         $this->assertEditable($report->project);
+        if ($report->published_at !== null) {
+            throw new InvalidArgumentException('Move this report to draft before regenerating it.');
+        }
 
         if (! preg_match('/\A[a-z]{2,3}(?:-[a-z0-9]{2,8})*\z/i', $language) || strlen($language) > 35) {
             throw new InvalidArgumentException('Select a valid language code, such as en, pl or pt-BR.');
@@ -59,6 +62,9 @@ final class GenerateReport
             $project = Project::query()->whereKey($locked->project_id)->lockForUpdate()->firstOrFail();
             abort_unless(app(ReportAccess::class)->canEdit($actor, $locked), 403);
             $this->assertEditable($project);
+            if ($locked->published_at !== null) {
+                throw new InvalidArgumentException('Move this report to draft before regenerating it.');
+            }
             if ($locked->body !== $previousBody || $locked->generated_at?->toIso8601String() !== $previousGenerated) {
                 throw new InvalidArgumentException('This report was updated while AI was generating. Reload and try again.');
             }
@@ -67,6 +73,7 @@ final class GenerateReport
                 'body' => $body,
                 'generated_locale' => $language,
                 'generated_at' => now(),
+                'edited_at' => null,
             ])->save();
 
             return $locked;

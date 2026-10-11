@@ -21,8 +21,11 @@ use Illuminate\Support\Carbon;
  * @property string|null $body
  * @property string|null $generated_locale
  * @property Carbon|null $generated_at
+ * @property Carbon|null $edited_at
+ * @property Carbon|null $published_at
+ * @property int|null $published_by
  */
-#[Fillable(['project_id', 'created_by', 'format', 'contributor_ids', 'title', 'period_start', 'period_end', 'sources', 'body', 'generated_locale', 'generated_at'])]
+#[Fillable(['project_id', 'created_by', 'format', 'contributor_ids', 'title', 'period_start', 'period_end', 'sources', 'body', 'generated_locale', 'generated_at', 'edited_at', 'published_at', 'published_by'])]
 class Report extends Model
 {
     protected function casts(): array
@@ -34,6 +37,8 @@ class Report extends Model
             'contributor_ids' => 'array',
             'format' => ReportFormat::class,
             'generated_at' => 'datetime',
+            'edited_at' => 'datetime',
+            'published_at' => 'datetime',
         ];
     }
 

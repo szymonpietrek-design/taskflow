@@ -8,6 +8,8 @@ use App\Http\Requests\Reports\StoreReportRequest;
 use App\Models\Project;
 use App\Models\Report;
 use App\Support\Reports\ReportSourceOverview;
+use App\Support\Reports\ReportEditableContent;
+use App\Support\Reports\ReportRevision;
 use App\Support\Reports\ReportAccess;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
@@ -63,7 +65,9 @@ class ReportController extends Controller
             'report' => $this->reportData($report),
             'source_counts' => $overview->forReport($report),
             'can_delete' => app(ReportAccess::class)->canEdit($request->user(), $report),
-            'can_generate' => app(ReportAccess::class)->canEdit($request->user(), $report),
+            'can_generate' => app(ReportAccess::class)->canEdit($request->user(), $report) && $report->published_at === null,
+            'can_edit' => app(ReportAccess::class)->canEdit($request->user(), $report),
+            'editable_content' => app(ReportEditableContent::class)->editable($report),
             'ai_configured' => config('services.ai_chat.provider') === 'deepseek'
                 && filled(config('services.ai_chat.api_key')),
             'default_ai_language' => preg_match('/\A[a-z]{2,3}(?:-[a-z0-9]{2,8})*\z/i', str_replace('_', '-', app()->getLocale()))
@@ -125,6 +129,9 @@ class ReportController extends Controller
             'is_generated' => $report->generated_at !== null,
             'generated_locale' => $report->generated_locale,
             'generated_at' => $report->generated_at?->toIso8601String(),
+            'edited_at' => $report->edited_at?->toIso8601String(),
+            'published_at' => $report->published_at?->toIso8601String(),
+            'updated_version' => app(ReportRevision::class)->token($report),
             'body' => $report->body,
             'created_by' => $report->creator?->name,
             'created_at' => $report->created_at?->toIso8601String(),

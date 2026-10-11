@@ -24,6 +24,7 @@ type ReportRow = {
     format: string;
     sources: string[];
     is_generated: boolean;
+    published_at: string | null;
     created_by: string | null;
     created_at: string | null;
 };
@@ -108,7 +109,7 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
                             <CardContent class="space-y-2 px-5">
                                 <div class="flex items-center justify-between gap-3">
                                     <span class="font-semibold">{{ report.title }}</span>
-                                    <Badge :variant="report.is_generated ? 'default' : 'secondary'">{{ report.is_generated ? 'Generated' : 'Draft' }}</Badge>
+                                    <Badge :variant="report.published_at ? 'default' : 'secondary'">{{ report.published_at ? 'Published' : 'Draft' }}</Badge>
                                 </div>
                                 <div class="flex flex-wrap gap-2 text-xs text-muted-foreground">
                                     <span>{{ report.format === 'work_report' ? 'Detailed report' : 'Summary' }}</span>

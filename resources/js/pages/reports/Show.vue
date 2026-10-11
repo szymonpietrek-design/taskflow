@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { Head, Link, useForm } from '@inertiajs/vue3';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { toast } from 'vue-sonner';
-import { ArrowLeft, ClipboardList, FileText, LoaderCircle, MessageCircle, Activity, Trash2, Clock3, Users, ListTodo, Sparkles } from '@lucide/vue';
+import { ArrowLeft, ClipboardList, FileText, LoaderCircle, MessageCircle, Activity, Trash2, Clock3, Users, ListTodo, Sparkles, Pencil, Save, CheckCircle2, RotateCcw } from '@lucide/vue';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import InputError from '@/components/InputError.vue';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
@@ -22,6 +23,9 @@ type Report = {
     is_generated: boolean;
     generated_locale: string | null;
     generated_at: string | null;
+    published_at: string | null;
+    edited_at: string | null;
+    updated_version: string | null;
     body: string | null;
     created_by: string | null;
     created_at: string | null;
@@ -45,6 +49,8 @@ const props = defineProps<{
     source_counts: { tasks: number | null; messages: number | null; activity: number | null; worklogs: WorklogBreakdown | null };
     can_delete: boolean;
     can_generate: boolean;
+    can_edit: boolean;
+    editable_content: string | null;
     ai_configured: boolean;
     default_ai_language: string;
     report_html: string | null;
@@ -85,9 +91,46 @@ function languageLabel(code: string | null): string {
     if (!code) return '';
     return languageOptions.find((language) => language.value === code)?.label ?? code;
 }
+const isEditing = ref(false);
+const contentForm = useForm({ content: props.editable_content ?? '', version: props.report.updated_version ?? '' });
+watch(() => props.report.updated_version, () => {
+    if (!isEditing.value) {
+        contentForm.content = props.editable_content ?? '';
+        contentForm.version = props.report.updated_version ?? '';
+    }
+});
+function startEditing() {
+    if (!props.can_edit || props.report.published_at || props.editable_content === null) return;
+    contentForm.clearErrors();
+    contentForm.content = props.editable_content;
+    contentForm.version = props.report.updated_version ?? '';
+    isEditing.value = true;
+}
+function cancelEditing() {
+    isEditing.value = false;
+    contentForm.reset();
+    contentForm.clearErrors();
+}
+function saveContent() {
+    if (!contentForm.content.trim() || contentForm.processing) return;
+    contentForm.put(`${baseUrl}/${props.report.id}/content`, {
+        preserveScroll: true,
+        onSuccess: () => { isEditing.value = false; },
+        onError: (errors) => toast.error(errors.content || 'Could not save report.'),
+    });
+}
+const publicationForm = useForm({});
+function changePublication(publish: boolean) {
+    if (publicationForm.processing) return;
+    if (!publish && !window.confirm('Move this report back to draft? It can then be edited or regenerated.')) return;
+    publicationForm.post(`${baseUrl}/${props.report.id}/${publish ? 'publish' : 'unpublish'}`, {
+        preserveScroll: true,
+        onError: (errors) => toast.error(errors.publication || 'Could not update report status.'),
+    });
+}
 const generationError = ref<string | undefined>();
 function generateReport() {
-    if (!isValidLanguage.value || generateForm.processing) return;
+    if (!props.can_generate || isEditing.value || !isValidLanguage.value || generateForm.processing) return;
     if (props.report.is_generated && !window.confirm('Replace the current report with a new version?')) return;
     generationError.value = undefined;
     generateForm.language = outputLanguage.value;
@@ -132,7 +175,8 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
             <div class="flex flex-wrap items-center gap-2">
                 <Badge variant="secondary">{{ project.key }}</Badge>
                 <Badge variant="outline">{{ report.format === 'work_report' ? 'Detailed report' : 'Summary' }}</Badge>
-                <Badge :variant="report.is_generated ? 'default' : 'outline'">{{ report.is_generated ? 'Generated' : 'Draft' }}</Badge>
+                <Badge :variant="report.published_at ? 'default' : 'outline'">{{ report.published_at ? 'Published' : 'Draft' }}</Badge>
+                <Badge v-if="report.is_generated && !report.published_at" variant="secondary">Generated</Badge>
             </div>
             <h1 class="text-2xl font-semibold tracking-tight">{{ report.title }}</h1>
             <p class="text-sm text-muted-foreground">{{ formatReportPeriod(report.period_start, report.period_end) }}<template v-if="report.created_by"> · Created by {{ report.created_by }}</template></p>
@@ -228,11 +272,38 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
                 <CardHeader class="gap-2">
                     <CardTitle class="flex items-center gap-2 text-base"><FileText class="size-4" /> Report</CardTitle>
                     <p v-if="report.is_generated && report.generated_at" class="text-xs text-muted-foreground">
-                        Generated {{ formatReportTimestamp(report.generated_at) }}<template v-if="report.generated_locale"> · {{ languageLabel(report.generated_locale) }}</template>
+                        Generated {{ formatReportTimestamp(report.generated_at) }}<template v-if="report.generated_locale"> · {{ languageLabel(report.generated_locale) }}</template><template v-if="report.edited_at"> · Edited {{ formatReportTimestamp(report.edited_at) }}</template>
                     </p>
+                    <p v-if="report.published_at" class="text-xs text-muted-foreground">Published {{ formatReportTimestamp(report.published_at) }}</p>
+                    <p v-if="report.format === 'work_report' && report.edited_at && !isEditing" class="text-xs text-muted-foreground">This document has been edited. Source worklogs and the live statistics above are unchanged.</p>
                 </CardHeader>
-                <CardContent>
-                    <div v-if="report.is_generated && report_html" class="report-markdown max-w-none overflow-x-auto break-words text-sm leading-6 sm:text-[0.9375rem] sm:leading-7 [&_a]:underline [&_h1]:mb-4 [&_h1]:text-2xl [&_h1]:font-semibold [&_h2]:mb-3 [&_h2]:mt-6 [&_h2]:text-xl [&_h2]:font-semibold [&_h3]:my-3 [&_h3]:font-semibold [&_ul]:my-3 [&_ul]:list-disc [&_ol]:my-3 [&_ol]:list-decimal [&_li]:ml-5 [&_li]:my-1 [&_p]:mb-4 [&_strong]:font-semibold [&_code]:font-mono [&_table]:my-5 [&_table]:w-full [&_table]:min-w-[42rem] [&_table]:border-collapse [&_thead]:bg-muted/60 [&_th]:border [&_th]:p-2 [&_th]:text-left [&_td]:border [&_td]:p-2 [&_td]:align-top [&_tbody_tr:nth-child(even)]:bg-muted/20" v-html="report_html"></div>
+                <CardContent class="space-y-4">
+                    <div v-if="can_edit && report.is_generated" class="flex flex-wrap items-center justify-between gap-2 border-b pb-4">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <Button v-if="!isEditing && !report.published_at && editable_content !== null" type="button" size="sm" variant="outline" @click="startEditing">
+                                <Pencil class="size-4" /> Edit
+                            </Button>
+                            <template v-if="isEditing">
+                                <Button type="button" size="sm" variant="outline" :disabled="contentForm.processing" @click="cancelEditing">Cancel</Button>
+                                <Button type="button" size="sm" :disabled="contentForm.processing || !contentForm.content.trim()" @click="saveContent">
+                                    <LoaderCircle v-if="contentForm.processing" class="size-4 animate-spin" /><Save v-else class="size-4" /> Save changes
+                                </Button>
+                            </template>
+                        </div>
+                        <Button v-if="!isEditing && !report.published_at" type="button" size="sm" :disabled="publicationForm.processing" @click="changePublication(true)">
+                            <LoaderCircle v-if="publicationForm.processing" class="size-4 animate-spin" /><CheckCircle2 v-else class="size-4" /> Publish
+                        </Button>
+                        <Button v-if="!isEditing && report.published_at" type="button" size="sm" variant="outline" :disabled="publicationForm.processing" @click="changePublication(false)">
+                            <LoaderCircle v-if="publicationForm.processing" class="size-4 animate-spin" /><RotateCcw v-else class="size-4" /> Move to draft
+                        </Button>
+                    </div>
+                    <div v-if="isEditing" class="space-y-3">
+                        <p class="text-sm text-muted-foreground">Edit the full report as Markdown, including headings, table rows and totals. Changes affect this document only — source tasks and worklogs stay unchanged.</p>
+                        <Textarea v-model="contentForm.content" class="min-h-[26rem] resize-y font-mono text-sm leading-6" :maxlength="50000" aria-label="Report content" />
+                        <p class="text-xs text-muted-foreground">{{ contentForm.content.length.toLocaleString() }} characters · Markdown supported</p>
+                        <InputError :message="contentForm.errors.content || contentForm.errors.version" />
+                    </div>
+                    <div v-else-if="report.is_generated && report_html" class="report-markdown max-w-none overflow-x-auto break-words text-sm leading-6 sm:text-[0.9375rem] sm:leading-7 [&_a]:underline [&_h1]:mb-4 [&_h1]:text-2xl [&_h1]:font-semibold [&_h2]:mb-3 [&_h2]:mt-6 [&_h2]:text-xl [&_h2]:font-semibold [&_h3]:my-3 [&_h3]:font-semibold [&_ul]:my-3 [&_ul]:list-disc [&_ol]:my-3 [&_ol]:list-decimal [&_li]:ml-5 [&_li]:my-1 [&_p]:mb-4 [&_strong]:font-semibold [&_code]:font-mono [&_table]:my-5 [&_table]:w-full [&_table]:min-w-[42rem] [&_table]:border-collapse [&_thead]:bg-muted/60 [&_th]:border [&_th]:p-2 [&_th]:text-left [&_td]:border [&_td]:p-2 [&_td]:align-top [&_tbody_tr:nth-child(even)]:bg-muted/20" v-html="report_html"></div>
                     <div v-else class="rounded-lg border border-dashed px-4 py-10 text-center">
                         <FileText class="mx-auto mb-3 size-7 text-muted-foreground" />
                         <p class="text-sm font-medium">No report content yet</p>
@@ -262,13 +333,13 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
                             <Input id="report-ai-custom-language" v-model="customLanguage" maxlength="35" placeholder="e.g. sv, hi, zh-Hant-TW" />
                         </div>
                         <InputError :message="generateForm.errors.language || generationError" />
-                        <Button type="submit" class="w-full" :disabled="generateForm.processing || !ai_configured || !isValidLanguage">
+                        <Button type="submit" class="w-full" :disabled="!can_generate || isEditing || generateForm.processing || !ai_configured || !isValidLanguage">
                             <LoaderCircle v-if="generateForm.processing" class="size-4 animate-spin" />
                             <Sparkles v-else class="size-4" />
                             {{ generateForm.processing ? 'Generating…' : (report.is_generated ? 'Regenerate report' : 'Generate report') }}
                         </Button>
                         <p v-if="!ai_configured" class="text-xs text-muted-foreground">Report generation is not configured.</p>
-                        <p v-else class="text-xs text-muted-foreground">Selected project data is sent to your AI provider. Review the result before sharing.</p>
+                        <p v-else class="text-xs text-muted-foreground">{{ report.published_at ? 'Move this report to draft before regenerating it.' : 'Selected project data is sent to your AI provider. Review the result before sharing.' }}</p>
                     </form>
                 </CardContent>
             </Card>
