@@ -74,6 +74,7 @@ final class ReportWorklogBreakdown
         return TaskWorklog::query()
             ->join('tasks', 'tasks.id', '=', 'task_worklogs.task_id')
             ->where('tasks.project_id', $report->project_id)
+            ->when($report->contributor_ids !== null, fn (Builder $query) => $query->whereIn('task_worklogs.user_id', $report->contributor_ids))
             ->whereBetween('task_worklogs.work_date', [
                 $report->period_start->toDateString(),
                 $report->period_end->toDateString(),

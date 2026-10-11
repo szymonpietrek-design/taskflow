@@ -29,13 +29,17 @@ final class ReportGenerationContext
             'project' => $report->project->name,
             'project_key' => $report->project->key,
             'report_title' => $report->title,
+            'report_format' => $report->format->value,
             'period_start' => $start->toDateString(),
             'period_end' => $end->toDateString(),
             'selected_sources' => $selected,
+            'contributor_ids' => $report->contributor_ids,
         ];
 
         if (in_array(ReportSource::TASKS->value, $selected, true)) {
             $tasks = Task::query()->where('project_id', $report->project_id)
+                ->when($report->contributor_ids !== null, fn (Builder $q) => $q->where(fn (Builder $s) => $s
+                    ->whereIn('created_by', $report->contributor_ids)->orWhereIn('assignee_id', $report->contributor_ids)))
                 ->where(fn (Builder $query) => $query
                     ->whereBetween('created_at', [$start, $end])
                     ->orWhereBetween('completed_at', [$start, $end]))
@@ -58,6 +62,7 @@ final class ReportGenerationContext
 
         if (in_array(ReportSource::MESSAGES->value, $selected, true)) {
             $messages = TaskMessage::query()->whereHas('task', fn (Builder $query) => $query->where('project_id', $report->project_id))
+                ->when($report->contributor_ids !== null, fn (Builder $q) => $q->whereIn('user_id', $report->contributor_ids))
                 ->whereBetween('created_at', [$start, $end])->with('task:id,project_id,number')
                 ->orderBy('id')->limit(81)->get();
             $this->assertLimit($messages->count(), 80, 'messages');
@@ -70,6 +75,7 @@ final class ReportGenerationContext
 
         if (in_array(ReportSource::ACTIVITY->value, $selected, true)) {
             $activities = TaskActivity::query()->whereHas('task', fn (Builder $query) => $query->where('project_id', $report->project_id))
+                ->when($report->contributor_ids !== null, fn (Builder $q) => $q->whereIn('user_id', $report->contributor_ids))
                 ->whereBetween('created_at', [$start, $end])->with('task:id,project_id,number')
                 ->orderBy('id')->limit(101)->get();
             $this->assertLimit($activities->count(), 100, 'activity events');
@@ -83,9 +89,10 @@ final class ReportGenerationContext
 
         if (in_array(ReportSource::WORKLOGS->value, $selected, true)) {
             $entries = TaskWorklog::query()->whereHas('task', fn (Builder $query) => $query->where('project_id', $report->project_id))
+                ->when($report->contributor_ids !== null, fn (Builder $q) => $q->whereIn('user_id', $report->contributor_ids))
                 ->whereBetween('work_date', [$start->toDateString(), $end->toDateString()])
-                ->with(['task:id,project_id,number', 'author:id,name'])
-                ->orderBy('id')->limit(121)->get();
+                ->with(['task:id,project_id,number,title', 'author:id,name'])
+                ->orderBy('work_date')->orderBy('id')->limit(121)->get();
             $this->assertLimit($entries->count(), 120, 'worklog entries');
             $breakdown = $this->worklogs->forReport($report);
             $data['worklogs'] = [
@@ -95,7 +102,10 @@ final class ReportGenerationContext
                 'by_user' => $breakdown['by_user'],
                 'by_task' => $breakdown['by_task'],
                 'details' => $entries->map(fn (TaskWorklog $entry): array => [
+                    'id' => $entry->id,
                     'task' => $report->project->key.'-'.$entry->task->number,
+                    'task_title' => $this->shorten($entry->task->title, 200),
+                    'contributor' => $entry->author?->name ?? 'Former contributor',
                     'date' => $entry->work_date->toDateString(),
                     'minutes' => $entry->duration_minutes,
                     'creative' => $entry->is_creative,

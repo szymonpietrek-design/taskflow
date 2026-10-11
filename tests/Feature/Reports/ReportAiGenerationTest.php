@@ -4,6 +4,7 @@ namespace Tests\Feature\Reports;
 
 use App\Contracts\Ai\ReportTextGenerator;
 use App\Enums\ProjectVisibility;
+use App\Enums\ReportFormat;
 use App\Enums\WorkspaceRole;
 use App\Models\Project;
 use App\Models\Report;
@@ -80,6 +81,184 @@ class ReportAiGenerationTest extends TestCase
                 ->where('report_html', fn ($html) => str_contains($html, '<h2>Summary</h2>')));
     }
 
+    public function test_work_report_builds_frozen_rows_and_exact_totals_from_worklogs(): void
+    {
+        [$owner, $project, $report] = $this->fixtures();
+        $report->update(['format' => ReportFormat::WORK_REPORT, 'sources' => ['worklogs']]);
+        $status = TaskStatus::factory()->create(['project_id' => $project->id]);
+        $task = Task::factory()->create([
+            'project_id' => $project->id, 'status_id' => $status->id, 'created_by' => $owner->id,
+            'number' => 18, 'title' => 'Improve dashboard',
+        ]);
+        $task->worklogs()->create([
+            'user_id' => $owner->id, 'work_date' => '2026-10-01', 'duration_minutes' => 90,
+            'description' => 'Implemented A | B summary', 'is_creative' => true,
+        ]);
+        $task->worklogs()->create([
+            'user_id' => $owner->id, 'work_date' => '2026-10-07', 'duration_minutes' => 45,
+            'description' => null, 'is_creative' => false,
+        ]);
+        $task->worklogs()->create([
+            'user_id' => $owner->id, 'work_date' => '2026-09-30', 'duration_minutes' => 120,
+            'description' => 'Outside period', 'is_creative' => false,
+        ]);
+        $foreign = Project::factory()->create(['workspace_id' => $project->workspace_id, 'created_by' => $owner->id]);
+        $foreignStatus = TaskStatus::factory()->create(['project_id' => $foreign->id]);
+        $foreignTask = Task::factory()->create([
+            'project_id' => $foreign->id, 'status_id' => $foreignStatus->id, 'created_by' => $owner->id,
+        ]);
+        $foreignTask->worklogs()->create([
+            'user_id' => $owner->id, 'work_date' => '2026-10-02', 'duration_minutes' => 60,
+            'description' => 'Foreign secret', 'is_creative' => false,
+        ]);
+
+        $this->fakeGenerator(function (string $context, string $language): string {
+            $payload = json_decode($context, true, 512, JSON_THROW_ON_ERROR);
+            $this->assertSame('work_report', $payload['report_format']);
+            $this->assertSame('pl', $language);
+            $this->assertSame(2, $payload['worklogs']['entries']);
+            $this->assertSame(135, $payload['worklogs']['total_minutes']);
+
+            return json_encode([
+                'summary' => 'Opracowano ekran podsumowania.',
+                'rows' => [
+                    ['id' => $payload['worklogs']['details'][0]['id'], 'task_title' => 'Ulepszono pulpit', 'outcome' => 'Wdrożono podsumowanie A | B'],
+                    ['id' => $payload['worklogs']['details'][1]['id'], 'task_title' => 'Ulepszono pulpit', 'outcome' => null],
+                ],
+                'labels' => [],
+            ], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+        });
+        $this->actingAs($owner)->post(route('reports.generate', [$project, $report]), ['language' => 'pl'])
+            ->assertSessionHasNoErrors();
+        $report->refresh();
+        $this->assertSame(ReportFormat::WORK_REPORT, $report->format);
+        $this->assertStringContainsString('# Raport pracy', $report->body);
+        $this->assertStringContainsString('## Wykonane prace', $report->body);
+        $this->assertStringContainsString('2026-10-01 | '.$project->key.'-18', $report->body);
+        $this->assertStringContainsString('Wdrożono podsumowanie A \| B', $report->body);
+        $this->assertStringContainsString('Ulepszono pulpit', $report->body);
+        $this->assertStringNotContainsString('Improve dashboard', $report->body);
+        $this->assertStringContainsString('Brak danych', $report->body);
+        $this->assertStringContainsString('2h 15m', $report->body);
+        $this->assertStringContainsString('1h 30m', $report->body);
+        $this->assertStringNotContainsString('Outside period', $report->body);
+        $this->assertStringNotContainsString('Foreign secret', $report->body);
+        $snapshot = $report->body;
+        $task->worklogs()->where('description', 'Implemented A | B summary')->delete();
+        $this->assertSame($snapshot, $report->fresh()->body);
+        $this->actingAs($owner)->get(route('reports.show', [$project, $report]))->assertInertia(fn (Assert $page) => $page
+            ->where('report.format', 'work_report')
+            ->where('report_html', fn ($html) => str_contains($html, '<table>') && str_contains($html, '2h 15m')));
+    }
+
+    public function test_work_report_accepts_numeric_string_ids_without_changing_authoritative_values(): void
+    {
+        $context = json_encode([
+            'project' => 'Northstar App', 'period_start' => '2026-10-01', 'period_end' => '2026-10-02',
+            'worklogs' => [
+                'details' => [
+                    ['id' => 17, 'date' => '2026-10-01', 'task' => 'NSTAR-9', 'description' => 'Fixed pagination',
+                        'contributor' => 'Alex', 'minutes' => 90],
+                    ['id' => 18, 'date' => '2026-10-02', 'task' => 'NSTAR-9', 'description' => null,
+                        'contributor' => 'Alex', 'minutes' => 30],
+                ],
+                'total_minutes' => 120, 'creative_minutes' => 90, 'entries' => 2,
+            ],
+        ], JSON_THROW_ON_ERROR);
+        $translation = json_encode([
+            'summary' => 'Poprawiono stronę.',
+            'rows' => [
+                ['id' => '17', 'task_title' => 'Poprawa paginacji', 'outcome' => 'Naprawiono paginację'],
+                ['id' => '18', 'task_title' => 'Poprawa paginacji'],
+            ],
+            'labels' => ['missing' => 'Zadanie ukończone w całości.'],
+        ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
+
+        $body = app(\App\Support\Reports\WorkReportDocument::class)->render(
+            $context, "```json\n{$translation}\n```", 'pl',
+        );
+        $this->assertStringContainsString('Naprawiono paginację', $body);
+        $this->assertStringContainsString('Brak danych', $body);
+        $this->assertStringNotContainsString('Zadanie ukończone w całości.', $body);
+        $this->assertStringContainsString('2h 0m', $body);
+        $this->assertSame(2, substr_count($body, 'NSTAR-9'));
+        $this->assertStringNotContainsString('Fixed pagination', $body);
+    }
+
+    public function test_work_report_rejects_translations_with_unknown_ids_even_when_the_count_matches(): void
+    {
+        $context = json_encode([
+            'project' => 'Northstar App', 'period_start' => '2026-10-01', 'period_end' => '2026-10-01',
+            'worklogs' => [
+                'details' => [['id' => 12, 'task' => 'NSTAR-1', 'date' => '2026-10-01',
+                    'description' => 'Change', 'contributor' => 'Alex', 'minutes' => 60]],
+                'total_minutes' => 60, 'creative_minutes' => 0, 'entries' => 1,
+            ],
+        ], JSON_THROW_ON_ERROR);
+        $response = json_encode(['summary' => 'Zmiana.', 'rows' => [
+            ['id' => '99', 'task_title' => 'Zmiana', 'outcome' => 'Ukończono zmianę'],
+        ]], JSON_THROW_ON_ERROR);
+
+        $this->expectException(\InvalidArgumentException::class);
+        app(\App\Support\Reports\WorkReportDocument::class)->render($context, $response, 'pl');
+    }
+
+    public function test_personal_report_generation_contains_only_own_entries(): void
+    {
+        [$owner, $project, $report] = $this->fixtures();
+        $person = User::factory()->create();
+        WorkspaceMember::factory()->create(['workspace_id' => $project->workspace_id,
+            'user_id' => $person->id, 'role' => WorkspaceRole::MEMBER]);
+        $report->update(['created_by' => $person->id, 'contributor_ids' => [$person->id], 'sources' => ['worklogs']]);
+        $status = TaskStatus::factory()->create(['project_id' => $project->id]);
+        $task = Task::factory()->create(['project_id' => $project->id, 'status_id' => $status->id,
+            'created_by' => $owner->id]);
+        foreach ([[$person->id, 60, 'Mine'], [$owner->id, 90, 'Other private work']] as [$id, $minutes, $text]) {
+            $task->worklogs()->create(['user_id' => $id, 'work_date' => '2026-10-03',
+                'duration_minutes' => $minutes, 'description' => $text, 'is_creative' => false]);
+        }
+        $this->fakeGenerator(function (string $context) use ($person): string {
+            $payload = json_decode($context, true, 512, JSON_THROW_ON_ERROR);
+            $this->assertSame([$person->id], $payload['contributor_ids']);
+            $this->assertSame(1, $payload['worklogs']['entries']);
+            $this->assertSame(60, $payload['worklogs']['total_minutes']);
+            $this->assertStringNotContainsString('Other private work', $context);
+            return 'My summary';
+        });
+        $this->actingAs($owner)->get(route('reports.show', [$project, $report]))->assertOk();
+        $this->actingAs($person)->post(route('reports.generate', [$project, $report]), ['language' => 'en'])
+            ->assertSessionHasNoErrors();
+        $this->assertSame('My summary', $report->fresh()->body);
+    }
+
+    public function test_incomplete_work_report_translation_does_not_save_partial_document(): void
+    {
+        [$owner, $project, $report] = $this->fixtures();
+        $report->update(['format' => ReportFormat::WORK_REPORT, 'sources' => ['worklogs']]);
+        $status = TaskStatus::factory()->create(['project_id' => $project->id]);
+        $task = Task::factory()->create(['project_id' => $project->id, 'status_id' => $status->id,
+            'created_by' => $owner->id]);
+        $task->worklogs()->create(['user_id' => $owner->id, 'work_date' => '2026-10-02',
+            'duration_minutes' => 30, 'description' => 'Fixed page', 'is_creative' => false]);
+        $this->fakeGenerator(fn (): string => json_encode(['summary' => 'Podsumowanie',
+            'rows' => [], 'labels' => []], JSON_THROW_ON_ERROR));
+        $this->actingAs($owner)->post(route('reports.generate', [$project, $report]), ['language' => 'pl'])
+            ->assertSessionHasErrors('ai_generation');
+        $this->assertNull($report->fresh()->body);
+    }
+
+    public function test_work_report_without_worklogs_rejects_generation_before_provider(): void
+    {
+        [$owner, $project, $report] = $this->fixtures();
+        $report->update(['format' => ReportFormat::WORK_REPORT, 'sources' => ['tasks']]);
+        $this->fakeGenerator(function (): string {
+            $this->fail('AI must not run without Worklogs for a Work Report.');
+        });
+        $this->actingAs($owner)->post(route('reports.generate', [$project, $report]), ['language' => 'en'])
+            ->assertSessionHasErrors('ai_generation');
+        $this->assertNull($report->fresh()->body);
+    }
+
     public function test_ai_generation_only_sees_messages_selected_within_inclusive_period(): void
     {
         [$owner, $project, $report] = $this->fixtures();
@@ -128,7 +307,7 @@ class ReportAiGenerationTest extends TestCase
             'role' => WorkspaceRole::MEMBER,
         ]);
         $this->actingAs($reader)->get(route('reports.show', [$project, $report]))
-            ->assertInertia(fn (Assert $page) => $page->where('can_generate', false));
+            ->assertForbidden();
         $this->actingAs($reader)->post(route('reports.generate', [$project, $report]), ['language' => 'en'])
             ->assertForbidden();
         $project->update(['archived_at' => now()]);
@@ -219,6 +398,7 @@ class ReportAiGenerationTest extends TestCase
         ]);
         $report = Report::query()->create([
             'project_id' => $project->id, 'created_by' => $owner->id, 'title' => 'Weekly report',
+            'format' => ReportFormat::PROJECT_SUMMARY->value,
             'period_start' => '2026-10-01', 'period_end' => '2026-10-07',
             'sources' => ['tasks', 'messages', 'activity', 'worklogs'],
         ]);

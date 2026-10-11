@@ -3,6 +3,8 @@
 namespace App\Http\Requests\Reports;
 
 use App\Models\Project;
+use App\Models\Report;
+use App\Support\Reports\ReportAccess;
 use Illuminate\Foundation\Http\FormRequest;
 
 final class GenerateReportRequest extends FormRequest
@@ -11,8 +13,8 @@ final class GenerateReportRequest extends FormRequest
     {
         $project = $this->route('project');
 
-        return $project instanceof Project && $project->archived_at === null
-            && $this->user()?->can('update', $project) === true;
+        return $project instanceof Project && $this->route('report') instanceof Report
+            && app(ReportAccess::class)->canEdit($this->user(), $this->route('report'));
     }
 
     public function rules(): array

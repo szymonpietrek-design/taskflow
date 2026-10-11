@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Reports;
 
+use App\Enums\ReportFormat;
 use App\Enums\ProjectVisibility;
 use App\Enums\WorkspaceRole;
 use App\Models\Project;
@@ -41,6 +42,7 @@ class ReportManagementTest extends TestCase
         $this->assertSame('2026-10-01', $report->period_start->toDateString());
         $this->assertSame('2026-10-07', $report->period_end->toDateString());
         $this->assertSame(['tasks', 'messages', 'activity'], $report->sources);
+        $this->assertSame(ReportFormat::PROJECT_SUMMARY, $report->format);
         $this->assertNull($report->body);
         $this->assertNull($report->generated_at);
 
@@ -48,6 +50,28 @@ class ReportManagementTest extends TestCase
             ->assertOk()->assertInertia(fn (Assert $page) => $page
                 ->component('reports/Index')->where('reports.total', 1)
                 ->where('reports.data.0.title', 'Weekly summary')->where('can_create', true));
+    }
+
+    public function test_work_report_requires_worklogs_and_gets_a_format_specific_title(): void
+    {
+        [$owner, $project] = $this->fixtures();
+
+        $this->actingAs($owner)->post(route('reports.store', $project), $this->payload([
+            'format' => 'work_report', 'title' => '', 'sources' => ['tasks', 'messages'],
+        ]))->assertSessionHasErrors('sources');
+        $this->actingAs($owner)->post(route('reports.store', $project), $this->payload([
+            'format' => 'not-a-format',
+        ]))->assertSessionHasErrors('format');
+        $this->assertDatabaseCount('reports', 0);
+
+        $this->actingAs($owner)->post(route('reports.store', $project), $this->payload([
+            'format' => 'work_report', 'title' => '', 'sources' => ['worklogs', 'tasks'],
+        ]))->assertSessionHasNoErrors();
+        $report = Report::query()->sole();
+        $this->assertSame(ReportFormat::WORK_REPORT, $report->format);
+        $this->assertSame('Work report · Oct 1–7, 2026', $report->title);
+        $this->actingAs($owner)->get(route('reports.index', $project))->assertInertia(fn (Assert $page) => $page
+            ->where('reports.data.0.format', 'work_report'));
     }
 
     public function test_report_uses_period_title_when_title_is_omitted(): void
@@ -295,11 +319,11 @@ class ReportManagementTest extends TestCase
                 ->where('source_counts.worklogs', null));
     }
 
-    public function test_workspace_reader_can_view_but_not_create_or_delete_reports(): void
+    public function test_reader_can_create_only_personal_reports_and_cannot_read_team_reports(): void
     {
         [, $project] = $this->fixtures();
         $owner = User::findOrFail($project->created_by);
-        $report = $this->report($project, $owner);
+        $teamReport = $this->report($project, $owner);
         $reader = User::factory()->create();
         WorkspaceMember::factory()->create([
             'workspace_id' => $project->workspace_id, 'user_id' => $reader->id,
@@ -307,14 +331,51 @@ class ReportManagementTest extends TestCase
         ]);
 
         $this->actingAs($reader)->get(route('reports.index', $project))
-            ->assertInertia(fn (Assert $page) => $page->where('can_create', false));
-        $this->actingAs($reader)->get(route('reports.show', [$project, $report]))
-            ->assertInertia(fn (Assert $page) => $page->where('can_delete', false));
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('can_create', true)->where('can_select_people', false)
+                ->where('reports.total', 0));
+        $this->actingAs($reader)->get(route('reports.show', [$project, $teamReport]))->assertForbidden();
+        $this->actingAs($reader)->post(route('reports.store', $project), $this->payload([
+            'contributor_ids' => [$owner->id],
+        ]))->assertSessionHasErrors('contributor_ids');
         $this->actingAs($reader)->post(route('reports.store', $project), $this->payload())
-            ->assertForbidden();
-        $this->actingAs($reader)->delete(route('reports.destroy', [$project, $report]))
-            ->assertForbidden();
-        $this->assertDatabaseCount('reports', 1);
+            ->assertSessionHasNoErrors();
+        $personal = Report::query()->where('created_by', $reader->id)->sole();
+        $this->assertSame([$reader->id], $personal->contributor_ids);
+        $this->actingAs($reader)->get(route('reports.show', [$project, $personal]))
+            ->assertInertia(fn (Assert $page) => $page->where('can_generate', true));
+        $this->actingAs($reader)->delete(route('reports.destroy', [$project, $teamReport]))->assertForbidden();
+        $this->actingAs($owner)->get(route('reports.index', $project))
+            ->assertInertia(fn (Assert $page) => $page->where('reports.total', 2));
+    }
+
+    public function test_manager_can_filter_reports_to_selected_contributors(): void
+    {
+        [$owner, $project] = $this->fixtures();
+        $colleague = User::factory()->create();
+        WorkspaceMember::factory()->create([
+            'workspace_id' => $project->workspace_id, 'user_id' => $colleague->id,
+            'role' => WorkspaceRole::MEMBER,
+        ]);
+        $external = User::factory()->create();
+        $this->actingAs($owner)->post(route('reports.store', $project), $this->payload([
+            'sources' => ['worklogs'], 'contributor_ids' => [$external->id],
+        ]))->assertSessionHasErrors('contributor_ids');
+        $this->actingAs($owner)->post(route('reports.store', $project), $this->payload([
+            'sources' => ['worklogs'], 'contributor_ids' => [$colleague->id],
+        ]))->assertSessionHasNoErrors();
+        $report = Report::query()->sole();
+        $this->assertSame([$colleague->id], $report->contributor_ids);
+        $status = TaskStatus::factory()->create(['project_id' => $project->id]);
+        $task = Task::factory()->create(['project_id' => $project->id, 'status_id' => $status->id, 'created_by' => $owner->id]);
+        foreach ([[$owner->id, 120], [$colleague->id, 45]] as [$id, $minutes]) {
+            $task->worklogs()->create(['user_id' => $id, 'work_date' => '2026-10-03',
+                'duration_minutes' => $minutes, 'description' => null, 'is_creative' => false]);
+        }
+        $this->actingAs($owner)->get(route('reports.show', [$project, $report]))->assertInertia(fn (Assert $page) => $page
+            ->where('source_counts.worklogs.total_minutes', 45)
+            ->where('source_counts.worklogs.entries', 1)
+            ->where('report.contributor_ids', [$colleague->id]));
     }
 
     public function test_foreign_project_report_is_not_accessible(): void

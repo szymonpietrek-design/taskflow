@@ -16,6 +16,8 @@ type Report = {
     title: string;
     period_start: string;
     period_end: string;
+    format: string;
+    contributor_names: string[] | null;
     sources: string[];
     is_generated: boolean;
     generated_locale: string | null;
@@ -129,10 +131,12 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
             </Button>
             <div class="flex flex-wrap items-center gap-2">
                 <Badge variant="secondary">{{ project.key }}</Badge>
+                <Badge variant="outline">{{ report.format === 'work_report' ? 'Detailed report' : 'Summary' }}</Badge>
                 <Badge :variant="report.is_generated ? 'default' : 'outline'">{{ report.is_generated ? 'Generated' : 'Draft' }}</Badge>
             </div>
             <h1 class="text-2xl font-semibold tracking-tight">{{ report.title }}</h1>
             <p class="text-sm text-muted-foreground">{{ formatReportPeriod(report.period_start, report.period_end) }}<template v-if="report.created_by"> · Created by {{ report.created_by }}</template></p>
+            <p class="text-xs text-muted-foreground">People: {{ report.contributor_names === null ? 'All contributors' : (report.contributor_names.join(', ') || 'Former contributors') }}</p>
         </div>
         <Card>
             <CardHeader class="flex flex-row items-center justify-between gap-3">
@@ -228,7 +232,7 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
                     </p>
                 </CardHeader>
                 <CardContent>
-                    <div v-if="report.is_generated && report_html" class="report-markdown max-w-none break-words text-sm leading-6 sm:text-[0.9375rem] sm:leading-7 [&_a]:underline [&_h1]:mb-4 [&_h1]:text-2xl [&_h1]:font-semibold [&_h2]:mb-3 [&_h2]:mt-6 [&_h2]:text-xl [&_h2]:font-semibold [&_h3]:my-3 [&_h3]:font-semibold [&_ul]:my-3 [&_ul]:list-disc [&_ol]:my-3 [&_ol]:list-decimal [&_li]:ml-5 [&_li]:my-1 [&_p]:mb-4 [&_strong]:font-semibold [&_code]:font-mono" v-html="report_html"></div>
+                    <div v-if="report.is_generated && report_html" class="report-markdown max-w-none overflow-x-auto break-words text-sm leading-6 sm:text-[0.9375rem] sm:leading-7 [&_a]:underline [&_h1]:mb-4 [&_h1]:text-2xl [&_h1]:font-semibold [&_h2]:mb-3 [&_h2]:mt-6 [&_h2]:text-xl [&_h2]:font-semibold [&_h3]:my-3 [&_h3]:font-semibold [&_ul]:my-3 [&_ul]:list-disc [&_ol]:my-3 [&_ol]:list-decimal [&_li]:ml-5 [&_li]:my-1 [&_p]:mb-4 [&_strong]:font-semibold [&_code]:font-mono [&_table]:my-5 [&_table]:w-full [&_table]:min-w-[42rem] [&_table]:border-collapse [&_thead]:bg-muted/60 [&_th]:border [&_th]:p-2 [&_th]:text-left [&_td]:border [&_td]:p-2 [&_td]:align-top [&_tbody_tr:nth-child(even)]:bg-muted/20" v-html="report_html"></div>
                     <div v-else class="rounded-lg border border-dashed px-4 py-10 text-center">
                         <FileText class="mx-auto mb-3 size-7 text-muted-foreground" />
                         <p class="text-sm font-medium">No report content yet</p>
@@ -239,7 +243,7 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
             <Card v-if="can_generate" class="min-w-0 xl:sticky xl:top-6">
                 <CardHeader class="gap-1">
                     <CardTitle class="flex items-center gap-2 text-base"><Sparkles class="size-4" /> Generate</CardTitle>
-                    <p class="text-sm text-muted-foreground">Create a summary from the selected sources.</p>
+                    <p class="text-sm text-muted-foreground">{{ report.format === 'work_report' ? 'Generate a work summary and time register.' : 'Summarize progress from the selected sources.' }}</p>
                 </CardHeader>
                 <CardContent>
                     <form class="space-y-4" @submit.prevent="generateReport">
