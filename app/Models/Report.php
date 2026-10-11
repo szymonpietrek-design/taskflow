@@ -24,8 +24,10 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $edited_at
  * @property Carbon|null $published_at
  * @property int|null $published_by
+ * @property string|null $share_token
+ * @property Carbon|null $shared_at
  */
-#[Fillable(['project_id', 'created_by', 'format', 'contributor_ids', 'title', 'period_start', 'period_end', 'sources', 'body', 'generated_locale', 'generated_at', 'edited_at', 'published_at', 'published_by'])]
+#[Fillable(['project_id', 'created_by', 'format', 'contributor_ids', 'title', 'period_start', 'period_end', 'sources', 'body', 'generated_locale', 'generated_at', 'edited_at', 'published_at', 'published_by', 'share_token', 'shared_at'])]
 class Report extends Model
 {
     protected function casts(): array
@@ -39,6 +41,8 @@ class Report extends Model
             'generated_at' => 'datetime',
             'edited_at' => 'datetime',
             'published_at' => 'datetime',
+            'share_token' => 'encrypted',
+            'shared_at' => 'datetime',
         ];
     }
 

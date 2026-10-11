@@ -7,17 +7,17 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Reports\StoreReportRequest;
 use App\Models\Project;
 use App\Models\Report;
-use App\Support\Reports\ReportSourceOverview;
+use App\Models\User;
+use App\Support\Reports\ReportAccess;
 use App\Support\Reports\ReportEditableContent;
 use App\Support\Reports\ReportRevision;
-use App\Support\Reports\ReportAccess;
-use App\Models\User;
+use App\Support\Reports\ReportSourceOverview;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
-use Illuminate\Support\Str;
 
 class ReportController extends Controller
 {
@@ -67,6 +67,11 @@ class ReportController extends Controller
             'can_delete' => app(ReportAccess::class)->canEdit($request->user(), $report),
             'can_generate' => app(ReportAccess::class)->canEdit($request->user(), $report) && $report->published_at === null,
             'can_edit' => app(ReportAccess::class)->canEdit($request->user(), $report),
+            'can_share' => app(ReportAccess::class)->canEdit($request->user(), $report),
+            'share_url' => (app(ReportAccess::class)->canEdit($request->user(), $report)
+                && $report->published_at !== null && $report->share_token !== null)
+                ? route('reports.public', ['report' => $report, 'token' => $report->share_token])
+                : null,
             'editable_content' => app(ReportEditableContent::class)->editable($report),
             'ai_configured' => config('services.ai_chat.provider') === 'deepseek'
                 && filled(config('services.ai_chat.api_key')),

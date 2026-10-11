@@ -1,26 +1,35 @@
 <?php
 
 use App\Http\Controllers\Projects\ProjectController;
-use App\Http\Controllers\Releases\ReleaseController;
-use App\Http\Controllers\Reports\ReportController;
-use App\Http\Controllers\Reports\GenerateReportController;
-use App\Http\Controllers\Reports\ReportContentController;
-use App\Http\Controllers\Reports\ReportPublicationController;
-use App\Http\Controllers\Releases\ReleaseTaskController;
-use App\Http\Controllers\Releases\ReleaseStatusController;
-use App\Http\Controllers\Releases\ReleaseChangelogController;
 use App\Http\Controllers\Releases\GenerateReleaseChangelogController;
+use App\Http\Controllers\Releases\ReleaseChangelogController;
+use App\Http\Controllers\Releases\ReleaseController;
+use App\Http\Controllers\Releases\ReleaseStatusController;
+use App\Http\Controllers\Releases\ReleaseTaskController;
+use App\Http\Controllers\Reports\GenerateReportController;
+use App\Http\Controllers\Reports\PublicReportController;
+use App\Http\Controllers\Reports\ReportContentController;
+use App\Http\Controllers\Reports\ReportController;
+use App\Http\Controllers\Reports\ReportPdfController;
+use App\Http\Controllers\Reports\ReportPublicationController;
+use App\Http\Controllers\Reports\ReportSharingController;
 use App\Http\Controllers\Tasks\TaskController;
 use App\Http\Controllers\Tasks\TaskFromMessageController;
 use App\Http\Controllers\Tasks\TaskMessageController;
-use App\Http\Controllers\Tasks\TaskWorklogController;
 use App\Http\Controllers\Tasks\TaskStatusController;
+use App\Http\Controllers\Tasks\TaskWorklogController;
+use App\Http\Controllers\Worklogs\WorklogController;
 use App\Http\Controllers\Workspaces\CurrentWorkspaceController;
 use App\Http\Controllers\Workspaces\WorkspaceController;
-use App\Http\Controllers\Worklogs\WorklogController;
 use Illuminate\Support\Facades\Route;
 
 Route::inertia('/', 'Welcome')->name('home');
+
+// A public report requires a published document and an unguessable share token.
+Route::get('r/{report}/{token}', PublicReportController::class)
+    ->where('token', '[A-Za-z0-9]{48}')
+    ->middleware('throttle:60,1')
+    ->name('reports.public');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::inertia('dashboard', 'Dashboard')->name('dashboard');
@@ -42,6 +51,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('projects/{project}/reports/{report}/content', ReportContentController::class)->name('reports.content.update');
     Route::post('projects/{project}/reports/{report}/publish', [ReportPublicationController::class, 'publish'])->name('reports.publish');
     Route::post('projects/{project}/reports/{report}/unpublish', [ReportPublicationController::class, 'unpublish'])->name('reports.unpublish');
+    Route::post('projects/{project}/reports/{report}/share', [ReportSharingController::class, 'store'])->name('reports.share.store');
+    Route::delete('projects/{project}/reports/{report}/share', [ReportSharingController::class, 'destroy'])->name('reports.share.destroy');
+    Route::get('projects/{project}/reports/{report}/pdf', ReportPdfController::class)->name('reports.pdf');
     Route::delete('projects/{project}/reports/{report}', [ReportController::class, 'destroy'])->name('reports.destroy');
 
     Route::get('projects/{project}/releases', [ReleaseController::class, 'index'])->name('releases.index');

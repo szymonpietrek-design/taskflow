@@ -45,7 +45,7 @@ final class ReportPublicationController extends Controller
                     $locked->forceFill(['published_at' => now(), 'published_by' => $request->user()->id])->save();
                 }
             } elseif ($locked->published_at !== null) {
-                $locked->forceFill(['published_at' => null, 'published_by' => null])->save();
+                $locked->forceFill(['published_at' => null, 'published_by' => null, 'share_token' => null, 'shared_at' => null])->save();
             }
         });
     }

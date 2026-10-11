@@ -2,7 +2,7 @@
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 import { toast } from 'vue-sonner';
-import { ArrowLeft, ClipboardList, FileText, LoaderCircle, MessageCircle, Activity, Trash2, Clock3, Users, ListTodo, Sparkles, Pencil, Save, CheckCircle2, RotateCcw } from '@lucide/vue';
+import { ArrowLeft, ClipboardList, FileText, LoaderCircle, MessageCircle, Activity, Trash2, Clock3, Users, ListTodo, Sparkles, Pencil, Save, CheckCircle2, RotateCcw, Download, Share2, Copy, ExternalLink, Link2Off } from '@lucide/vue';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -50,6 +50,8 @@ const props = defineProps<{
     can_delete: boolean;
     can_generate: boolean;
     can_edit: boolean;
+    can_share: boolean;
+    share_url: string | null;
     editable_content: string | null;
     ai_configured: boolean;
     default_ai_language: string;
@@ -127,6 +129,34 @@ function changePublication(publish: boolean) {
         preserveScroll: true,
         onError: (errors) => toast.error(errors.publication || 'Could not update report status.'),
     });
+}
+const sharingForm = useForm({});
+function selectLink(event: FocusEvent) {
+    (event.target as HTMLInputElement | null)?.select();
+}
+function enableSharing() {
+    if (sharingForm.processing || !props.report.published_at) return;
+    if (!window.confirm('Anyone with this link will be able to read the published report. Enable sharing?')) return;
+    sharingForm.post(`${baseUrl}/${props.report.id}/share`, {
+        preserveScroll: true,
+        onError: (errors) => toast.error(errors.sharing || 'Could not enable sharing.'),
+    });
+}
+function revokeSharing() {
+    if (sharingForm.processing || !window.confirm('Revoke this link? Anyone using it will lose access.')) return;
+    sharingForm.delete(`${baseUrl}/${props.report.id}/share`, {
+        preserveScroll: true,
+        onError: () => toast.error('Could not revoke the link.'),
+    });
+}
+async function copyShareLink() {
+    if (!props.share_url) return;
+    try {
+        await navigator.clipboard.writeText(props.share_url);
+        toast.success('Link copied.');
+    } catch {
+        toast.error('Copy failed. Select the link and copy it manually.');
+    }
 }
 const generationError = ref<string | undefined>();
 function generateReport() {
@@ -267,7 +297,7 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
                 <p class="text-xs text-muted-foreground">Based on work dates. Totals update when entries change.</p>
             </CardContent>
         </Card>
-        <div class="grid min-w-0 items-start gap-6" :class="can_generate ? 'xl:grid-cols-[minmax(0,1fr)_19rem]' : ''">
+        <div class="grid min-w-0 items-start gap-6" :class="(can_generate || (can_share && !!report.published_at) || report.is_generated) ? 'xl:grid-cols-[minmax(0,1fr)_19rem]' : ''">
             <Card class="min-w-0">
                 <CardHeader class="gap-2">
                     <CardTitle class="flex items-center gap-2 text-base"><FileText class="size-4" /> Report</CardTitle>
@@ -278,7 +308,7 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
                     <p v-if="report.format === 'work_report' && report.edited_at && !isEditing" class="text-xs text-muted-foreground">This document has been edited. Source worklogs and the live statistics above are unchanged.</p>
                 </CardHeader>
                 <CardContent class="space-y-4">
-                    <div v-if="can_edit && report.is_generated" class="flex flex-wrap items-center justify-between gap-2 border-b pb-4">
+                    <div v-if="can_edit && report.is_generated && !report.published_at" class="flex flex-wrap items-center gap-2 border-b pb-4">
                         <div class="flex flex-wrap items-center gap-2">
                             <Button v-if="!isEditing && !report.published_at && editable_content !== null" type="button" size="sm" variant="outline" @click="startEditing">
                                 <Pencil class="size-4" /> Edit
@@ -290,12 +320,6 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
                                 </Button>
                             </template>
                         </div>
-                        <Button v-if="!isEditing && !report.published_at" type="button" size="sm" :disabled="publicationForm.processing" @click="changePublication(true)">
-                            <LoaderCircle v-if="publicationForm.processing" class="size-4 animate-spin" /><CheckCircle2 v-else class="size-4" /> Publish
-                        </Button>
-                        <Button v-if="!isEditing && report.published_at" type="button" size="sm" variant="outline" :disabled="publicationForm.processing" @click="changePublication(false)">
-                            <LoaderCircle v-if="publicationForm.processing" class="size-4 animate-spin" /><RotateCcw v-else class="size-4" /> Move to draft
-                        </Button>
                     </div>
                     <div v-if="isEditing" class="space-y-3">
                         <p class="text-sm text-muted-foreground">Edit the full report as Markdown, including headings, table rows and totals. Changes affect this document only — source tasks and worklogs stay unchanged.</p>
@@ -311,7 +335,8 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
                     </div>
                 </CardContent>
             </Card>
-            <Card v-if="can_generate" class="min-w-0 xl:sticky xl:top-6">
+            <div v-if="can_generate || (can_share && !!report.published_at) || report.is_generated" class="min-w-0 space-y-4 xl:sticky xl:top-6">
+            <Card v-if="can_generate" class="min-w-0">
                 <CardHeader class="gap-1">
                     <CardTitle class="flex items-center gap-2 text-base"><Sparkles class="size-4" /> Generate</CardTitle>
                     <p class="text-sm text-muted-foreground">{{ report.format === 'work_report' ? 'Generate a work summary and time register.' : 'Summarize progress from the selected sources.' }}</p>
@@ -343,6 +368,45 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
                     </form>
                 </CardContent>
             </Card>
+            <Card v-if="can_share && report.published_at" class="min-w-0">
+                <CardHeader class="gap-1">
+                    <CardTitle class="flex items-center gap-2 text-base"><Share2 class="size-4" /> Share</CardTitle>
+                    <p class="text-sm text-muted-foreground">Anyone with the link can view the published report.</p>
+                </CardHeader>
+                <CardContent class="space-y-3">
+                    <template v-if="share_url">
+                        <Input :model-value="share_url" readonly aria-label="Public report link" class="w-full text-xs" @focus="selectLink" />
+                        <div class="flex flex-wrap gap-2">
+                            <Button size="sm" type="button" @click="copyShareLink"><Copy class="size-4" /> Copy link</Button>
+                            <Button size="sm" variant="outline" as-child><a :href="share_url" target="_blank" rel="noopener noreferrer"><ExternalLink class="size-4" /> Preview</a></Button>
+                        </div>
+                        <Button size="sm" variant="ghost" class="text-muted-foreground" :disabled="sharingForm.processing" @click="revokeSharing">
+                            <Link2Off class="size-4" /> Revoke link
+                        </Button>
+                    </template>
+                    <Button v-else type="button" class="w-full" :disabled="sharingForm.processing" @click="enableSharing">
+                        <LoaderCircle v-if="sharingForm.processing" class="size-4 animate-spin" /><Share2 v-else class="size-4" /> Enable public link
+                    </Button>
+                    <p class="text-xs text-muted-foreground">Moving the report to draft disables the link. Do not share it with unintended recipients.</p>
+                </CardContent>
+            </Card>
+            <Card v-if="report.is_generated" class="min-w-0">
+                <CardHeader>
+                    <CardTitle class="text-base">Actions</CardTitle>
+                </CardHeader>
+                <CardContent class="flex flex-col gap-2">
+                    <Button as-child type="button" variant="outline" size="sm" class="w-full justify-start">
+                        <a :href="`${baseUrl}/${report.id}/pdf`"><Download class="size-4" /> Download PDF</a>
+                    </Button>
+                    <Button v-if="can_edit && !report.published_at" type="button" size="sm" class="w-full justify-start" :disabled="isEditing || publicationForm.processing" @click="changePublication(true)">
+                        <LoaderCircle v-if="publicationForm.processing" class="size-4 animate-spin" /><CheckCircle2 v-else class="size-4" /> Publish
+                    </Button>
+                    <Button v-if="can_edit && !!report.published_at" type="button" size="sm" variant="outline" class="w-full justify-start" :disabled="publicationForm.processing" @click="changePublication(false)">
+                        <LoaderCircle v-if="publicationForm.processing" class="size-4 animate-spin" /><RotateCcw v-else class="size-4" /> Move to draft
+                    </Button>
+                </CardContent>
+            </Card>
+            </div>
         </div>
         <div v-if="can_delete" class="flex justify-end">
             <Button variant="outline" type="button" :disabled="deleteForm.processing" @click="removeReport">
