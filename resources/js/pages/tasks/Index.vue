@@ -311,7 +311,7 @@ defineOptions({
                             <InputError :message="errors.title" />
                         </div>
                         <div class="grid gap-2">
-                            <Label for="task-description">Description</Label>
+                            <Label for="task-description">Description <span class="font-normal text-muted-foreground">(optional)</span></Label>
                             <textarea id="task-description" name="description" rows="3" maxlength="10000" placeholder="Optional details" class="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50" />
                             <InputError :message="errors.description" />
                         </div>
@@ -346,7 +346,7 @@ defineOptions({
                             </div>
                         </div>
                         <div class="grid gap-2">
-                            <Label for="task-status">Status</Label>
+                            <Label for="task-status">Status <span class="font-normal text-muted-foreground">(optional)</span></Label>
                             <input type="hidden" name="status_id" :value="newTaskStatus === 'default' ? '' : newTaskStatus" />
                             <Select v-model="newTaskStatus" :disabled="processing">
                                 <SelectTrigger id="task-status" class="w-full"><SelectValue placeholder="Select status" /></SelectTrigger>
@@ -358,7 +358,7 @@ defineOptions({
                             <InputError :message="errors.status_id" />
                         </div>
                         <div class="grid gap-2">
-                            <Label for="task-assignee">Assignee</Label>
+                            <Label for="task-assignee">Assignee <span class="font-normal text-muted-foreground">(optional)</span></Label>
                             <input type="hidden" name="assignee_id" :value="newTaskAssignee === 'unassigned' ? '' : newTaskAssignee" />
                             <Select v-model="newTaskAssignee" :disabled="processing">
                                 <SelectTrigger id="task-assignee" class="w-full"><SelectValue placeholder="Select assignee" /></SelectTrigger>
@@ -370,7 +370,7 @@ defineOptions({
                             <InputError :message="errors.assignee_id" />
                         </div>
                         <div class="grid gap-2">
-                            <Label for="task-parent">Parent task</Label>
+                            <Label for="task-parent">Parent task <span class="font-normal text-muted-foreground">(optional)</span></Label>
                             <input type="hidden" name="parent_id" :value="newTaskParent === 'none' ? '' : newTaskParent" />
                             <Select v-model="newTaskParent" :disabled="processing">
                                 <SelectTrigger id="task-parent" class="w-full"><SelectValue placeholder="Select parent task" /></SelectTrigger>
@@ -382,7 +382,7 @@ defineOptions({
                             <InputError :message="errors.parent_id" />
                         </div>
                         <div class="grid gap-2">
-                            <Label for="task-due-date">Due date (optional)</Label>
+                            <Label for="task-due-date">Due date <span class="font-normal text-muted-foreground">(optional)</span></Label>
                             <input type="hidden" name="due_date" :value="newTaskDueDate?.toString() ?? ''" />
                             <Popover v-slot="{ close }">
                                 <PopoverTrigger as-child>

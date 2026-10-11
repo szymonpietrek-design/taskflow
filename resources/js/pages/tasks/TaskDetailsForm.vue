@@ -55,7 +55,7 @@ const priorities = [
                     <InputError :message="errors.title" />
                 </div>
                 <div class="space-y-2">
-                    <Label for="task-edit-description">Description</Label>
+                    <Label for="task-edit-description">Description <span class="font-normal text-muted-foreground">(optional)</span></Label>
                     <textarea id="task-edit-description" name="description" rows="5" maxlength="10000" :value="task.description ?? ''" :disabled="processing"
                         class="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none focus-visible:ring-2 focus-visible:ring-ring" />
                     <InputError :message="errors.description" />
@@ -73,7 +73,7 @@ const priorities = [
                         <InputError :message="errors.priority" />
                     </div>
                     <div class="space-y-2">
-                        <Label for="task-edit-assignee">Assigned to</Label>
+                        <Label for="task-edit-assignee">Assigned to <span class="font-normal text-muted-foreground">(optional)</span></Label>
                         <input type="hidden" name="assignee_id" :value="editAssignee === 'unassigned' ? '' : editAssignee" />
                         <Select v-model="editAssignee" :disabled="processing">
                             <SelectTrigger id="task-edit-assignee" class="w-full"><SelectValue placeholder="Select assignee" /></SelectTrigger>
@@ -89,7 +89,7 @@ const priorities = [
                     </div>
                 </div>
                 <div class="space-y-2">
-                    <Label for="task-edit-date">Due date</Label>
+                    <Label for="task-edit-date">Due date <span class="font-normal text-muted-foreground">(optional)</span></Label>
                     <input type="hidden" name="due_date" :value="editDueDate?.toString() ?? ''" />
                     <Popover v-slot="{ close }">
                         <PopoverTrigger as-child>

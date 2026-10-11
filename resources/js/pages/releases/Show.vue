@@ -258,7 +258,7 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
                             <Form v-if="release.status === 'draft'" :action="`${releaseUrl}/status`" method="patch" :options="stayOnRelease" @error="notifyFormError" class="flex flex-col gap-3 sm:flex-row sm:items-end" v-slot="{ errors, processing }">
                                 <input type="hidden" name="status" value="2" />
                                 <div class="w-full space-y-1.5 sm:w-64">
-                                    <label for="release-planned-date" class="block text-sm font-medium">Planned date (optional)</label>
+                                    <label for="release-planned-date" class="block text-sm font-medium">Planned date <span class="font-normal text-muted-foreground">(optional)</span></label>
                                     <input type="hidden" name="planned_for" :value="plannedDate?.toString() ?? ''" />
                                     <Popover v-slot="{ close }">
                                         <PopoverTrigger as-child>

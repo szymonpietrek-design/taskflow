@@ -126,7 +126,7 @@ function removeEntry(entry: TaskWorklogSummary): void {
                 </div>
                 <p class="text-xs text-muted-foreground">Daily limit: 8h per person across all tasks and projects. Existing entries for the selected date count toward the limit.</p>
                 <div class="grid gap-1.5">
-                    <Label for="worklog-description">Work performed / outcome <span class="text-xs text-muted-foreground">(optional)</span></Label>
+                    <Label for="worklog-description">Work performed / outcome <span class="font-normal text-muted-foreground">(optional)</span></Label>
                     <Textarea id="worklog-description" v-model="form.description" maxlength="4000" rows="3"
                         :disabled="form.processing" placeholder="Describe what you completed during this time" />
                     <InputError :message="form.errors.description" />
@@ -134,7 +134,7 @@ function removeEntry(entry: TaskWorklogSummary): void {
                 <div class="flex items-center gap-2">
                     <Checkbox id="worklog-creative" :model-value="form.is_creative" :disabled="form.processing"
                         @update:model-value="(checked) => form.is_creative = checked === true" />
-                    <Label for="worklog-creative" class="cursor-pointer">Creative work <span class="font-normal text-muted-foreground">(optional reporting label)</span></Label>
+                    <Label for="worklog-creative" class="cursor-pointer">Creative work <span class="font-normal text-muted-foreground">(optional)</span></Label>
                 </div>
                 <InputError :message="form.errors.is_creative" />
                 <div class="flex flex-wrap gap-2">

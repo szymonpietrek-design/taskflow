@@ -112,24 +112,24 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
                 <CardContent>
                     <Form :action="baseUrl" method="post" class="space-y-4" reset-on-success v-slot="{ errors, processing }">
                         <div class="grid gap-2">
-                            <Label for="release-version">Version *</Label>
+                            <Label for="release-version">Version</Label>
                             <Input id="release-version" name="version" required maxlength="32" placeholder="1.0.0" />
                             <InputError :message="errors.version" />
                         </div>
                         <div class="grid gap-2">
-                            <Label for="release-name">Name</Label>
+                            <Label for="release-name">Name <span class="font-normal text-muted-foreground">(optional)</span></Label>
                             <Input id="release-name" name="name" maxlength="160" placeholder="Initial release" />
                             <InputError :message="errors.name" />
                         </div>
                         <div class="grid gap-2">
-                            <Label for="release-description">Description</Label>
+                            <Label for="release-description">Description <span class="font-normal text-muted-foreground">(optional)</span></Label>
                             <textarea id="release-description" name="description" rows="4" maxlength="10000"
                                 placeholder="Optional internal notes about this version"
                                 class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-xs outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50" />
                             <InputError :message="errors.description" />
                         </div>
                         <div class="grid gap-2">
-                            <Label for="release-date">Planned date</Label>
+                            <Label for="release-date">Planned date <span class="font-normal text-muted-foreground">(optional)</span></Label>
                             <Input id="release-date" name="planned_for" type="date" />
                             <InputError :message="errors.planned_for" />
                         </div>
@@ -137,7 +137,7 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
                             <Checkbox id="include-completed" v-model="includeCompleted" class="mt-0.5" />
                             <input type="hidden" name="include_completed_tasks" :value="includeCompleted ? '1' : '0'" />
                             <label for="include-completed" class="cursor-pointer space-y-1 text-sm">
-                                <span class="block font-medium">Include completed tasks</span>
+                                <span class="block font-medium">Include completed tasks <span class="font-normal text-muted-foreground">(optional)</span></span>
                                 <span class="block text-muted-foreground">Attach {{ completed_available_count }} unassigned, completed {{ completed_available_count === 1 ? 'task' : 'tasks' }} to this release. You can remove them later.</span>
                             </label>
                         </div>

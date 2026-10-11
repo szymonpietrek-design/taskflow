@@ -108,7 +108,7 @@ function taskUrl(id: number): string {
                         <InputError :message="errors.priority" />
                     </div>
                     <div class="grid gap-1.5">
-                        <Label for="subtask-status">Status</Label>
+                        <Label for="subtask-status">Status <span class="font-normal text-muted-foreground">(optional)</span></Label>
                         <input type="hidden" name="status_id" :value="subtaskStatus === 'default' ? '' : subtaskStatus" />
                         <Select v-model="subtaskStatus" :disabled="processing">
                             <SelectTrigger id="subtask-status" class="w-full"><SelectValue placeholder="Select status" /></SelectTrigger>
@@ -120,7 +120,7 @@ function taskUrl(id: number): string {
                         <InputError :message="errors.status_id" />
                     </div>
                     <div class="grid gap-1.5">
-                        <Label for="subtask-assignee">Assignee</Label>
+                        <Label for="subtask-assignee">Assignee <span class="font-normal text-muted-foreground">(optional)</span></Label>
                         <input type="hidden" name="assignee_id" :value="subtaskAssignee === 'unassigned' ? '' : subtaskAssignee" />
                         <Select v-model="subtaskAssignee" :disabled="processing">
                             <SelectTrigger id="subtask-assignee" class="w-full"><SelectValue placeholder="Select assignee" /></SelectTrigger>
@@ -132,7 +132,7 @@ function taskUrl(id: number): string {
                         <InputError :message="errors.assignee_id" />
                     </div>
                     <div class="grid gap-1.5">
-                        <Label for="subtask-due-date">Due date</Label>
+                        <Label for="subtask-due-date">Due date <span class="font-normal text-muted-foreground">(optional)</span></Label>
                         <input type="hidden" name="due_date" :value="subtaskDueDate?.toString() ?? ''" />
                         <Popover v-slot="{ close }">
                             <PopoverTrigger as-child>

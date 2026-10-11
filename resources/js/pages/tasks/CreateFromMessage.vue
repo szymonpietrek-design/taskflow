@@ -62,7 +62,7 @@ defineOptions({
                         <InputError :message="errors.title" />
                     </div>
                     <div class="space-y-1.5">
-                        <Label for="message-task-description">Description</Label>
+                        <Label for="message-task-description">Description <span class="font-normal text-muted-foreground">(optional)</span></Label>
                         <textarea id="message-task-description" name="description" :value="message.body" rows="6" maxlength="10000"
                             class="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50" />
                         <InputError :message="errors.description" />
@@ -85,7 +85,7 @@ defineOptions({
                             <InputError :message="errors.priority" />
                         </div>
                         <div class="space-y-1.5">
-                            <Label for="message-task-status">Status</Label>
+                            <Label for="message-task-status">Status <span class="font-normal text-muted-foreground">(optional)</span></Label>
                             <select id="message-task-status" name="status_id" :class="selectClass">
                                 <option value="">Default (Todo)</option>
                                 <option v-for="status in statuses" :key="status.id" :value="status.id">{{ status.name }}</option>
@@ -93,7 +93,7 @@ defineOptions({
                             <InputError :message="errors.status_id" />
                         </div>
                         <div class="space-y-1.5">
-                            <Label for="message-task-assignee">Assign to</Label>
+                            <Label for="message-task-assignee">Assign to <span class="font-normal text-muted-foreground">(optional)</span></Label>
                             <select id="message-task-assignee" name="assignee_id" :class="selectClass">
                                 <option value="">Unassigned</option>
                                 <option v-for="user in assignees" :key="user.id" :value="user.id">{{ user.name }}</option>
@@ -101,7 +101,7 @@ defineOptions({
                             <InputError :message="errors.assignee_id" />
                         </div>
                         <div class="space-y-1.5 sm:col-span-2">
-                            <Label for="message-task-due">Due date (optional)</Label>
+                            <Label for="message-task-due">Due date <span class="font-normal text-muted-foreground">(optional)</span></Label>
                             <Input id="message-task-due" name="due_date" type="date" />
                             <InputError :message="errors.due_date" />
                         </div>
