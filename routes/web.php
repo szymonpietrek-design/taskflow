@@ -3,6 +3,7 @@
 use App\Http\Controllers\Projects\ProjectController;
 use App\Http\Controllers\Releases\ReleaseController;
 use App\Http\Controllers\Reports\ReportController;
+use App\Http\Controllers\Reports\GenerateReportController;
 use App\Http\Controllers\Releases\ReleaseTaskController;
 use App\Http\Controllers\Releases\ReleaseStatusController;
 use App\Http\Controllers\Releases\ReleaseChangelogController;
@@ -35,6 +36,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('projects/{project}/reports', [ReportController::class, 'index'])->name('reports.index');
     Route::post('projects/{project}/reports', [ReportController::class, 'store'])->name('reports.store');
     Route::get('projects/{project}/reports/{report}', [ReportController::class, 'show'])->name('reports.show');
+    Route::post('projects/{project}/reports/{report}/generate', GenerateReportController::class)->name('reports.generate');
     Route::delete('projects/{project}/reports/{report}', [ReportController::class, 'destroy'])->name('reports.destroy');
 
     Route::get('projects/{project}/releases', [ReleaseController::class, 'index'])->name('releases.index');

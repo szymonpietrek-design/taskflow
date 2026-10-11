@@ -13,6 +13,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
+use Illuminate\Support\Str;
 
 class ReportController extends Controller
 {
@@ -50,6 +51,14 @@ class ReportController extends Controller
             'report' => $this->reportData($report),
             'source_counts' => $overview->forReport($report),
             'can_delete' => $project->archived_at === null && $request->user()->can('update', $project),
+            'can_generate' => $project->archived_at === null && $request->user()->can('update', $project),
+            'ai_configured' => config('services.ai_chat.provider') === 'deepseek'
+                && filled(config('services.ai_chat.api_key')),
+            'default_ai_language' => preg_match('/\A[a-z]{2,3}(?:-[a-z0-9]{2,8})*\z/i', str_replace('_', '-', app()->getLocale()))
+                ? str_replace('_', '-', app()->getLocale()) : 'en',
+            'report_html' => $report->body !== null ? Str::markdown($report->body, [
+                'html_input' => 'strip', 'allow_unsafe_links' => false,
+            ]) : null,
         ]);
     }
 
@@ -86,6 +95,8 @@ class ReportController extends Controller
             'period_end' => $report->period_end->toDateString(),
             'sources' => $report->sources,
             'is_generated' => $report->generated_at !== null,
+            'generated_locale' => $report->generated_locale,
+            'generated_at' => $report->generated_at?->toIso8601String(),
             'body' => $report->body,
             'created_by' => $report->creator?->name,
             'created_at' => $report->created_at?->toIso8601String(),

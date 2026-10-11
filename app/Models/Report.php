@@ -16,9 +16,10 @@ use Illuminate\Support\Carbon;
  * @property Carbon $period_end
  * @property array<int, string> $sources
  * @property string|null $body
+ * @property string|null $generated_locale
  * @property Carbon|null $generated_at
  */
-#[Fillable(['project_id', 'created_by', 'title', 'period_start', 'period_end', 'sources', 'body', 'generated_at'])]
+#[Fillable(['project_id', 'created_by', 'title', 'period_start', 'period_end', 'sources', 'body', 'generated_locale', 'generated_at'])]
 class Report extends Model
 {
     protected function casts(): array

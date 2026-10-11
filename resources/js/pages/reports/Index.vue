@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import InputError from '@/components/InputError.vue';
+import { formatReportPeriod } from '@/lib/reportDates';
 
 type ReportRow = {
     id: number;
@@ -40,10 +41,10 @@ const formatter = new DateFormatter('en-US', { dateStyle: 'medium' });
 const start = shallowRef<DateValue | undefined>(parseDate(today(getLocalTimeZone()).subtract({ days: 30 }).toString()));
 const end = shallowRef<DateValue | undefined>(today(getLocalTimeZone()));
 const sources = [
-    { value: 'tasks', title: 'Tasks', description: 'Created or completed in this period' },
-    { value: 'messages', title: 'Messages', description: 'Task discussions posted in this period' },
-    { value: 'activity', title: 'Activity', description: 'Changes recorded in this period' },
-    { value: 'worklogs', title: 'Worklogs', description: 'Time logged on project tasks during this period' },
+    { value: 'tasks', title: 'Tasks', description: 'Created or completed tasks' },
+    { value: 'messages', title: 'Messages', description: 'Task discussions' },
+    { value: 'activity', title: 'Activity', description: 'Recorded changes' },
+    { value: 'worklogs', title: 'Worklogs', description: 'Recorded time' },
 ];
 const selected = shallowRef<string[]>(['tasks', 'messages', 'activity', 'worklogs']);
 const sourceLabels: Record<string, string> = { tasks: 'Tasks', messages: 'Messages', activity: 'Activity', worklogs: 'Worklogs' };
@@ -67,20 +68,20 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
             <Badge variant="secondary" class="w-fit">{{ project.key }}</Badge>
             <div>
                 <h1 class="text-2xl font-semibold tracking-tight">Reports</h1>
-                <p class="mt-1 text-sm text-muted-foreground">Save reporting periods and explore live activity and worklog totals for {{ project.name }}. AI-written summaries will come later.</p>
+                <p class="mt-1 text-sm text-muted-foreground">Create reports from project activity and worklogs for {{ project.name }}.</p>
             </div>
         </div>
         <div class="grid items-start gap-6" :class="can_create ? 'lg:grid-cols-[minmax(0,1fr)_22rem]' : ''">
             <section class="space-y-3">
                 <div class="flex items-center justify-between">
                     <h2 class="font-medium">Saved reports</h2>
-                    <span class="text-sm text-muted-foreground">{{ reports.total }} reports</span>
+                    <span class="text-sm text-muted-foreground">{{ reports.total }} {{ reports.total === 1 ? 'report' : 'reports' }}</span>
                 </div>
                 <Card v-if="reports.data.length === 0" class="border-dashed">
                     <CardContent class="flex flex-col items-center gap-2 py-10 text-center">
                         <FileText class="size-9 text-muted-foreground" />
                         <p class="font-medium">No reports yet</p>
-                        <p class="text-sm text-muted-foreground">Create a reporting period to get started.</p>
+                        <p class="text-sm text-muted-foreground">Create your first report.</p>
                     </CardContent>
                 </Card>
                 <div v-else class="space-y-3">
@@ -92,7 +93,7 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
                                     <Badge :variant="report.is_generated ? 'default' : 'secondary'">{{ report.is_generated ? 'Generated' : 'Draft' }}</Badge>
                                 </div>
                                 <div class="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                                    <span>{{ report.period_start }} – {{ report.period_end }}</span>
+                                    <span>{{ formatReportPeriod(report.period_start, report.period_end) }}</span>
                                     <span>·</span>
                                     <span>{{ report.sources.map((s) => sourceLabels[s] ?? s).join(', ') }}</span>
                                 </div>
@@ -112,14 +113,14 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
             <Card v-if="can_create" class="h-fit">
                 <CardHeader>
                     <CardTitle class="flex items-center gap-2"><Plus class="size-4" /> New report</CardTitle>
-                    <CardDescription>Choose a period and sources. Live statistics are available immediately.</CardDescription>
+                    <CardDescription>Choose a period and sources.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <Form :action="baseUrl" method="post" class="space-y-4" v-slot="{ errors, processing }">
                         <div class="grid gap-2">
                             <Label for="report-title">Title <span class="font-normal text-muted-foreground">(optional)</span></Label>
                             <Input id="report-title" name="title" maxlength="160" placeholder="e.g. Weekly project summary" />
-                            <p class="text-xs text-muted-foreground">Leave blank to generate a title from the selected dates.</p>
+                            <p class="text-xs text-muted-foreground">Leave blank to use the selected dates.</p>
                             <InputError :message="errors.title" />
                         </div>
                         <div class="grid gap-2">
@@ -161,7 +162,7 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
                         </div>
                         <Button type="submit" class="w-full" :disabled="processing || !validPeriod || !selected.length">
                             <LoaderCircle v-if="processing" class="size-4 animate-spin" /><Plus v-else class="size-4" />
-                            {{ processing ? 'Creating report…' : 'Create report draft' }}
+                            {{ processing ? 'Creating…' : 'Create report' }}
                         </Button>
                     </Form>
                 </CardContent>

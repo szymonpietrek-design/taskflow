@@ -1,9 +1,14 @@
 <script setup lang="ts">
 import { Head, Link, useForm } from '@inertiajs/vue3';
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
+import { toast } from 'vue-sonner';
 import { ArrowLeft, ClipboardList, FileText, LoaderCircle, MessageCircle, Activity, Trash2, Clock3, Users, ListTodo, Sparkles } from '@lucide/vue';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import InputError from '@/components/InputError.vue';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
+import { formatReportPeriod, formatReportTimestamp } from '@/lib/reportDates';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 type Report = {
@@ -13,6 +18,8 @@ type Report = {
     period_end: string;
     sources: string[];
     is_generated: boolean;
+    generated_locale: string | null;
+    generated_at: string | null;
     body: string | null;
     created_by: string | null;
     created_at: string | null;
@@ -35,6 +42,10 @@ const props = defineProps<{
     report: Report;
     source_counts: { tasks: number | null; messages: number | null; activity: number | null; worklogs: WorklogBreakdown | null };
     can_delete: boolean;
+    can_generate: boolean;
+    ai_configured: boolean;
+    default_ai_language: string;
+    report_html: string | null;
 }>();
 const worklogDetails = computed<WorklogBreakdown>(() => props.source_counts.worklogs ?? {
     entries: 0,
@@ -45,9 +56,51 @@ const worklogDetails = computed<WorklogBreakdown>(() => props.source_counts.work
     by_task: [],
 });
 const baseUrl = `/projects/${props.project.id}/reports`;
+const languageOptions = [
+    { value: 'en', label: 'English' },
+    { value: 'pl', label: 'Polski' },
+    { value: 'de', label: 'Deutsch' },
+    { value: 'fr', label: 'Français' },
+    { value: 'es', label: 'Español' },
+    { value: 'it', label: 'Italiano' },
+    { value: 'pt', label: 'Português' },
+    { value: 'pt-BR', label: 'Português (Brasil)' },
+    { value: 'nl', label: 'Nederlands' },
+    { value: 'uk', label: 'Українська' },
+    { value: 'ja', label: '日本語' },
+    { value: 'ko', label: '한국어' },
+    { value: 'zh-Hans', label: '简体中文' },
+    { value: 'zh-Hant', label: '繁體中文' },
+] as const;
+const defaultLanguage = props.report.generated_locale ?? props.default_ai_language;
+const isPresetLanguage = (code: string): boolean => languageOptions.some((option) => option.value === code);
+const selectedLanguage = ref(isPresetLanguage(defaultLanguage) ? defaultLanguage : '__other');
+const customLanguage = ref(isPresetLanguage(defaultLanguage) ? '' : defaultLanguage);
+const outputLanguage = computed(() => selectedLanguage.value === '__other' ? customLanguage.value.trim() : selectedLanguage.value);
+const isValidLanguage = computed(() => /^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/i.test(outputLanguage.value) && outputLanguage.value.length <= 35);
+const generateForm = useForm({ language: defaultLanguage });
+function languageLabel(code: string | null): string {
+    if (!code) return '';
+    return languageOptions.find((language) => language.value === code)?.label ?? code;
+}
+const generationError = ref<string | undefined>();
+function generateReport() {
+    if (!isValidLanguage.value || generateForm.processing) return;
+    if (props.report.is_generated && !window.confirm('Replace the current report with a new version?')) return;
+    generationError.value = undefined;
+    generateForm.language = outputLanguage.value;
+    generateForm.post(`${baseUrl}/${props.report.id}/generate`, {
+        preserveScroll: true,
+        onError: (errors) => {
+            generationError.value = errors.ai_generation;
+            toast.error(generationError.value || errors.language || 'Could not generate the report.');
+        },
+        onSuccess: () => { generationError.value = undefined; },
+    });
+}
 const deleteForm = useForm({});
 function removeReport() {
-    if (!window.confirm('Delete this report draft?')) return;
+    if (!window.confirm('Delete this report?')) return;
     deleteForm.delete(`${baseUrl}/${props.report.id}`, { preserveScroll: true });
 }
 const selectedSources = [
@@ -55,6 +108,7 @@ const selectedSources = [
     { key: 'messages' as const, title: 'Messages', icon: MessageCircle },
     { key: 'activity' as const, title: 'Activity', icon: Activity },
 ].filter((source) => props.report.sources.includes(source.key));
+const selectedSourceCount = selectedSources.length + Number(props.report.sources.includes('worklogs'));
 function durationLabel(minutes: number): string {
     const hours = Math.floor(minutes / 60);
     const remaining = minutes % 60;
@@ -78,31 +132,34 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
                 <Badge :variant="report.is_generated ? 'default' : 'outline'">{{ report.is_generated ? 'Generated' : 'Draft' }}</Badge>
             </div>
             <h1 class="text-2xl font-semibold tracking-tight">{{ report.title }}</h1>
-            <p class="text-sm text-muted-foreground">{{ report.period_start }} – {{ report.period_end }}<template v-if="report.created_by"> · Created by {{ report.created_by }}</template></p>
+            <p class="text-sm text-muted-foreground">{{ formatReportPeriod(report.period_start, report.period_end) }}<template v-if="report.created_by"> · Created by {{ report.created_by }}</template></p>
         </div>
         <Card>
-            <CardHeader><CardTitle class="text-base">Selected sources</CardTitle></CardHeader>
+            <CardHeader class="flex flex-row items-center justify-between gap-3">
+                <CardTitle class="text-base">Sources</CardTitle>
+                <span class="text-xs text-muted-foreground">{{ selectedSourceCount }} selected</span>
+            </CardHeader>
             <CardContent>
-                <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                    <div v-for="source in selectedSources" :key="source.key" class="rounded-lg border p-4">
+                <div class="grid gap-3" style="grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));">
+                    <div v-for="source in selectedSources" :key="source.key" class="min-w-0 rounded-lg border bg-card p-4">
                         <div class="flex items-center gap-2 text-sm text-muted-foreground">
                             <component :is="source.icon" class="size-4" /> {{ source.title }}
                         </div>
                         <p class="mt-3 text-2xl font-semibold tabular-nums">{{ source_counts[source.key] ?? 0 }}</p>
                     </div>
-                    <div v-if="report.sources.includes('worklogs')" class="rounded-lg border p-4">
+                    <div v-if="report.sources.includes('worklogs')" class="min-w-0 rounded-lg border bg-card p-4">
                         <div class="flex items-center gap-2 text-sm text-muted-foreground"><Clock3 class="size-4" /> Worklogs</div>
                         <p class="mt-3 text-2xl font-semibold tabular-nums">{{ durationLabel(source_counts.worklogs?.total_minutes ?? 0) }}</p>
                         <p class="mt-1 text-xs text-muted-foreground">{{ source_counts.worklogs?.entries ?? 0 }} entries</p>
                     </div>
                 </div>
-                <p class="mt-4 text-xs text-muted-foreground">Live totals for this project and saved date range. Tasks are counted when created or completed; messages and activity by creation date; worklogs by work date. The future AI report will use the selected sources.</p>
+                <p class="mt-4 text-xs text-muted-foreground">Totals update as project data changes.</p>
             </CardContent>
         </Card>
         <Card v-if="source_counts.worklogs" class="gap-4">
             <CardHeader>
                 <CardTitle class="flex items-center gap-2 text-base"><Clock3 class="size-4" /> Worklog breakdown</CardTitle>
-                <p class="text-sm text-muted-foreground">Logged work within this report’s date range, including all contributors and tasks in {{ project.name }}.</p>
+                <p class="text-sm text-muted-foreground">Time recorded for this project during the selected period.</p>
             </CardHeader>
             <CardContent class="space-y-6">
                 <div class="grid gap-3 sm:grid-cols-3">
@@ -159,16 +216,59 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
                         </div>
                     </section>
                 </div>
-                <p class="text-xs text-muted-foreground">Time is grouped by work date, not entry creation date. Totals reflect current entries and may change if worklogs are edited.</p>
+                <p class="text-xs text-muted-foreground">Based on work dates. Totals update when entries change.</p>
             </CardContent>
         </Card>
-        <Card>
-            <CardHeader><CardTitle class="flex items-center gap-2 text-base"><FileText class="size-4" /> Report content</CardTitle></CardHeader>
-            <CardContent>
-                <p v-if="!report.is_generated" class="text-sm text-muted-foreground">This report is a saved draft. AI generation will be available in stage 6B.</p>
-                <pre v-else class="whitespace-pre-wrap break-words text-sm">{{ report.body }}</pre>
-            </CardContent>
-        </Card>
+        <div class="grid min-w-0 items-start gap-6" :class="can_generate ? 'xl:grid-cols-[minmax(0,1fr)_19rem]' : ''">
+            <Card class="min-w-0">
+                <CardHeader class="gap-2">
+                    <CardTitle class="flex items-center gap-2 text-base"><FileText class="size-4" /> Report</CardTitle>
+                    <p v-if="report.is_generated && report.generated_at" class="text-xs text-muted-foreground">
+                        Generated {{ formatReportTimestamp(report.generated_at) }}<template v-if="report.generated_locale"> · {{ languageLabel(report.generated_locale) }}</template>
+                    </p>
+                </CardHeader>
+                <CardContent>
+                    <div v-if="report.is_generated && report_html" class="report-markdown max-w-none break-words text-sm leading-6 sm:text-[0.9375rem] sm:leading-7 [&_a]:underline [&_h1]:mb-4 [&_h1]:text-2xl [&_h1]:font-semibold [&_h2]:mb-3 [&_h2]:mt-6 [&_h2]:text-xl [&_h2]:font-semibold [&_h3]:my-3 [&_h3]:font-semibold [&_ul]:my-3 [&_ul]:list-disc [&_ol]:my-3 [&_ol]:list-decimal [&_li]:ml-5 [&_li]:my-1 [&_p]:mb-4 [&_strong]:font-semibold [&_code]:font-mono" v-html="report_html"></div>
+                    <div v-else class="rounded-lg border border-dashed px-4 py-10 text-center">
+                        <FileText class="mx-auto mb-3 size-7 text-muted-foreground" />
+                        <p class="text-sm font-medium">No report content yet</p>
+                        <p class="mt-1 text-sm text-muted-foreground">Generate a report from the selected sources.</p>
+                    </div>
+                </CardContent>
+            </Card>
+            <Card v-if="can_generate" class="min-w-0 xl:sticky xl:top-6">
+                <CardHeader class="gap-1">
+                    <CardTitle class="flex items-center gap-2 text-base"><Sparkles class="size-4" /> Generate</CardTitle>
+                    <p class="text-sm text-muted-foreground">Create a summary from the selected sources.</p>
+                </CardHeader>
+                <CardContent>
+                    <form class="space-y-4" @submit.prevent="generateReport">
+                        <div class="space-y-1.5">
+                            <label for="report-ai-language" class="text-sm font-medium">Language</label>
+                            <Select v-model="selectedLanguage">
+                                <SelectTrigger id="report-ai-language" class="w-full"><SelectValue placeholder="Choose a language" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem v-for="language in languageOptions" :key="language.value" :value="language.value">{{ language.label }}</SelectItem>
+                                    <SelectItem value="__other">Other language…</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div v-if="selectedLanguage === '__other'" class="space-y-1.5">
+                            <label for="report-ai-custom-language" class="text-sm font-medium">Language code</label>
+                            <Input id="report-ai-custom-language" v-model="customLanguage" maxlength="35" placeholder="e.g. sv, hi, zh-Hant-TW" />
+                        </div>
+                        <InputError :message="generateForm.errors.language || generationError" />
+                        <Button type="submit" class="w-full" :disabled="generateForm.processing || !ai_configured || !isValidLanguage">
+                            <LoaderCircle v-if="generateForm.processing" class="size-4 animate-spin" />
+                            <Sparkles v-else class="size-4" />
+                            {{ generateForm.processing ? 'Generating…' : (report.is_generated ? 'Regenerate report' : 'Generate report') }}
+                        </Button>
+                        <p v-if="!ai_configured" class="text-xs text-muted-foreground">Report generation is not configured.</p>
+                        <p v-else class="text-xs text-muted-foreground">Selected project data is sent to your AI provider. Review the result before sharing.</p>
+                    </form>
+                </CardContent>
+            </Card>
+        </div>
         <div v-if="can_delete" class="flex justify-end">
             <Button variant="outline" type="button" :disabled="deleteForm.processing" @click="removeReport">
                 <LoaderCircle v-if="deleteForm.processing" class="size-4 animate-spin" /><Trash2 v-else class="size-4" /> Delete report
