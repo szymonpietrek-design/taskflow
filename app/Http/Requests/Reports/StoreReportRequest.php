@@ -28,7 +28,7 @@ class StoreReportRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'title' => ['required', 'string', 'max:160'],
+            'title' => ['nullable', 'string', 'max:160'],
             'period_start' => ['required', 'date_format:Y-m-d'],
             'period_end' => ['required', 'date_format:Y-m-d', 'after_or_equal:period_start'],
             'sources' => ['required', 'array', 'min:1', 'max:4'],

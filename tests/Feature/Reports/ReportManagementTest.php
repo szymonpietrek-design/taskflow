@@ -50,6 +50,52 @@ class ReportManagementTest extends TestCase
                 ->where('reports.data.0.title', 'Weekly summary')->where('can_create', true));
     }
 
+    public function test_report_uses_period_title_when_title_is_omitted(): void
+    {
+        [$owner, $project] = $this->fixtures();
+        $payload = $this->payload();
+        unset($payload['title']);
+
+        $this->actingAs($owner)->post(route('reports.store', $project), $payload)
+            ->assertSessionHasNoErrors()->assertRedirect();
+
+        $this->assertSame('Project report · Oct 1–7, 2026', Report::query()->sole()->title);
+    }
+
+    public function test_blank_title_generates_name_and_custom_title_is_preserved(): void
+    {
+        [$owner, $project] = $this->fixtures();
+
+        $this->actingAs($owner)->post(route('reports.store', $project), $this->payload([
+            'title' => '   ', 'period_start' => '2026-10-11', 'period_end' => '2026-10-11',
+        ]))->assertSessionHasNoErrors();
+        $this->actingAs($owner)->post(route('reports.store', $project), $this->payload([
+            'title' => '  Release retrospective  ',
+        ]))->assertSessionHasNoErrors();
+
+        $this->assertSame(
+            ['Project report · Oct 11, 2026', 'Release retrospective'],
+            Report::query()->orderBy('id')->pluck('title')->all(),
+        );
+    }
+
+    public function test_generated_title_formats_period_across_months_and_years(): void
+    {
+        [$owner, $project] = $this->fixtures();
+
+        $this->actingAs($owner)->post(route('reports.store', $project), $this->payload([
+            'title' => null, 'period_start' => '2026-09-28', 'period_end' => '2026-10-04',
+        ]))->assertSessionHasNoErrors();
+        $this->actingAs($owner)->post(route('reports.store', $project), $this->payload([
+            'title' => '', 'period_start' => '2026-12-28', 'period_end' => '2027-01-03',
+        ]))->assertSessionHasNoErrors();
+
+        $this->assertSame(
+            ['Project report · Sep 28 – Oct 4, 2026', 'Project report · Dec 28, 2026 – Jan 3, 2027'],
+            Report::query()->orderBy('id')->pluck('title')->all(),
+        );
+    }
+
     public function test_validation_rejects_invalid_period_and_sources(): void
     {
         [$owner, $project] = $this->fixtures();
@@ -62,7 +108,10 @@ class ReportManagementTest extends TestCase
         ]))->assertSessionHasErrors(['sources.1', 'sources.2']);
         $this->actingAs($owner)->post(route('reports.store', $project), $this->payload([
             'period_start' => '10/01/2026', 'title' => '   ',
-        ]))->assertSessionHasErrors(['period_start', 'title']);
+        ]))->assertSessionHasErrors(['period_start']);
+        $this->actingAs($owner)->post(route('reports.store', $project), $this->payload([
+            'title' => str_repeat('x', 161),
+        ]))->assertSessionHasErrors(['title']);
         $this->assertDatabaseCount('reports', 0);
     }
 
@@ -144,6 +193,77 @@ class ReportManagementTest extends TestCase
                 ->where('source_counts.activity', null));
     }
 
+    public function test_worklog_breakdown_splits_time_by_contributor_task_and_creative_work(): void
+    {
+        [$owner, $project] = $this->fixtures();
+        $report = $this->report($project, $owner, ['worklogs']);
+        $colleague = User::factory()->create(['name' => 'Alex Developer']);
+        $other = Project::factory()->create([
+            'workspace_id' => $project->workspace_id, 'created_by' => $owner->id,
+        ]);
+        $status = TaskStatus::factory()->create(['project_id' => $project->id]);
+        $foreignStatus = TaskStatus::factory()->create(['project_id' => $other->id]);
+        $first = Task::factory()->create([
+            'project_id' => $project->id, 'created_by' => $owner->id, 'status_id' => $status->id,
+            'number' => 17, 'title' => 'Improve the task page',
+        ]);
+        $second = Task::factory()->create([
+            'project_id' => $project->id, 'created_by' => $owner->id, 'status_id' => $status->id,
+            'number' => 18, 'title' => 'Release documentation',
+        ]);
+        $foreign = Task::factory()->create([
+            'project_id' => $other->id, 'created_by' => $owner->id, 'status_id' => $foreignStatus->id,
+        ]);
+
+        foreach ([
+            [$first, $owner->id, '2026-10-01', 60, true],
+            [$first, $owner->id, '2026-10-01', 45, false],
+            [$first, $colleague->id, '2026-10-07', 75, true],
+            [$second, $owner->id, '2026-10-03', 135, false],
+            [$second, null, '2026-10-04', 30, true], // A deleted contributor retains their historical time.
+            [$first, $owner->id, '2026-09-30', 40, true], // Outside the saved date range.
+            [$first, $owner->id, '2026-10-08', 40, true], // Outside the saved date range.
+            [$foreign, $owner->id, '2026-10-02', 240, true], // Belongs to a different project.
+        ] as [$task, $userId, $date, $minutes, $creative]) {
+            $task->worklogs()->create([
+                'user_id' => $userId,
+                'work_date' => $date,
+                'duration_minutes' => $minutes,
+                'description' => null,
+                'is_creative' => $creative,
+            ]);
+        }
+
+        $this->actingAs($owner)->get(route('reports.show', [$project, $report]))
+            ->assertOk()->assertInertia(fn (Assert $page) => $page
+                ->component('reports/Show')
+                ->where('source_counts.worklogs.entries', 5)
+                ->where('source_counts.worklogs.total_minutes', 345)
+                ->where('source_counts.worklogs.creative_entries', 3)
+                ->where('source_counts.worklogs.creative_minutes', 165)
+                ->has('source_counts.worklogs.by_user', 3)
+                ->where('source_counts.worklogs.by_user.0.user_id', $owner->id)
+                ->where('source_counts.worklogs.by_user.0.total_minutes', 240)
+                ->where('source_counts.worklogs.by_user.0.creative_minutes', 60)
+                ->where('source_counts.worklogs.by_user.0.entries', 3)
+                ->where('source_counts.worklogs.by_user.1.user_id', $colleague->id)
+                ->where('source_counts.worklogs.by_user.1.name', 'Alex Developer')
+                ->where('source_counts.worklogs.by_user.1.total_minutes', 75)
+                ->where('source_counts.worklogs.by_user.2.user_id', null)
+                ->where('source_counts.worklogs.by_user.2.name', 'Former user')
+                ->where('source_counts.worklogs.by_user.2.total_minutes', 30)
+                ->has('source_counts.worklogs.by_task', 2)
+                ->where('source_counts.worklogs.by_task.0.task_id', $first->id)
+                ->where('source_counts.worklogs.by_task.0.number', 17)
+                ->where('source_counts.worklogs.by_task.0.title', 'Improve the task page')
+                ->where('source_counts.worklogs.by_task.0.total_minutes', 180)
+                ->where('source_counts.worklogs.by_task.0.creative_minutes', 135)
+                ->where('source_counts.worklogs.by_task.0.entries', 3)
+                ->where('source_counts.worklogs.by_task.1.task_id', $second->id)
+                ->where('source_counts.worklogs.by_task.1.total_minutes', 165)
+                ->where('source_counts.worklogs.by_task.1.creative_minutes', 30));
+    }
+
     public function test_report_accepts_four_sources_and_empty_worklogs_show_zero(): void
     {
         [$owner, $project] = $this->fixtures();
@@ -156,7 +276,11 @@ class ReportManagementTest extends TestCase
         $this->actingAs($owner)->get(route('reports.show', [$project, $report]))
             ->assertOk()->assertInertia(fn (Assert $page) => $page
                 ->where('source_counts.worklogs.entries', 0)
-                ->where('source_counts.worklogs.total_minutes', 0));
+                ->where('source_counts.worklogs.total_minutes', 0)
+                ->where('source_counts.worklogs.creative_entries', 0)
+                ->where('source_counts.worklogs.creative_minutes', 0)
+                ->has('source_counts.worklogs.by_user', 0)
+                ->has('source_counts.worklogs.by_task', 0));
     }
 
     public function test_unselected_sources_are_not_queried_for_preview(): void

@@ -67,7 +67,7 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
             <Badge variant="secondary" class="w-fit">{{ project.key }}</Badge>
             <div>
                 <h1 class="text-2xl font-semibold tracking-tight">Reports</h1>
-                <p class="mt-1 text-sm text-muted-foreground">Save reporting periods and source selections for {{ project.name }}. AI summaries will be added in the next stage.</p>
+                <p class="mt-1 text-sm text-muted-foreground">Save reporting periods and explore live activity and worklog totals for {{ project.name }}. AI-written summaries will come later.</p>
             </div>
         </div>
         <div class="grid items-start gap-6" :class="can_create ? 'lg:grid-cols-[minmax(0,1fr)_22rem]' : ''">
@@ -112,17 +112,18 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
             <Card v-if="can_create" class="h-fit">
                 <CardHeader>
                     <CardTitle class="flex items-center gap-2"><Plus class="size-4" /> New report</CardTitle>
-                    <CardDescription>Save your report settings now; generate its content later.</CardDescription>
+                    <CardDescription>Choose a period and sources. Live statistics are available immediately.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <Form :action="baseUrl" method="post" class="space-y-4" v-slot="{ errors, processing }">
                         <div class="grid gap-2">
-                            <Label for="report-title">Title *</Label>
-                            <Input id="report-title" name="title" maxlength="160" required placeholder="Weekly project summary" />
+                            <Label for="report-title">Title <span class="font-normal text-muted-foreground">(optional)</span></Label>
+                            <Input id="report-title" name="title" maxlength="160" placeholder="e.g. Weekly project summary" />
+                            <p class="text-xs text-muted-foreground">Leave blank to generate a title from the selected dates.</p>
                             <InputError :message="errors.title" />
                         </div>
                         <div class="grid gap-2">
-                            <Label>From *</Label>
+                            <Label>From</Label>
                             <input type="hidden" name="period_start" :value="start?.toString() ?? ''" />
                             <Popover>
                                 <PopoverTrigger as-child>
@@ -135,7 +136,7 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
                             <InputError :message="errors.period_start" />
                         </div>
                         <div class="grid gap-2">
-                            <Label>To *</Label>
+                            <Label>To</Label>
                             <input type="hidden" name="period_end" :value="end?.toString() ?? ''" />
                             <Popover>
                                 <PopoverTrigger as-child>
@@ -149,7 +150,7 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
                             <p v-if="!validPeriod" class="text-xs text-destructive">The end date must not precede the start date.</p>
                         </div>
                         <div class="grid gap-2">
-                            <Label>Include sources *</Label>
+                            <Label>Include sources</Label>
                             <label v-for="source in sources" :key="source.value" class="flex cursor-pointer items-start gap-2 rounded-md border px-3 py-2.5">
                                 <input type="checkbox" name="sources[]" :value="source.value" :checked="selected.includes(source.value)"
                                     class="mt-0.5 size-4 accent-primary" @change="changeSource(source.value, ($event.target as HTMLInputElement).checked)" />
