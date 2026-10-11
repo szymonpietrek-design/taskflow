@@ -166,7 +166,7 @@ function visibilityLabel(visibility: ProjectSummary['visibility']): string {
                         </div>
 
                         <div class="grid gap-2">
-                            <Label for="project-description">Description</Label>
+                            <Label for="project-description">Description <span class="font-normal text-muted-foreground">(optional)</span></Label>
                             <textarea
                                 id="project-description"
                                 name="description"
