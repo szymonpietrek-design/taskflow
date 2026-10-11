@@ -1,19 +1,20 @@
 <script setup lang="ts">
 import { Link, useForm } from '@inertiajs/vue3';
-import { DateFormatter, getLocalTimeZone, parseDate, today, type DateValue } from '@internationalized/date';
-import { CalendarDays, Clock3, LoaderCircle, Pencil, Plus, Trash2 } from '@lucide/vue';
-import { computed, ref, shallowRef, watch } from 'vue';
+import { DateFormatter, getLocalTimeZone, parseDate, today } from '@internationalized/date';
+import { Clock3, LoaderCircle, Pencil, Plus, Trash2 } from '@lucide/vue';
+import { computed, ref, watch } from 'vue';
 import { toast } from 'vue-sonner';
 import InputError from '@/components/InputError.vue';
+import WorklogDatePicker from '@/components/worklogs/WorklogDatePicker.vue';
 import { Button } from '@/components/ui/button';
-import { Calendar } from '@/components/ui/calendar';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
     Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Textarea } from '@/components/ui/textarea';
 import type { TaskWorklogPage, TaskWorklogSummary } from '@/types/task';
 
 const props = defineProps<{
@@ -37,9 +38,7 @@ const form = useForm({
     description: '',
     is_creative: false,
 });
-const selectedDate = shallowRef<DateValue | undefined>(today(getLocalTimeZone()));
 const dateFormatter = new DateFormatter('en-US', { dateStyle: 'medium' });
-watch(selectedDate, (value) => { form.work_date = value?.toString() ?? ''; });
 watch(() => props.taskId, () => { closeEditor(); deletingId.value = null; });
 
 function durationLabel(minutes: number): string {
@@ -55,7 +54,6 @@ function closeEditor(): void {
     editingId.value = null;
     form.reset();
     form.clearErrors();
-    selectedDate.value = today(getLocalTimeZone());
 }
 function addEntry(): void {
     closeEditor();
@@ -70,7 +68,6 @@ function editEntry(entry: TaskWorklogSummary): void {
     form.description = entry.description ?? '';
     form.is_creative = entry.is_creative;
     form.clearErrors();
-    selectedDate.value = parseDate(entry.work_date);
 }
 function saveEntry(): void {
     const options = {
@@ -112,19 +109,8 @@ function removeEntry(entry: TaskWorklogSummary): void {
                 <div class="grid gap-4 sm:grid-cols-[minmax(0,1fr)_6rem_6rem]">
                     <div class="grid gap-1.5">
                         <Label>Work date</Label>
-                        <Popover v-slot="{ close }">
-                            <PopoverTrigger as-child>
-                                <Button type="button" variant="outline" class="w-full justify-between font-normal"
-                                    aria-label="Choose work date" :disabled="form.processing">
-                                    <span>{{ selectedDate ? dateFormatter.format(selectedDate.toDate(getLocalTimeZone())) : 'Choose date' }}</span>
-                                    <CalendarDays class="size-4 opacity-70" />
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent class="w-auto p-0" align="start">
-                                <Calendar v-model="selectedDate" :default-placeholder="today(getLocalTimeZone())" :max-value="today(getLocalTimeZone())"
-                                    layout="month-and-year" initial-focus @update:model-value="close" />
-                            </PopoverContent>
-                        </Popover>
+                        <WorklogDatePicker id="worklog-date" v-model="form.work_date" :max-date="today(getLocalTimeZone()).toString()"
+                            :disabled="form.processing" :invalid="Boolean(form.errors.work_date)" />
                         <InputError :message="form.errors.work_date" />
                     </div>
                     <div class="grid gap-1.5">
@@ -141,15 +127,15 @@ function removeEntry(entry: TaskWorklogSummary): void {
                 <p class="text-xs text-muted-foreground">Daily limit: 8h per person across all tasks and projects. Existing entries for the selected date count toward the limit.</p>
                 <div class="grid gap-1.5">
                     <Label for="worklog-description">Work performed / outcome <span class="text-xs text-muted-foreground">(optional)</span></Label>
-                    <textarea id="worklog-description" v-model="form.description" maxlength="4000" rows="3"
-                        :disabled="form.processing" placeholder="Describe what you completed during this time"
-                        class="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50" />
+                    <Textarea id="worklog-description" v-model="form.description" maxlength="4000" rows="3"
+                        :disabled="form.processing" placeholder="Describe what you completed during this time" />
                     <InputError :message="form.errors.description" />
                 </div>
-                <label class="flex cursor-pointer items-center gap-2 text-sm">
-                    <input v-model="form.is_creative" type="checkbox" class="size-4 accent-primary" :disabled="form.processing" />
-                    Creative work <span class="text-xs text-muted-foreground">(optional reporting label)</span>
-                </label>
+                <div class="flex items-center gap-2">
+                    <Checkbox id="worklog-creative" :model-value="form.is_creative" :disabled="form.processing"
+                        @update:model-value="(checked) => form.is_creative = checked === true" />
+                    <Label for="worklog-creative" class="cursor-pointer">Creative work <span class="font-normal text-muted-foreground">(optional reporting label)</span></Label>
+                </div>
                 <InputError :message="form.errors.is_creative" />
                 <div class="flex flex-wrap gap-2">
                     <Button type="submit" size="sm" :disabled="form.processing">

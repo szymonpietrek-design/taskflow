@@ -21,6 +21,8 @@ use Illuminate\Support\Carbon;
 ])]
 class TaskWorklog extends Model
 {
+    public const DAILY_LIMIT_MINUTES = 8 * 60;
+
     /** @return array<string, string> */
     protected function casts(): array
     {

@@ -14,12 +14,19 @@ use App\Http\Controllers\Tasks\TaskWorklogController;
 use App\Http\Controllers\Tasks\TaskStatusController;
 use App\Http\Controllers\Workspaces\CurrentWorkspaceController;
 use App\Http\Controllers\Workspaces\WorkspaceController;
+use App\Http\Controllers\Worklogs\WorklogController;
 use Illuminate\Support\Facades\Route;
 
 Route::inertia('/', 'Welcome')->name('home');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::inertia('dashboard', 'Dashboard')->name('dashboard');
+
+    Route::get('worklogs', [WorklogController::class, 'index'])->name('worklogs.index');
+    Route::get('worklogs/projects/{project}/tasks', [WorklogController::class, 'tasks'])->name('worklogs.tasks');
+    Route::post('worklogs', [WorklogController::class, 'store'])->name('worklogs.store');
+    Route::patch('worklogs/{worklog}', [WorklogController::class, 'update'])->name('worklogs.update');
+    Route::delete('worklogs/{worklog}', [WorklogController::class, 'destroy'])->name('worklogs.destroy');
 
     Route::get('projects', [ProjectController::class, 'index'])->name('projects.index');
     Route::post('projects', [ProjectController::class, 'store'])->name('projects.store');
