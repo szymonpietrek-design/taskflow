@@ -15,7 +15,10 @@ const page = usePage();
 const projects = computed(() => page.props.projects.items);
 
 function isActive(projectId: number): boolean {
-    return page.url === `/projects/${projectId}` || page.url.startsWith(`/projects/${projectId}/`);
+    return (
+        page.url === `/projects/${projectId}` ||
+        page.url.startsWith(`/projects/${projectId}/`)
+    );
 }
 </script>
 
@@ -24,7 +27,11 @@ function isActive(projectId: number): boolean {
         <SidebarGroupLabel>Projects</SidebarGroupLabel>
 
         <SidebarGroupAction v-if="page.props.workspace.current" as-child>
-            <Link href="/projects" aria-label="Manage projects" title="Manage projects">
+            <Link
+                href="/projects"
+                aria-label="Manage projects"
+                title="Manage projects"
+            >
                 <Plus class="size-4" />
             </Link>
         </SidebarGroupAction>
@@ -39,8 +46,12 @@ function isActive(projectId: number): boolean {
                     >
                         <Link :href="`/projects/${project.id}`">
                             <FolderKanban />
-                            <span class="min-w-0 flex-1 truncate">{{ project.name }}</span>
-                            <span class="text-[10px] text-muted-foreground">{{ project.key }}</span>
+                            <span class="min-w-0 flex-1 truncate">{{
+                                project.name
+                            }}</span>
+                            <span class="text-[10px] text-muted-foreground">{{
+                                project.key
+                            }}</span>
                         </Link>
                     </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -53,7 +64,11 @@ function isActive(projectId: number): boolean {
                         <span>No projects yet</span>
                     </Link>
                 </SidebarMenuButton>
-                <SidebarMenuButton v-else disabled tooltip="Choose a workspace first">
+                <SidebarMenuButton
+                    v-else
+                    disabled
+                    tooltip="Choose a workspace first"
+                >
                     <FolderKanban />
                     <span>Choose a workspace</span>
                 </SidebarMenuButton>

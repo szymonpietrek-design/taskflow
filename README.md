@@ -12,13 +12,13 @@ Projekt skupia się nie tylko na interfejsie użytkownika, ale także na logice 
 ## Spis treści
 
 - [Funkcjonalności](#funkcjonalności)
-  - [Konta i przestrzenie robocze](#konta-i-przestrzenie-robocze)
-  - [Projekty i zadania](#projekty-i-zadania)
-  - [Współpraca i historia aktywności](#współpraca-i-historia-aktywności)
-  - [Rejestrowanie czasu pracy](#rejestrowanie-czasu-pracy)
-  - [Wersje i changelogi](#wersje-i-changelogi)
-  - [Raporty i udostępnianie](#raporty-i-udostępnianie)
-  - [Integracja z AI](#integracja-z-ai)
+    - [Konta i przestrzenie robocze](#konta-i-przestrzenie-robocze)
+    - [Projekty i zadania](#projekty-i-zadania)
+    - [Współpraca i historia aktywności](#współpraca-i-historia-aktywności)
+    - [Rejestrowanie czasu pracy](#rejestrowanie-czasu-pracy)
+    - [Wersje i changelogi](#wersje-i-changelogi)
+    - [Raporty i udostępnianie](#raporty-i-udostępnianie)
+    - [Integracja z AI](#integracja-z-ai)
 - [Technologie](#technologie)
 - [Organizacja projektu](#organizacja-projektu)
 - [Wymagania](#wymagania)
@@ -36,7 +36,7 @@ Poniżej opisano moduły zaimplementowane podczas rozwoju aplikacji. Poszczegól
 ### Konta i przestrzenie robocze
 
 - Rejestracja i logowanie użytkowników.
-- Tworzenie przestrzeni roboczych (*workspaces*) i przełączanie się między nimi.
+- Tworzenie przestrzeni roboczych (_workspaces_) i przełączanie się między nimi.
 - Zarządzanie członkami przestrzeni roboczej.
 - Role oraz ograniczanie dostępu do wybranych działań i zasobów.
 - Organizowanie projektów w obrębie przestrzeni roboczych.
@@ -57,7 +57,7 @@ Poniżej opisano moduły zaimplementowane podczas rozwoju aplikacji. Poszczegól
 
 ### Rejestrowanie czasu pracy
 
-- Dodawanie, edytowanie i usuwanie wpisów czasu pracy (*worklogs*).
+- Dodawanie, edytowanie i usuwanie wpisów czasu pracy (_worklogs_).
 - Powiązanie zarejestrowanego czasu z zadaniami.
 - Dzienne i tygodniowe zestawienia pracy.
 - Wykorzystanie informacji o czasie pracy w raportach.
@@ -65,7 +65,7 @@ Poniżej opisano moduły zaimplementowane podczas rozwoju aplikacji. Poszczegól
 ### Wersje i changelogi
 
 - Organizowanie informacji o wydaniach oprogramowania.
-- Przygotowywanie opisów zmian (*changelogs*).
+- Przygotowywanie opisów zmian (_changelogs_).
 - Wspomagane przez AI generowanie wersji roboczych changelogów na podstawie danych dostępnych w aplikacji.
 
 ### Raporty i udostępnianie
@@ -88,29 +88,29 @@ Klucz API jest przechowywany w lokalnej konfiguracji środowiskowej, a nie w kod
 
 ## Technologie
 
-| Obszar | Technologie i rozwiązania |
-| --- | --- |
-| Backend | PHP, Laravel |
-| Frontend | Vue.js, Inertia.js, JavaScript |
-| Baza danych | Warstwa bazodanowa Laravel; domyślnie SQLite w przykładowej konfiguracji |
-| Integracje AI | DeepSeek API |
-| Zarządzanie zależnościami | Composer, npm |
-| Narzędzia frontendowe | Vite |
-| Testy | Testy funkcjonalne Laravel / PHP |
-| Konfiguracja | Zmienne środowiskowe w `.env` |
+| Obszar                    | Technologie i rozwiązania                                                |
+| ------------------------- | ------------------------------------------------------------------------ |
+| Backend                   | PHP, Laravel                                                             |
+| Frontend                  | Vue.js, Inertia.js, JavaScript                                           |
+| Baza danych               | Warstwa bazodanowa Laravel; domyślnie SQLite w przykładowej konfiguracji |
+| Integracje AI             | DeepSeek API                                                             |
+| Zarządzanie zależnościami | Composer, npm                                                            |
+| Narzędzia frontendowe     | Vite                                                                     |
+| Testy                     | Testy funkcjonalne Laravel / PHP                                         |
+| Konfiguracja              | Zmienne środowiskowe w `.env`                                            |
 
 ## Organizacja projektu
 
 Aplikacja wykorzystuje typową strukturę projektu Laravel. Ważne elementy kodu obejmują:
 
-| Katalog | Przeznaczenie |
-| --- | --- |
-| `app/Http/Controllers/` | Obsługa żądań i operacji aplikacji |
-| `app/Http/Requests/` | Walidacja danych wejściowych |
-| `database/migrations/` | Definicje zmian w schemacie bazy danych |
-| `resources/js/` | Interfejs zbudowany z komponentów i widoków Vue.js |
-| `routes/` | Definicje tras aplikacji |
-| `tests/Feature/` | Testy scenariuszy działania aplikacji |
+| Katalog                 | Przeznaczenie                                      |
+| ----------------------- | -------------------------------------------------- |
+| `app/Http/Controllers/` | Obsługa żądań i operacji aplikacji                 |
+| `app/Http/Requests/`    | Walidacja danych wejściowych                       |
+| `database/migrations/`  | Definicje zmian w schemacie bazy danych            |
+| `resources/js/`         | Interfejs zbudowany z komponentów i widoków Vue.js |
+| `routes/`               | Definicje tras aplikacji                           |
+| `tests/Feature/`        | Testy scenariuszy działania aplikacji              |
 
 Istotną częścią implementacji są walidacja danych, oddzielenie uprawnień użytkowników od funkcji biznesowych i testowanie zachowania aplikacji. Kod rozwijany jest przyrostowo, w kolejnych etapach funkcjonalnych.
 

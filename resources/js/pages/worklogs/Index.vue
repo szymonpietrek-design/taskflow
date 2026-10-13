@@ -2,8 +2,17 @@
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import { getLocalTimeZone, parseDate, today } from '@internationalized/date';
 import {
-    CalendarDays, ChevronLeft, ChevronRight, Clock3, FolderKanban, LoaderCircle,
-    LockKeyhole, Pencil, Plus, Search, Trash2,
+    CalendarDays,
+    ChevronLeft,
+    ChevronRight,
+    Clock3,
+    FolderKanban,
+    LoaderCircle,
+    LockKeyhole,
+    Pencil,
+    Plus,
+    Search,
+    Trash2,
 } from '@lucide/vue';
 import { computed, onMounted, ref, watch } from 'vue';
 import { toast } from 'vue-sonner';
@@ -12,13 +21,30 @@ import WorklogDatePicker from '@/components/worklogs/WorklogDatePicker.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
-    Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/card';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 
 type WorklogEntry = {
@@ -31,7 +57,12 @@ type WorklogEntry = {
     task: { id: number; title: string; reference: string };
     project: { id: number; name: string };
 };
-type ProjectOption = { id: number; name: string; key: string; workspace_name: string };
+type ProjectOption = {
+    id: number;
+    name: string;
+    key: string;
+    workspace_name: string;
+};
 type TaskOption = { id: number; label: string };
 
 const props = defineProps<{
@@ -54,31 +85,56 @@ const props = defineProps<{
 
 const timezone = getLocalTimeZone();
 const localToday = today(timezone).toString();
-const dayBefore = computed(() => parseDate(props.date).subtract({ days: 1 }).toString());
-const dayAfter = computed(() => parseDate(props.date).add({ days: 1 }).toString());
-const previousWeek = computed(() => parseDate(props.week[0].date).subtract({ days: 7 }).toString());
-const nextWeek = computed(() => parseDate(props.week[0].date).add({ days: 7 }).toString());
+const dayBefore = computed(() =>
+    parseDate(props.date).subtract({ days: 1 }).toString(),
+);
+const dayAfter = computed(() =>
+    parseDate(props.date).add({ days: 1 }).toString(),
+);
+const previousWeek = computed(() =>
+    parseDate(props.week[0].date).subtract({ days: 7 }).toString(),
+);
+const nextWeek = computed(() =>
+    parseDate(props.week[0].date).add({ days: 7 }).toString(),
+);
 const canGoForward = computed(() => props.date < localToday);
 const canGoNextWeek = computed(() => nextWeek.value <= localToday);
-const remaining = computed(() => Math.max(0, props.daily_limit_minutes - props.total_minutes));
-const completion = computed(() => Math.min(100, (props.total_minutes / props.daily_limit_minutes) * 100));
-const hiddenMinutes = computed(() => Math.max(0, props.total_minutes - props.visible_minutes));
+const remaining = computed(() =>
+    Math.max(0, props.daily_limit_minutes - props.total_minutes),
+);
+const completion = computed(() =>
+    Math.min(100, (props.total_minutes / props.daily_limit_minutes) * 100),
+);
+const hiddenMinutes = computed(() =>
+    Math.max(0, props.total_minutes - props.visible_minutes),
+);
 const dayLabel = computed(() => formatDay(props.date, { dateStyle: 'long' }));
-const weekLabel = computed(() => `${formatDay(props.week[0].date, { month: 'short', day: 'numeric' })} – ${formatDay(props.week[6].date, { month: 'short', day: 'numeric', year: 'numeric' })}`);
+const weekLabel = computed(
+    () =>
+        `${formatDay(props.week[0].date, { month: 'short', day: 'numeric' })} – ${formatDay(props.week[6].date, { month: 'short', day: 'numeric', year: 'numeric' })}`,
+);
 
 function duration(minutes: number): string {
     const hours = Math.floor(minutes / 60);
     const rest = minutes % 60;
-    return [hours ? `${hours}h` : '', rest ? `${rest}m` : ''].filter(Boolean).join(' ') || '0m';
+    return (
+        [hours ? `${hours}h` : '', rest ? `${rest}m` : '']
+            .filter(Boolean)
+            .join(' ') || '0m'
+    );
 }
 function formatDay(date: string, options: Intl.DateTimeFormatOptions): string {
-    return new Intl.DateTimeFormat('en-US', { ...options, timeZone: 'UTC' }).format(new Date(`${date}T12:00:00Z`));
+    return new Intl.DateTimeFormat('en-US', {
+        ...options,
+        timeZone: 'UTC',
+    }).format(new Date(`${date}T12:00:00Z`));
 }
 function dayUrl(date: string): string {
     return `/worklogs?${new URLSearchParams({ date, timezone })}`;
 }
 function changeDate(date: string): void {
-    if (date && date <= localToday && date !== props.date) router.get(dayUrl(date));
+    if (date && date <= localToday && date !== props.date)
+        router.get(dayUrl(date));
 }
 
 // Newly opened global links use the browser's day, including around UTC midnight.
@@ -88,7 +144,11 @@ onMounted(() => {
         const url = new URL(window.location.href);
         const query = new URLSearchParams({ timezone });
         if (url.searchParams.has('date')) query.set('date', props.date);
-        router.get(`/worklogs?${query}`, {}, { replace: true, preserveScroll: true });
+        router.get(
+            `/worklogs?${query}`,
+            {},
+            { replace: true, preserveScroll: true },
+        );
     }
 });
 
@@ -125,7 +185,9 @@ function addEntry(): void {
     form.reset();
     form.clearErrors();
     form.work_date = props.date;
-    projectId.value = props.worklog_projects.length ? String(props.worklog_projects[0].id) : '';
+    projectId.value = props.worklog_projects.length
+        ? String(props.worklog_projects[0].id)
+        : '';
     taskId.value = '';
     taskSearch.value = '';
     editorOpen.value = true;
@@ -145,13 +207,22 @@ function saveEntry(): void {
     if (form.processing) return;
     const options = {
         preserveScroll: true,
-        onSuccess: () => { editorOpen.value = false; editingEntry.value = null; form.reset(); },
-        onError: () => toast.error('Could not save worklog. Check the form and try again.'),
+        onSuccess: () => {
+            editorOpen.value = false;
+            editingEntry.value = null;
+            form.reset();
+        },
+        onError: () =>
+            toast.error(
+                'Could not save worklog. Check the form and try again.',
+            ),
     };
     if (editingEntry.value) {
         // The task assignment is immutable when editing a worklog.
-        form.transform(({ task_id: _unused, ...values }) => values)
-            .patch(`/worklogs/${editingEntry.value.id}`, options);
+        form.transform(({ task_id: _unused, ...values }) => values).patch(
+            `/worklogs/${editingEntry.value.id}`,
+            options,
+        );
     } else {
         form.task_id = Number(taskId.value);
         form.transform((data) => data).post('/worklogs', options);
@@ -161,88 +232,206 @@ function removeEntry(): void {
     if (!deletingEntry.value || deleteForm.processing) return;
     deleteForm.delete(`/worklogs/${deletingEntry.value.id}`, {
         preserveScroll: true,
-        onSuccess: () => { deletingEntry.value = null; },
+        onSuccess: () => {
+            deletingEntry.value = null;
+        },
         onError: () => toast.error('Could not delete worklog entry.'),
     });
 }
 
 // Task choices are fetched only for the selected project and search string.
 // Aborting older requests prevents results for a different project replacing the list.
-watch([editorOpen, editing, projectId, taskSearch], ([open, isEditing, project, search], _previous, onCleanup) => {
-    taskOptions.value = [];
-    taskId.value = '';
-    taskError.value = '';
-    if (!open || isEditing || !project) { taskLoading.value = false; return; }
-    const abort = new AbortController();
-    const timer = setTimeout(async () => {
-        taskLoading.value = true;
-        try {
-            const response = await fetch(`/worklogs/projects/${encodeURIComponent(project)}/tasks?${new URLSearchParams({ search })}`, {
-                signal: abort.signal,
-                headers: { Accept: 'application/json' },
-                credentials: 'same-origin',
-            });
-            if (!response.ok) throw new Error('Unable to load tasks');
-            const data: { tasks: TaskOption[] } = await response.json();
-            if (!abort.signal.aborted) taskOptions.value = data.tasks;
-        } catch {
-            if (!abort.signal.aborted) taskError.value = 'Could not load tasks. Try again.';
-        } finally {
-            if (!abort.signal.aborted) taskLoading.value = false;
+watch(
+    [editorOpen, editing, projectId, taskSearch],
+    ([open, isEditing, project, search], _previous, onCleanup) => {
+        taskOptions.value = [];
+        taskId.value = '';
+        taskError.value = '';
+        if (!open || isEditing || !project) {
+            taskLoading.value = false;
+            return;
         }
-    }, 180);
-    onCleanup(() => { clearTimeout(timer); abort.abort(); });
-}, { immediate: true });
+        const abort = new AbortController();
+        const timer = setTimeout(async () => {
+            taskLoading.value = true;
+            try {
+                const response = await fetch(
+                    `/worklogs/projects/${encodeURIComponent(project)}/tasks?${new URLSearchParams({ search })}`,
+                    {
+                        signal: abort.signal,
+                        headers: { Accept: 'application/json' },
+                        credentials: 'same-origin',
+                    },
+                );
+                if (!response.ok) throw new Error('Unable to load tasks');
+                const data: { tasks: TaskOption[] } = await response.json();
+                if (!abort.signal.aborted) taskOptions.value = data.tasks;
+            } catch {
+                if (!abort.signal.aborted)
+                    taskError.value = 'Could not load tasks. Try again.';
+            } finally {
+                if (!abort.signal.aborted) taskLoading.value = false;
+            }
+        }, 180);
+        onCleanup(() => {
+            clearTimeout(timer);
+            abort.abort();
+        });
+    },
+    { immediate: true },
+);
 
-defineOptions({ layout: { breadcrumbs: [{ title: 'My Worklog', href: '/worklogs' }] } });
+defineOptions({
+    layout: { breadcrumbs: [{ title: 'My Worklog', href: '/worklogs' }] },
+});
 </script>
 
 <template>
     <Head title="My Worklog" />
-    <div class="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-5 p-4 md:p-6 lg:p-8">
+    <div
+        class="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-5 p-4 md:p-6 lg:p-8"
+    >
         <header class="flex flex-wrap items-start justify-between gap-4">
             <div>
-                <h1 class="text-2xl font-semibold tracking-tight">My Worklog</h1>
-                <p class="mt-1 text-sm text-muted-foreground">Track daily work across all your projects and workspaces.</p>
+                <h1 class="text-2xl font-semibold tracking-tight">
+                    My Worklog
+                </h1>
+                <p class="mt-1 text-sm text-muted-foreground">
+                    Track daily work across all your projects and workspaces.
+                </p>
             </div>
-            <Button v-if="worklog_projects.length" type="button" @click="addEntry"><Plus class="size-4" /> Add worklog</Button>
+            <Button
+                v-if="worklog_projects.length"
+                type="button"
+                @click="addEntry"
+                ><Plus class="size-4" /> Add worklog</Button
+            >
         </header>
 
         <section class="space-y-3" aria-label="Choose work date">
             <div class="flex flex-wrap items-center justify-between gap-3">
                 <div class="flex items-center gap-2">
-                    <Button variant="outline" size="icon" as-child aria-label="Previous day"><Link :href="dayUrl(dayBefore)"><ChevronLeft class="size-4" /></Link></Button>
-                    <span class="min-w-32 text-center text-sm font-semibold sm:min-w-52">{{ dayLabel }}</span>
-                    <Button v-if="canGoForward" variant="outline" size="icon" as-child aria-label="Next day"><Link :href="dayUrl(dayAfter)"><ChevronRight class="size-4" /></Link></Button>
-                    <Button v-else variant="outline" size="icon" disabled aria-label="Next day"><ChevronRight class="size-4" /></Button>
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        as-child
+                        aria-label="Previous day"
+                        ><Link :href="dayUrl(dayBefore)"
+                            ><ChevronLeft class="size-4" /></Link
+                    ></Button>
+                    <span
+                        class="min-w-32 text-center text-sm font-semibold sm:min-w-52"
+                        >{{ dayLabel }}</span
+                    >
+                    <Button
+                        v-if="canGoForward"
+                        variant="outline"
+                        size="icon"
+                        as-child
+                        aria-label="Next day"
+                        ><Link :href="dayUrl(dayAfter)"
+                            ><ChevronRight class="size-4" /></Link
+                    ></Button>
+                    <Button
+                        v-else
+                        variant="outline"
+                        size="icon"
+                        disabled
+                        aria-label="Next day"
+                        ><ChevronRight class="size-4"
+                    /></Button>
                 </div>
                 <div class="flex items-center gap-2">
-                    <div class="w-44"><WorklogDatePicker :model-value="date" :max-date="localToday" aria-label="Choose day" @update:model-value="changeDate" /></div>
-                    <Button variant="outline" size="sm" as-child><Link :href="dayUrl(localToday)">Today</Link></Button>
+                    <div class="w-44">
+                        <WorklogDatePicker
+                            :model-value="date"
+                            :max-date="localToday"
+                            aria-label="Choose day"
+                            @update:model-value="changeDate"
+                        />
+                    </div>
+                    <Button variant="outline" size="sm" as-child
+                        ><Link :href="dayUrl(localToday)">Today</Link></Button
+                    >
                 </div>
             </div>
             <div class="rounded-xl border bg-card p-3 sm:p-4">
                 <div class="mb-3 flex items-center justify-between gap-2">
-                    <span class="text-xs font-medium text-muted-foreground">{{ weekLabel }}</span>
+                    <span class="text-xs font-medium text-muted-foreground">{{
+                        weekLabel
+                    }}</span>
                     <div class="flex gap-1">
-                        <Button size="icon" variant="ghost" class="size-7" as-child aria-label="Previous week"><Link :href="dayUrl(previousWeek)"><ChevronLeft class="size-4" /></Link></Button>
-                        <Button v-if="canGoNextWeek" size="icon" variant="ghost" class="size-7" as-child aria-label="Next week"><Link :href="dayUrl(nextWeek)"><ChevronRight class="size-4" /></Link></Button>
-                        <Button v-else size="icon" variant="ghost" class="size-7" disabled aria-label="Next week"><ChevronRight class="size-4" /></Button>
+                        <Button
+                            size="icon"
+                            variant="ghost"
+                            class="size-7"
+                            as-child
+                            aria-label="Previous week"
+                            ><Link :href="dayUrl(previousWeek)"
+                                ><ChevronLeft class="size-4" /></Link
+                        ></Button>
+                        <Button
+                            v-if="canGoNextWeek"
+                            size="icon"
+                            variant="ghost"
+                            class="size-7"
+                            as-child
+                            aria-label="Next week"
+                            ><Link :href="dayUrl(nextWeek)"
+                                ><ChevronRight class="size-4" /></Link
+                        ></Button>
+                        <Button
+                            v-else
+                            size="icon"
+                            variant="ghost"
+                            class="size-7"
+                            disabled
+                            aria-label="Next week"
+                            ><ChevronRight class="size-4"
+                        /></Button>
                     </div>
                 </div>
                 <div class="grid grid-cols-7 gap-1.5 sm:gap-2">
-                    <Link v-for="day in week" :key="day.date" :href="dayUrl(day.date)" :aria-current="date === day.date ? 'date' : undefined"
-                        :aria-disabled="day.date > localToday" :tabindex="day.date > localToday ? -1 : undefined"
+                    <Link
+                        v-for="day in week"
+                        :key="day.date"
+                        :href="dayUrl(day.date)"
+                        :aria-current="date === day.date ? 'date' : undefined"
+                        :aria-disabled="day.date > localToday"
+                        :tabindex="day.date > localToday ? -1 : undefined"
                         :class="[
                             'min-w-0 rounded-lg border px-1 py-2 text-center transition-colors sm:px-2 sm:py-3',
-                            date === day.date ? 'border-primary/50 bg-primary/5 ring-1 ring-primary/20' : 'border-transparent hover:border-border hover:bg-muted/40',
-                            day.date > localToday ? 'pointer-events-none opacity-40' : '',
-                        ]">
-                        <span class="block text-[10px] text-muted-foreground sm:text-xs">{{ formatDay(day.date, { weekday: 'short' }) }}</span>
-                        <span class="mt-1 block text-sm font-semibold tabular-nums sm:text-base">{{ formatDay(day.date, { day: 'numeric' }) }}</span>
-                        <span class="mt-1 block truncate text-[10px] font-medium tabular-nums sm:text-xs">{{ duration(day.total_minutes) }}</span>
-                        <span class="mt-2 block h-1 overflow-hidden rounded-full bg-muted">
-                            <span class="block h-full rounded-full bg-primary" :style="{ width: `${Math.min(100, day.total_minutes / daily_limit_minutes * 100)}%` }" />
+                            date === day.date
+                                ? 'border-primary/50 bg-primary/5 ring-1 ring-primary/20'
+                                : 'border-transparent hover:border-border hover:bg-muted/40',
+                            day.date > localToday
+                                ? 'pointer-events-none opacity-40'
+                                : '',
+                        ]"
+                    >
+                        <span
+                            class="block text-[10px] text-muted-foreground sm:text-xs"
+                            >{{
+                                formatDay(day.date, { weekday: 'short' })
+                            }}</span
+                        >
+                        <span
+                            class="mt-1 block text-sm font-semibold tabular-nums sm:text-base"
+                            >{{ formatDay(day.date, { day: 'numeric' }) }}</span
+                        >
+                        <span
+                            class="mt-1 block truncate text-[10px] font-medium tabular-nums sm:text-xs"
+                            >{{ duration(day.total_minutes) }}</span
+                        >
+                        <span
+                            class="mt-2 block h-1 overflow-hidden rounded-full bg-muted"
+                        >
+                            <span
+                                class="block h-full rounded-full bg-primary"
+                                :style="{
+                                    width: `${Math.min(100, (day.total_minutes / daily_limit_minutes) * 100)}%`,
+                                }"
+                            />
                         </span>
                     </Link>
                 </div>
@@ -254,156 +443,486 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'My Worklog', href: '/worklogs'
                 <CardHeader>
                     <div class="flex items-start justify-between gap-3">
                         <div class="space-y-1">
-                            <CardTitle class="flex items-center gap-2"><CalendarDays class="size-4" /> Time entries</CardTitle>
-                            <CardDescription>{{ entries.total }} {{ entries.total === 1 ? 'entry' : 'entries' }} for {{ dayLabel }}</CardDescription>
+                            <CardTitle class="flex items-center gap-2"
+                                ><CalendarDays class="size-4" /> Time
+                                entries</CardTitle
+                            >
+                            <CardDescription
+                                >{{ entries.total }}
+                                {{ entries.total === 1 ? 'entry' : 'entries' }}
+                                for {{ dayLabel }}</CardDescription
+                            >
                         </div>
-                        <Button v-if="worklog_projects.length" variant="outline" size="sm" class="shrink-0" @click="addEntry"><Plus class="size-4" /> Log time</Button>
+                        <Button
+                            v-if="worklog_projects.length"
+                            variant="outline"
+                            size="sm"
+                            class="shrink-0"
+                            @click="addEntry"
+                            ><Plus class="size-4" /> Log time</Button
+                        >
                     </div>
                 </CardHeader>
                 <CardContent>
                     <div v-if="entries.data.length" class="divide-y">
-                        <article v-for="entry in entries.data" :key="entry.id" class="flex items-start gap-3 py-4 first:pt-0 last:pb-0">
-                            <span class="mt-0.5 hidden shrink-0 rounded-md bg-muted p-2 sm:inline-flex"><FolderKanban class="size-4 text-muted-foreground" /></span>
+                        <article
+                            v-for="entry in entries.data"
+                            :key="entry.id"
+                            class="flex items-start gap-3 py-4 first:pt-0 last:pb-0"
+                        >
+                            <span
+                                class="mt-0.5 hidden shrink-0 rounded-md bg-muted p-2 sm:inline-flex"
+                                ><FolderKanban
+                                    class="size-4 text-muted-foreground"
+                            /></span>
                             <div class="min-w-0 flex-1 space-y-1.5">
-                                <div class="text-xs text-muted-foreground">{{ entry.project.name }}</div>
-                                <Link :href="`/projects/${entry.project.id}/tasks/${entry.task.id}`" class="block text-sm font-medium leading-snug hover:underline">{{ entry.task.reference }} · {{ entry.task.title }}</Link>
-                                <p v-if="entry.description" class="whitespace-pre-wrap break-words text-sm text-muted-foreground">{{ entry.description }}</p>
-                                <Badge v-if="entry.is_creative" variant="secondary" class="text-xs">Creative work</Badge>
-                                <div v-if="entry.can_manage" class="flex items-center gap-1 pt-0.5">
-                                    <Button variant="ghost" size="sm" class="h-7 px-2 text-xs text-muted-foreground" @click="editEntry(entry)"><Pencil class="size-3.5" /> Edit</Button>
-                                    <Button variant="ghost" size="sm" class="h-7 px-2 text-xs text-muted-foreground hover:text-destructive" @click="deletingEntry = entry"><Trash2 class="size-3.5" /> Delete</Button>
+                                <div class="text-xs text-muted-foreground">
+                                    {{ entry.project.name }}
+                                </div>
+                                <Link
+                                    :href="`/projects/${entry.project.id}/tasks/${entry.task.id}`"
+                                    class="block text-sm leading-snug font-medium hover:underline"
+                                    >{{ entry.task.reference }} ·
+                                    {{ entry.task.title }}</Link
+                                >
+                                <p
+                                    v-if="entry.description"
+                                    class="text-sm break-words whitespace-pre-wrap text-muted-foreground"
+                                >
+                                    {{ entry.description }}
+                                </p>
+                                <Badge
+                                    v-if="entry.is_creative"
+                                    variant="secondary"
+                                    class="text-xs"
+                                    >Creative work</Badge
+                                >
+                                <div
+                                    v-if="entry.can_manage"
+                                    class="flex items-center gap-1 pt-0.5"
+                                >
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        class="h-7 px-2 text-xs text-muted-foreground"
+                                        @click="editEntry(entry)"
+                                        ><Pencil class="size-3.5" />
+                                        Edit</Button
+                                    >
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        class="h-7 px-2 text-xs text-muted-foreground hover:text-destructive"
+                                        @click="deletingEntry = entry"
+                                        ><Trash2 class="size-3.5" />
+                                        Delete</Button
+                                    >
                                 </div>
                             </div>
-                            <div class="flex shrink-0 items-center gap-1 text-sm font-semibold tabular-nums"><Clock3 class="size-3.5 text-muted-foreground" /> {{ duration(entry.duration_minutes) }}</div>
+                            <div
+                                class="flex shrink-0 items-center gap-1 text-sm font-semibold tabular-nums"
+                            >
+                                <Clock3
+                                    class="size-3.5 text-muted-foreground"
+                                />
+                                {{ duration(entry.duration_minutes) }}
+                            </div>
                         </article>
                     </div>
-                    <div v-else class="flex flex-col items-center gap-2 py-12 text-center">
+                    <div
+                        v-else
+                        class="flex flex-col items-center gap-2 py-12 text-center"
+                    >
                         <Clock3 class="size-9 text-muted-foreground" />
-                        <p class="font-medium">No visible time entries for this day</p>
-                        <p class="max-w-sm text-sm text-muted-foreground">Your work across accessible projects will appear here.</p>
-                        <Button v-if="worklog_projects.length" variant="outline" size="sm" class="mt-2" @click="addEntry"><Plus class="size-4" /> Add first entry</Button>
-                        <Button v-else variant="outline" size="sm" as-child class="mt-2"><Link href="/projects">Browse projects</Link></Button>
+                        <p class="font-medium">
+                            No visible time entries for this day
+                        </p>
+                        <p class="max-w-sm text-sm text-muted-foreground">
+                            Your work across accessible projects will appear
+                            here.
+                        </p>
+                        <Button
+                            v-if="worklog_projects.length"
+                            variant="outline"
+                            size="sm"
+                            class="mt-2"
+                            @click="addEntry"
+                            ><Plus class="size-4" /> Add first entry</Button
+                        >
+                        <Button
+                            v-else
+                            variant="outline"
+                            size="sm"
+                            as-child
+                            class="mt-2"
+                            ><Link href="/projects"
+                                >Browse projects</Link
+                            ></Button
+                        >
                     </div>
-                    <div v-if="entries.last_page > 1" class="mt-5 flex items-center justify-between gap-3 border-t pt-4">
-                        <Button v-if="entries.previous_page_url" size="sm" variant="outline" as-child><Link :href="entries.previous_page_url">Previous</Link></Button>
-                        <Button v-else size="sm" variant="outline" disabled>Previous</Button>
-                        <span class="text-xs text-muted-foreground">Page {{ entries.current_page }} of {{ entries.last_page }}</span>
-                        <Button v-if="entries.next_page_url" size="sm" variant="outline" as-child><Link :href="entries.next_page_url">Next</Link></Button>
-                        <Button v-else size="sm" variant="outline" disabled>Next</Button>
+                    <div
+                        v-if="entries.last_page > 1"
+                        class="mt-5 flex items-center justify-between gap-3 border-t pt-4"
+                    >
+                        <Button
+                            v-if="entries.previous_page_url"
+                            size="sm"
+                            variant="outline"
+                            as-child
+                            ><Link :href="entries.previous_page_url"
+                                >Previous</Link
+                            ></Button
+                        >
+                        <Button v-else size="sm" variant="outline" disabled
+                            >Previous</Button
+                        >
+                        <span class="text-xs text-muted-foreground"
+                            >Page {{ entries.current_page }} of
+                            {{ entries.last_page }}</span
+                        >
+                        <Button
+                            v-if="entries.next_page_url"
+                            size="sm"
+                            variant="outline"
+                            as-child
+                            ><Link :href="entries.next_page_url"
+                                >Next</Link
+                            ></Button
+                        >
+                        <Button v-else size="sm" variant="outline" disabled
+                            >Next</Button
+                        >
                     </div>
                 </CardContent>
             </Card>
 
             <Card class="lg:sticky lg:top-6">
                 <CardHeader>
-                    <CardTitle class="flex items-center gap-2"><Clock3 class="size-4" /> Daily summary</CardTitle>
-                    <CardDescription>All your work counts toward the daily limit, across projects.</CardDescription>
+                    <CardTitle class="flex items-center gap-2"
+                        ><Clock3 class="size-4" /> Daily summary</CardTitle
+                    >
+                    <CardDescription
+                        >All your work counts toward the daily limit, across
+                        projects.</CardDescription
+                    >
                 </CardHeader>
                 <CardContent class="space-y-4">
                     <div>
                         <p class="text-xs text-muted-foreground">Logged time</p>
-                        <p class="mt-1 text-3xl font-semibold tabular-nums">{{ duration(total_minutes) }} <span class="text-sm font-normal text-muted-foreground">/ {{ duration(daily_limit_minutes) }}</span></p>
+                        <p class="mt-1 text-3xl font-semibold tabular-nums">
+                            {{ duration(total_minutes) }}
+                            <span
+                                class="text-sm font-normal text-muted-foreground"
+                                >/ {{ duration(daily_limit_minutes) }}</span
+                            >
+                        </p>
                     </div>
-                    <div class="h-2 overflow-hidden rounded-full bg-muted" role="progressbar" :aria-valuenow="Math.min(total_minutes, daily_limit_minutes)" :aria-valuemax="daily_limit_minutes" aria-valuemin="0" aria-label="Daily logged minutes">
-                        <div class="h-full rounded-full bg-primary transition-all" :style="{ width: `${completion}%` }" />
+                    <div
+                        class="h-2 overflow-hidden rounded-full bg-muted"
+                        role="progressbar"
+                        :aria-valuenow="
+                            Math.min(total_minutes, daily_limit_minutes)
+                        "
+                        :aria-valuemax="daily_limit_minutes"
+                        aria-valuemin="0"
+                        aria-label="Daily logged minutes"
+                    >
+                        <div
+                            class="h-full rounded-full bg-primary transition-all"
+                            :style="{ width: `${completion}%` }"
+                        />
                     </div>
-                    <div class="flex justify-between border-t pt-4 text-sm"><span class="text-muted-foreground">Remaining</span><span class="font-semibold tabular-nums">{{ duration(remaining) }}</span></div>
-                    <div class="flex justify-between text-sm"><span class="text-muted-foreground">Daily limit</span><span class="font-medium tabular-nums">{{ duration(daily_limit_minutes) }}</span></div>
-                    <div class="flex justify-between text-sm"><span class="text-muted-foreground">Visible entries</span><span class="font-medium tabular-nums">{{ entries.total }}</span></div>
-                    <p v-if="hiddenMinutes" class="flex gap-2 border-t pt-3 text-xs leading-relaxed text-muted-foreground"><LockKeyhole class="mt-0.5 size-3.5 shrink-0" />{{ duration(hiddenMinutes) }} from projects you can no longer access is included in this total; details are hidden.</p>
-                    <p v-if="total_minutes > daily_limit_minutes" class="text-xs text-destructive">Historical entries exceed the current daily limit. New entries cannot increase the total.</p>
+                    <div class="flex justify-between border-t pt-4 text-sm">
+                        <span class="text-muted-foreground">Remaining</span
+                        ><span class="font-semibold tabular-nums">{{
+                            duration(remaining)
+                        }}</span>
+                    </div>
+                    <div class="flex justify-between text-sm">
+                        <span class="text-muted-foreground">Daily limit</span
+                        ><span class="font-medium tabular-nums">{{
+                            duration(daily_limit_minutes)
+                        }}</span>
+                    </div>
+                    <div class="flex justify-between text-sm">
+                        <span class="text-muted-foreground"
+                            >Visible entries</span
+                        ><span class="font-medium tabular-nums">{{
+                            entries.total
+                        }}</span>
+                    </div>
+                    <p
+                        v-if="hiddenMinutes"
+                        class="flex gap-2 border-t pt-3 text-xs leading-relaxed text-muted-foreground"
+                    >
+                        <LockKeyhole class="mt-0.5 size-3.5 shrink-0" />{{
+                            duration(hiddenMinutes)
+                        }}
+                        from projects you can no longer access is included in
+                        this total; details are hidden.
+                    </p>
+                    <p
+                        v-if="total_minutes > daily_limit_minutes"
+                        class="text-xs text-destructive"
+                    >
+                        Historical entries exceed the current daily limit. New
+                        entries cannot increase the total.
+                    </p>
                 </CardContent>
             </Card>
         </div>
     </div>
 
-    <Dialog :open="editorOpen" @update:open="(open) => { if (!open) closeEditor(); }">
-        <DialogContent class="max-h-[90vh] overflow-y-auto sm:max-w-xl" :show-close-button="!form.processing">
+    <Dialog
+        :open="editorOpen"
+        @update:open="
+            (open) => {
+                if (!open) closeEditor();
+            }
+        "
+    >
+        <DialogContent
+            class="max-h-[90vh] overflow-y-auto sm:max-w-xl"
+            :show-close-button="!form.processing"
+        >
             <DialogHeader>
-                <DialogTitle>{{ editing ? 'Edit worklog' : 'Add worklog' }}</DialogTitle>
-                <DialogDescription>Record time for a task. The daily limit is {{ duration(daily_limit_minutes) }} across all projects.</DialogDescription>
+                <DialogTitle>{{
+                    editing ? 'Edit worklog' : 'Add worklog'
+                }}</DialogTitle>
+                <DialogDescription
+                    >Record time for a task. The daily limit is
+                    {{ duration(daily_limit_minutes) }} across all
+                    projects.</DialogDescription
+                >
             </DialogHeader>
             <form class="space-y-4" @submit.prevent="saveEntry">
                 <template v-if="!editing">
                     <div class="grid gap-1.5">
                         <Label for="global-worklog-project">Project</Label>
                         <Select v-model="projectId" :disabled="form.processing">
-                            <SelectTrigger id="global-worklog-project" class="w-full"><SelectValue placeholder="Choose a project" /></SelectTrigger>
+                            <SelectTrigger
+                                id="global-worklog-project"
+                                class="w-full"
+                                ><SelectValue placeholder="Choose a project"
+                            /></SelectTrigger>
                             <SelectContent>
-                                <SelectItem v-for="project in worklog_projects" :key="project.id" :value="String(project.id)">{{ project.name }} · {{ project.workspace_name }}</SelectItem>
+                                <SelectItem
+                                    v-for="project in worklog_projects"
+                                    :key="project.id"
+                                    :value="String(project.id)"
+                                    >{{ project.name }} ·
+                                    {{ project.workspace_name }}</SelectItem
+                                >
                             </SelectContent>
                         </Select>
                     </div>
                     <div class="grid gap-1.5">
                         <Label for="global-worklog-search">Task</Label>
-                        <div class="relative"><Search class="absolute left-3 top-2.5 size-4 text-muted-foreground" />
-                            <Input id="global-worklog-search" v-model="taskSearch" class="pl-9" maxlength="100" placeholder="Search by task title or number" :disabled="!projectId || form.processing" />
+                        <div class="relative">
+                            <Search
+                                class="absolute top-2.5 left-3 size-4 text-muted-foreground"
+                            />
+                            <Input
+                                id="global-worklog-search"
+                                v-model="taskSearch"
+                                class="pl-9"
+                                maxlength="100"
+                                placeholder="Search by task title or number"
+                                :disabled="!projectId || form.processing"
+                            />
                         </div>
-                        <Select v-model="taskId" :disabled="taskLoading || !taskOptions.length || form.processing">
-                            <SelectTrigger class="w-full"><SelectValue :placeholder="taskLoading ? 'Loading tasks…' : 'Choose a task'" /></SelectTrigger>
+                        <Select
+                            v-model="taskId"
+                            :disabled="
+                                taskLoading ||
+                                !taskOptions.length ||
+                                form.processing
+                            "
+                        >
+                            <SelectTrigger class="w-full"
+                                ><SelectValue
+                                    :placeholder="
+                                        taskLoading
+                                            ? 'Loading tasks…'
+                                            : 'Choose a task'
+                                    "
+                            /></SelectTrigger>
                             <SelectContent>
-                                <SelectItem v-for="task in taskOptions" :key="task.id" :value="String(task.id)">{{ task.label }}</SelectItem>
+                                <SelectItem
+                                    v-for="task in taskOptions"
+                                    :key="task.id"
+                                    :value="String(task.id)"
+                                    >{{ task.label }}</SelectItem
+                                >
                             </SelectContent>
                         </Select>
-                        <p v-if="taskError" class="text-xs text-destructive">{{ taskError }}</p>
-                        <p v-else-if="!taskLoading && !taskOptions.length" class="text-xs text-muted-foreground">No matching tasks. Try another search.</p>
-                        <p v-else class="text-xs text-muted-foreground">Showing up to 40 tasks. Search to find older tasks.</p>
+                        <p v-if="taskError" class="text-xs text-destructive">
+                            {{ taskError }}
+                        </p>
+                        <p
+                            v-else-if="!taskLoading && !taskOptions.length"
+                            class="text-xs text-muted-foreground"
+                        >
+                            No matching tasks. Try another search.
+                        </p>
+                        <p v-else class="text-xs text-muted-foreground">
+                            Showing up to 40 tasks. Search to find older tasks.
+                        </p>
                         <InputError :message="form.errors.task_id" />
                     </div>
                 </template>
                 <div v-else class="rounded-md bg-muted/50 px-3 py-2 text-sm">
-                    <span class="block text-xs text-muted-foreground">Task</span>
-                    <span class="font-medium">{{ editingEntry?.task.reference }} · {{ editingEntry?.task.title }}</span>
+                    <span class="block text-xs text-muted-foreground"
+                        >Task</span
+                    >
+                    <span class="font-medium"
+                        >{{ editingEntry?.task.reference }} ·
+                        {{ editingEntry?.task.title }}</span
+                    >
                 </div>
                 <div class="grid gap-3 sm:grid-cols-[minmax(0,1fr)_6rem_6rem]">
                     <div class="grid gap-1.5">
                         <Label for="global-worklog-date">Work date</Label>
-                        <WorklogDatePicker id="global-worklog-date" v-model="form.work_date" :max-date="localToday"
-                            :disabled="form.processing" :invalid="Boolean(form.errors.work_date)" />
+                        <WorklogDatePicker
+                            id="global-worklog-date"
+                            v-model="form.work_date"
+                            :max-date="localToday"
+                            :disabled="form.processing"
+                            :invalid="Boolean(form.errors.work_date)"
+                        />
                         <InputError :message="form.errors.work_date" />
                     </div>
                     <div class="grid gap-1.5">
                         <Label for="global-worklog-hours">Hours</Label>
-                        <Input id="global-worklog-hours" :model-value="form.hours" @update:model-value="(value) => form.hours = Number(value)" type="number" min="0" max="8" step="1" required :disabled="form.processing" />
+                        <Input
+                            id="global-worklog-hours"
+                            :model-value="form.hours"
+                            @update:model-value="
+                                (value) => (form.hours = Number(value))
+                            "
+                            type="number"
+                            min="0"
+                            max="8"
+                            step="1"
+                            required
+                            :disabled="form.processing"
+                        />
                         <InputError :message="form.errors.hours" />
                     </div>
                     <div class="grid gap-1.5">
                         <Label for="global-worklog-minutes">Minutes</Label>
-                        <Input id="global-worklog-minutes" :model-value="form.minutes" @update:model-value="(value) => form.minutes = Number(value)" type="number" min="0" max="59" step="1" required :disabled="form.processing" />
+                        <Input
+                            id="global-worklog-minutes"
+                            :model-value="form.minutes"
+                            @update:model-value="
+                                (value) => (form.minutes = Number(value))
+                            "
+                            type="number"
+                            min="0"
+                            max="59"
+                            step="1"
+                            required
+                            :disabled="form.processing"
+                        />
                         <InputError :message="form.errors.minutes" />
                     </div>
                 </div>
                 <div class="grid gap-1.5">
-                    <Label for="global-worklog-description">Work performed / outcome <span class="font-normal text-muted-foreground">(optional)</span></Label>
-                    <Textarea id="global-worklog-description" v-model="form.description" maxlength="4000" rows="3"
-                        :disabled="form.processing" placeholder="Describe what you completed during this time" />
+                    <Label for="global-worklog-description"
+                        >Work performed / outcome
+                        <span class="font-normal text-muted-foreground"
+                            >(optional)</span
+                        ></Label
+                    >
+                    <Textarea
+                        id="global-worklog-description"
+                        v-model="form.description"
+                        maxlength="4000"
+                        rows="3"
+                        :disabled="form.processing"
+                        placeholder="Describe what you completed during this time"
+                    />
                     <InputError :message="form.errors.description" />
                 </div>
                 <div class="flex items-center gap-2">
-                    <Checkbox id="global-worklog-creative" :model-value="form.is_creative" :disabled="form.processing"
-                        @update:model-value="(checked) => form.is_creative = checked === true" />
-                    <Label for="global-worklog-creative" class="cursor-pointer">Creative work <span class="font-normal text-muted-foreground">(optional)</span></Label>
+                    <Checkbox
+                        id="global-worklog-creative"
+                        :model-value="form.is_creative"
+                        :disabled="form.processing"
+                        @update:model-value="
+                            (checked) => (form.is_creative = checked === true)
+                        "
+                    />
+                    <Label for="global-worklog-creative" class="cursor-pointer"
+                        >Creative work
+                        <span class="font-normal text-muted-foreground"
+                            >(optional)</span
+                        ></Label
+                    >
                 </div>
                 <InputError :message="form.errors.is_creative" />
                 <DialogFooter>
-                    <Button type="button" variant="outline" :disabled="form.processing" @click="closeEditor">Cancel</Button>
-                    <Button type="submit" :disabled="form.processing || (!editing && !taskId) || form.hours * 60 + form.minutes < 1">
-                        <LoaderCircle v-if="form.processing" class="size-4 animate-spin" /> {{ form.processing ? 'Saving…' : 'Save worklog' }}
+                    <Button
+                        type="button"
+                        variant="outline"
+                        :disabled="form.processing"
+                        @click="closeEditor"
+                        >Cancel</Button
+                    >
+                    <Button
+                        type="submit"
+                        :disabled="
+                            form.processing ||
+                            (!editing && !taskId) ||
+                            form.hours * 60 + form.minutes < 1
+                        "
+                    >
+                        <LoaderCircle
+                            v-if="form.processing"
+                            class="size-4 animate-spin"
+                        />
+                        {{ form.processing ? 'Saving…' : 'Save worklog' }}
                     </Button>
                 </DialogFooter>
             </form>
         </DialogContent>
     </Dialog>
 
-    <Dialog :open="deletingEntry !== null" @update:open="(open) => { if (!open && !deleteForm.processing) deletingEntry = null; }">
+    <Dialog
+        :open="deletingEntry !== null"
+        @update:open="
+            (open) => {
+                if (!open && !deleteForm.processing) deletingEntry = null;
+            }
+        "
+    >
         <DialogContent :show-close-button="!deleteForm.processing">
             <DialogHeader>
                 <DialogTitle>Delete worklog entry?</DialogTitle>
-                <DialogDescription>This removes {{ duration(deletingEntry?.duration_minutes ?? 0) }} logged on {{ deletingEntry?.task.reference }}. This action cannot be undone.</DialogDescription>
+                <DialogDescription
+                    >This removes
+                    {{ duration(deletingEntry?.duration_minutes ?? 0) }} logged
+                    on {{ deletingEntry?.task.reference }}. This action cannot
+                    be undone.</DialogDescription
+                >
             </DialogHeader>
             <DialogFooter>
-                <Button variant="outline" :disabled="deleteForm.processing" @click="deletingEntry = null">Cancel</Button>
-                <Button variant="destructive" :disabled="deleteForm.processing" @click="removeEntry"><LoaderCircle v-if="deleteForm.processing" class="size-4 animate-spin" /> Delete entry</Button>
+                <Button
+                    variant="outline"
+                    :disabled="deleteForm.processing"
+                    @click="deletingEntry = null"
+                    >Cancel</Button
+                >
+                <Button
+                    variant="destructive"
+                    :disabled="deleteForm.processing"
+                    @click="removeEntry"
+                    ><LoaderCircle
+                        v-if="deleteForm.processing"
+                        class="size-4 animate-spin"
+                    />
+                    Delete entry</Button
+                >
             </DialogFooter>
         </DialogContent>
     </Dialog>

@@ -1,6 +1,12 @@
 <script setup lang="ts">
 import { Link, router, usePage } from '@inertiajs/vue3';
-import { Check, ChevronsUpDown, PanelsTopLeft, Settings2, Users } from '@lucide/vue';
+import {
+    Check,
+    ChevronsUpDown,
+    PanelsTopLeft,
+    Settings2,
+    Users,
+} from '@lucide/vue';
 import { computed } from 'vue';
 import {
     DropdownMenu,
@@ -28,7 +34,9 @@ function switchWorkspace(workspaceId: number): void {
         return;
     }
 
-    const redirectTo = page.url.startsWith('/projects/') ? '/projects' : undefined;
+    const redirectTo = page.url.startsWith('/projects/')
+        ? '/projects'
+        : undefined;
 
     router.put(
         `/workspaces/${workspaceId}/current`,
@@ -56,12 +64,20 @@ function switchWorkspace(workspaceId: number): void {
                             <PanelsTopLeft class="size-4" />
                         </div>
 
-                        <div class="grid flex-1 text-left text-sm leading-tight">
+                        <div
+                            class="grid flex-1 text-left text-sm leading-tight"
+                        >
                             <span class="truncate font-medium">
                                 {{ currentWorkspace?.name ?? 'No workspace' }}
                             </span>
-                            <span class="truncate text-xs text-muted-foreground">
-                                {{ currentWorkspace ? 'Workspace' : 'Create your first workspace' }}
+                            <span
+                                class="truncate text-xs text-muted-foreground"
+                            >
+                                {{
+                                    currentWorkspace
+                                        ? 'Workspace'
+                                        : 'Create your first workspace'
+                                }}
                             </span>
                         </div>
 
@@ -71,7 +87,13 @@ function switchWorkspace(workspaceId: number): void {
 
                 <DropdownMenuContent
                     class="w-(--reka-dropdown-menu-trigger-width) min-w-56 rounded-lg"
-                    :side="isMobile ? 'bottom' : state === 'collapsed' ? 'right' : 'bottom'"
+                    :side="
+                        isMobile
+                            ? 'bottom'
+                            : state === 'collapsed'
+                              ? 'right'
+                              : 'bottom'
+                    "
                     align="start"
                     :side-offset="4"
                 >
@@ -91,7 +113,9 @@ function switchWorkspace(workspaceId: number): void {
                             >
                                 <PanelsTopLeft class="size-3.5" />
                             </div>
-                            <span class="min-w-0 flex-1 truncate">{{ item.name }}</span>
+                            <span class="min-w-0 flex-1 truncate">{{
+                                item.name
+                            }}</span>
                             <Check v-if="item.is_current" class="size-4" />
                         </DropdownMenuItem>
                     </template>
@@ -103,10 +127,17 @@ function switchWorkspace(workspaceId: number): void {
                     <DropdownMenuSeparator />
 
                     <DropdownMenuItem
-                        v-if="currentWorkspace && (currentWorkspace.role === 'owner' || currentWorkspace.role === 'admin')"
+                        v-if="
+                            currentWorkspace &&
+                            (currentWorkspace.role === 'owner' ||
+                                currentWorkspace.role === 'admin')
+                        "
                         as-child
                     >
-                        <Link :href="`/workspaces/${currentWorkspace.id}/members`" class="cursor-pointer">
+                        <Link
+                            :href="`/workspaces/${currentWorkspace.id}/members`"
+                            class="cursor-pointer"
+                        >
                             <Users class="size-4" />
                             Members
                         </Link>

@@ -59,7 +59,11 @@ export type TaskDetail = TaskSummary & {
     creator: TaskUserSummary;
     subtasks: TaskSubtaskSummary[];
     subtask_progress: { total: number; done: number };
-    source_task: { id: number; reference: string; message_id: number | null } | null;
+    source_task: {
+        id: number;
+        reference: string;
+        message_id: number | null;
+    } | null;
 };
 
 export type TaskMessageSummary = {

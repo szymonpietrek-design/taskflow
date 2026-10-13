@@ -2,17 +2,20 @@
 import { computed } from 'vue';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
-const props = withDefaults(defineProps<{
-    userId: number;
-    name: string;
-    src?: string | null;
-    compact?: boolean;
-    stacked?: boolean;
-}>(), {
-    src: null,
-    compact: false,
-    stacked: false,
-});
+const props = withDefaults(
+    defineProps<{
+        userId: number;
+        name: string;
+        src?: string | null;
+        compact?: boolean;
+        stacked?: boolean;
+    }>(),
+    {
+        src: null,
+        compact: false,
+        stacked: false,
+    },
+);
 
 const tones = [
     'bg-[#eef1f4] text-[#526173] dark:bg-[#2a3540] dark:text-[#ced7e2]',
@@ -22,11 +25,14 @@ const tones = [
     'bg-[#edf0f1] text-[#58686d] dark:bg-[#2c373a] dark:text-[#d0dbdd]',
 ] as const;
 
-const tone = computed(() => tones[Math.abs(props.userId) % tones.length] ?? tones[0]);
+const tone = computed(
+    () => tones[Math.abs(props.userId) % tones.length] ?? tones[0],
+);
 const initials = computed(() => {
     const words = props.name.trim().split(/\s+/).filter(Boolean);
     const first = words[0]?.charAt(0) ?? '';
-    const last = words.length > 1 ? (words[words.length - 1]?.charAt(0) ?? '') : '';
+    const last =
+        words.length > 1 ? (words[words.length - 1]?.charAt(0) ?? '') : '';
     return (first + last).toLocaleUpperCase() || '?';
 });
 </script>

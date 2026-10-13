@@ -1,20 +1,50 @@
 <script setup lang="ts">
 import { Form, Link } from '@inertiajs/vue3';
-import { CalendarDays, CheckCircle2, Circle, LoaderCircle, Plus } from '@lucide/vue';
+import {
+    CalendarDays,
+    CheckCircle2,
+    Circle,
+    LoaderCircle,
+    Plus,
+} from '@lucide/vue';
 import type { DateValue } from '@internationalized/date';
-import { DateFormatter, getLocalTimeZone, today } from '@internationalized/date';
+import {
+    DateFormatter,
+    getLocalTimeZone,
+    today,
+} from '@internationalized/date';
 import { toast } from 'vue-sonner';
 import { computed, ref, shallowRef } from 'vue';
 import InputError from '@/components/InputError.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import type { TaskStatusSummary, TaskSubtaskSummary, TaskUserSummary } from '@/types/task';
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from '@/components/ui/popover';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import type {
+    TaskStatusSummary,
+    TaskSubtaskSummary,
+    TaskUserSummary,
+} from '@/types/task';
 
 const props = defineProps<{
     projectId: number;
@@ -32,11 +62,14 @@ const subtaskStatus = ref('default');
 const subtaskAssignee = ref('unassigned');
 const subtaskDueDate = shallowRef<DateValue | undefined>();
 const dateFormatter = new DateFormatter('en-US', { dateStyle: 'medium' });
-const notifyError = () => toast.error('Could not create the subtask. Check the form and try again.');
+const notifyError = () =>
+    toast.error('Could not create the subtask. Check the form and try again.');
 const stayOnTask = { preserveScroll: true, preserveState: true };
-const percentage = computed(() => props.progress.total === 0
-    ? 0
-    : Math.round((props.progress.done / props.progress.total) * 100));
+const percentage = computed(() =>
+    props.progress.total === 0
+        ? 0
+        : Math.round((props.progress.done / props.progress.total) * 100),
+);
 
 function taskUrl(id: number): string {
     return `/projects/${props.projectId}/tasks/${id}`;
@@ -50,54 +83,124 @@ function taskUrl(id: number): string {
                 <div class="space-y-1">
                     <CardTitle>Subtasks</CardTitle>
                     <CardDescription v-if="progress.total">
-                        {{ progress.done }} of {{ progress.total }} completed ({{ percentage }}%)
+                        {{ progress.done }} of {{ progress.total }} completed
+                        ({{ percentage }}%)
                     </CardDescription>
-                    <CardDescription v-else>Split this task into smaller steps.</CardDescription>
+                    <CardDescription v-else
+                        >Split this task into smaller steps.</CardDescription
+                    >
                 </div>
-                <Button v-if="canCreate && !creating" type="button" size="sm" variant="outline" @click="creating = true">
+                <Button
+                    v-if="canCreate && !creating"
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    @click="creating = true"
+                >
                     <Plus class="size-4" /> Add subtask
                 </Button>
             </div>
-            <div v-if="progress.total" class="mt-2 h-2 w-full overflow-hidden rounded-full bg-muted" role="progressbar"
-                :aria-valuenow="percentage" aria-valuemin="0" aria-valuemax="100" aria-label="Subtask completion">
-                <div class="h-full rounded-full bg-primary transition-all" :style="{ width: `${percentage}%` }" />
+            <div
+                v-if="progress.total"
+                class="mt-2 h-2 w-full overflow-hidden rounded-full bg-muted"
+                role="progressbar"
+                :aria-valuenow="percentage"
+                aria-valuemin="0"
+                aria-valuemax="100"
+                aria-label="Subtask completion"
+            >
+                <div
+                    class="h-full rounded-full bg-primary transition-all"
+                    :style="{ width: `${percentage}%` }"
+                />
             </div>
         </CardHeader>
         <CardContent class="space-y-4">
             <ul v-if="subtasks.length" class="divide-y">
-                <li v-for="child in subtasks" :key="child.id" class="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
-                    <Link :href="taskUrl(child.id)" class="flex min-w-0 flex-1 items-start gap-2 text-sm hover:underline">
-                        <CheckCircle2 v-if="child.status.category === 'done'" class="mt-0.5 size-4 shrink-0 text-primary" />
-                        <Circle v-else class="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                <li
+                    v-for="child in subtasks"
+                    :key="child.id"
+                    class="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0 last:pb-0"
+                >
+                    <Link
+                        :href="taskUrl(child.id)"
+                        class="flex min-w-0 flex-1 items-start gap-2 text-sm hover:underline"
+                    >
+                        <CheckCircle2
+                            v-if="child.status.category === 'done'"
+                            class="mt-0.5 size-4 shrink-0 text-primary"
+                        />
+                        <Circle
+                            v-else
+                            class="mt-0.5 size-4 shrink-0 text-muted-foreground"
+                        />
                         <span class="min-w-0">
-                            <span class="block font-medium break-words">{{ child.title }}</span>
+                            <span class="block font-medium break-words">{{
+                                child.title
+                            }}</span>
                             <span class="text-xs text-muted-foreground">
                                 {{ child.reference }}
-                                <template v-if="child.assignee"> · {{ child.assignee.name }}</template>
-                                <template v-if="child.due_date"> · Due {{ child.due_date }}</template>
+                                <template v-if="child.assignee">
+                                    · {{ child.assignee.name }}</template
+                                >
+                                <template v-if="child.due_date">
+                                    · Due {{ child.due_date }}</template
+                                >
                             </span>
                         </span>
                     </Link>
-                    <Badge :variant="child.status.category === 'done' ? 'default' : 'secondary'">{{ child.status.name }}</Badge>
+                    <Badge
+                        :variant="
+                            child.status.category === 'done'
+                                ? 'default'
+                                : 'secondary'
+                        "
+                        >{{ child.status.name }}</Badge
+                    >
                 </li>
             </ul>
-            <p v-else-if="!creating" class="text-sm text-muted-foreground">No subtasks yet.</p>
+            <p v-else-if="!creating" class="text-sm text-muted-foreground">
+                No subtasks yet.
+            </p>
 
-            <Form v-if="canCreate && creating" :action="`/projects/${projectId}/tasks`" method="post"
-                class="space-y-3 rounded-md border bg-muted/20 p-4" :options="stayOnTask" reset-on-success @error="notifyError" v-slot="{ errors, processing }">
+            <Form
+                v-if="canCreate && creating"
+                :action="`/projects/${projectId}/tasks`"
+                method="post"
+                class="space-y-3 rounded-md border bg-muted/20 p-4"
+                :options="stayOnTask"
+                reset-on-success
+                @error="notifyError"
+                v-slot="{ errors, processing }"
+            >
                 <input type="hidden" name="parent_id" :value="parentTaskId" />
                 <input type="hidden" name="type" value="1" />
                 <div class="grid gap-1.5">
                     <Label for="subtask-title">Subtask title</Label>
-                    <Input id="subtask-title" name="title" maxlength="200" required placeholder="Write tests" />
+                    <Input
+                        id="subtask-title"
+                        name="title"
+                        maxlength="200"
+                        required
+                        placeholder="Write tests"
+                    />
                     <InputError :message="errors.title || errors.parent_id" />
                 </div>
                 <div class="grid gap-3 sm:grid-cols-2">
                     <div class="grid gap-1.5">
                         <Label for="subtask-priority">Priority</Label>
-                        <input type="hidden" name="priority" :value="subtaskPriority" />
-                        <Select v-model="subtaskPriority" :disabled="processing">
-                            <SelectTrigger id="subtask-priority" class="w-full"><SelectValue placeholder="Select priority" /></SelectTrigger>
+                        <input
+                            type="hidden"
+                            name="priority"
+                            :value="subtaskPriority"
+                        />
+                        <Select
+                            v-model="subtaskPriority"
+                            :disabled="processing"
+                        >
+                            <SelectTrigger id="subtask-priority" class="w-full"
+                                ><SelectValue placeholder="Select priority"
+                            /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="2">Normal</SelectItem>
                                 <SelectItem value="1">Low</SelectItem>
@@ -108,53 +211,159 @@ function taskUrl(id: number): string {
                         <InputError :message="errors.priority" />
                     </div>
                     <div class="grid gap-1.5">
-                        <Label for="subtask-status">Status <span class="font-normal text-muted-foreground">(optional)</span></Label>
-                        <input type="hidden" name="status_id" :value="subtaskStatus === 'default' ? '' : subtaskStatus" />
+                        <Label for="subtask-status"
+                            >Status
+                            <span class="font-normal text-muted-foreground"
+                                >(optional)</span
+                            ></Label
+                        >
+                        <input
+                            type="hidden"
+                            name="status_id"
+                            :value="
+                                subtaskStatus === 'default' ? '' : subtaskStatus
+                            "
+                        />
                         <Select v-model="subtaskStatus" :disabled="processing">
-                            <SelectTrigger id="subtask-status" class="w-full"><SelectValue placeholder="Select status" /></SelectTrigger>
+                            <SelectTrigger id="subtask-status" class="w-full"
+                                ><SelectValue placeholder="Select status"
+                            /></SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="default">Default (Todo)</SelectItem>
-                                <SelectItem v-for="status in statuses" :key="status.id" :value="String(status.id)">{{ status.name }}</SelectItem>
+                                <SelectItem value="default"
+                                    >Default (Todo)</SelectItem
+                                >
+                                <SelectItem
+                                    v-for="status in statuses"
+                                    :key="status.id"
+                                    :value="String(status.id)"
+                                    >{{ status.name }}</SelectItem
+                                >
                             </SelectContent>
                         </Select>
                         <InputError :message="errors.status_id" />
                     </div>
                     <div class="grid gap-1.5">
-                        <Label for="subtask-assignee">Assignee <span class="font-normal text-muted-foreground">(optional)</span></Label>
-                        <input type="hidden" name="assignee_id" :value="subtaskAssignee === 'unassigned' ? '' : subtaskAssignee" />
-                        <Select v-model="subtaskAssignee" :disabled="processing">
-                            <SelectTrigger id="subtask-assignee" class="w-full"><SelectValue placeholder="Select assignee" /></SelectTrigger>
+                        <Label for="subtask-assignee"
+                            >Assignee
+                            <span class="font-normal text-muted-foreground"
+                                >(optional)</span
+                            ></Label
+                        >
+                        <input
+                            type="hidden"
+                            name="assignee_id"
+                            :value="
+                                subtaskAssignee === 'unassigned'
+                                    ? ''
+                                    : subtaskAssignee
+                            "
+                        />
+                        <Select
+                            v-model="subtaskAssignee"
+                            :disabled="processing"
+                        >
+                            <SelectTrigger id="subtask-assignee" class="w-full"
+                                ><SelectValue placeholder="Select assignee"
+                            /></SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="unassigned">Unassigned</SelectItem>
-                                <SelectItem v-for="person in assignees" :key="person.id" :value="String(person.id)">{{ person.name }}</SelectItem>
+                                <SelectItem value="unassigned"
+                                    >Unassigned</SelectItem
+                                >
+                                <SelectItem
+                                    v-for="person in assignees"
+                                    :key="person.id"
+                                    :value="String(person.id)"
+                                    >{{ person.name }}</SelectItem
+                                >
                             </SelectContent>
                         </Select>
                         <InputError :message="errors.assignee_id" />
                     </div>
                     <div class="grid gap-1.5">
-                        <Label for="subtask-due-date">Due date <span class="font-normal text-muted-foreground">(optional)</span></Label>
-                        <input type="hidden" name="due_date" :value="subtaskDueDate?.toString() ?? ''" />
+                        <Label for="subtask-due-date"
+                            >Due date
+                            <span class="font-normal text-muted-foreground"
+                                >(optional)</span
+                            ></Label
+                        >
+                        <input
+                            type="hidden"
+                            name="due_date"
+                            :value="subtaskDueDate?.toString() ?? ''"
+                        />
                         <Popover v-slot="{ close }">
                             <PopoverTrigger as-child>
-                                <Button id="subtask-due-date" type="button" variant="outline" class="w-full justify-between text-left font-normal"
-                                    :class="!subtaskDueDate && 'text-muted-foreground'" :disabled="processing">
-                                    <span>{{ subtaskDueDate ? dateFormatter.format(subtaskDueDate.toDate(getLocalTimeZone())) : 'Select a date' }}</span>
-                                    <CalendarDays class="size-4 shrink-0 opacity-70" />
+                                <Button
+                                    id="subtask-due-date"
+                                    type="button"
+                                    variant="outline"
+                                    class="w-full justify-between text-left font-normal"
+                                    :class="
+                                        !subtaskDueDate &&
+                                        'text-muted-foreground'
+                                    "
+                                    :disabled="processing"
+                                >
+                                    <span>{{
+                                        subtaskDueDate
+                                            ? dateFormatter.format(
+                                                  subtaskDueDate.toDate(
+                                                      getLocalTimeZone(),
+                                                  ),
+                                              )
+                                            : 'Select a date'
+                                    }}</span>
+                                    <CalendarDays
+                                        class="size-4 shrink-0 opacity-70"
+                                    />
                                 </Button>
                             </PopoverTrigger>
                             <PopoverContent align="start" class="w-auto p-0">
-                                <Calendar v-model="subtaskDueDate" :default-placeholder="today(getLocalTimeZone())" layout="month-and-year"
-                                    initial-focus @update:model-value="close" />
-                                <div class="border-t p-2"><Button type="button" variant="ghost" size="sm" class="w-full"
-                                    :disabled="!subtaskDueDate" @click="subtaskDueDate = undefined; close()">Clear date</Button></div>
+                                <Calendar
+                                    v-model="subtaskDueDate"
+                                    :default-placeholder="
+                                        today(getLocalTimeZone())
+                                    "
+                                    layout="month-and-year"
+                                    initial-focus
+                                    @update:model-value="close"
+                                />
+                                <div class="border-t p-2">
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        class="w-full"
+                                        :disabled="!subtaskDueDate"
+                                        @click="
+                                            subtaskDueDate = undefined;
+                                            close();
+                                        "
+                                        >Clear date</Button
+                                    >
+                                </div>
                             </PopoverContent>
                         </Popover>
                         <InputError :message="errors.due_date" />
                     </div>
                 </div>
                 <div class="flex gap-2">
-                    <Button size="sm" :disabled="processing"><LoaderCircle v-if="processing" class="size-4 animate-spin" /><Plus v-else class="size-4" />{{ processing ? 'Creating…' : 'Create subtask' }}</Button>
-                    <Button type="button" size="sm" variant="outline" :disabled="processing" @click="creating = false">Cancel</Button>
+                    <Button size="sm" :disabled="processing"
+                        ><LoaderCircle
+                            v-if="processing"
+                            class="size-4 animate-spin"
+                        /><Plus v-else class="size-4" />{{
+                            processing ? 'Creating…' : 'Create subtask'
+                        }}</Button
+                    >
+                    <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        :disabled="processing"
+                        @click="creating = false"
+                        >Cancel</Button
+                    >
                 </div>
             </Form>
         </CardContent>

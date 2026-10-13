@@ -1,12 +1,25 @@
 <script setup lang="ts">
 import { Form, Link } from '@inertiajs/vue3';
-import { LoaderCircle, MessageSquare, Pencil, Plus, Send, Trash2 } from '@lucide/vue';
+import {
+    LoaderCircle,
+    MessageSquare,
+    Pencil,
+    Plus,
+    Send,
+    Trash2,
+} from '@lucide/vue';
 import { computed, ref, watch } from 'vue';
 import { toast } from 'vue-sonner';
 import InputError from '@/components/InputError.vue';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/card';
 import {
     Dialog,
     DialogContent,
@@ -27,13 +40,30 @@ const props = defineProps<{
 
 const editingId = ref<number | null>(null);
 const deletingId = ref<number | null>(null);
-const messagesUrl = computed(() => `/projects/${props.projectId}/tasks/${props.taskId}/messages`);
-watch(() => props.taskId, () => { editingId.value = null; deletingId.value = null; });
+const messagesUrl = computed(
+    () => `/projects/${props.projectId}/tasks/${props.taskId}/messages`,
+);
+watch(
+    () => props.taskId,
+    () => {
+        editingId.value = null;
+        deletingId.value = null;
+    },
+);
 const stayOnTask = { preserveScroll: true, preserveState: true };
-const notifyError = () => toast.error('Could not save the message. Check the form and try again.');
+const notifyError = () =>
+    toast.error('Could not save the message. Check the form and try again.');
 
 function initials(name: string): string {
-    return name.split(/\s+/).filter(Boolean).slice(0, 2).map(part => part.charAt(0)).join('').toUpperCase() || '?';
+    return (
+        name
+            .split(/\s+/)
+            .filter(Boolean)
+            .slice(0, 2)
+            .map((part) => part.charAt(0))
+            .join('')
+            .toUpperCase() || '?'
+    );
 }
 
 function formattedDate(value: string): string {
@@ -46,43 +76,121 @@ function formattedDate(value: string): string {
         <CardHeader>
             <CardTitle class="flex items-center gap-2">
                 <MessageSquare class="size-4" /> Discussion
-                <span class="text-sm font-normal text-muted-foreground">({{ messages.length }})</span>
+                <span class="text-sm font-normal text-muted-foreground"
+                    >({{ messages.length }})</span
+                >
             </CardTitle>
-            <CardDescription>Messages and decisions about this task. System activity is recorded separately.</CardDescription>
+            <CardDescription
+                >Messages and decisions about this task. System activity is
+                recorded separately.</CardDescription
+            >
         </CardHeader>
         <CardContent class="space-y-6">
             <div v-if="messages.length" class="space-y-5">
-                <article v-for="message in messages" :id="`message-${message.id}`" :key="message.id" class="flex items-start gap-3">
+                <article
+                    v-for="message in messages"
+                    :id="`message-${message.id}`"
+                    :key="message.id"
+                    class="flex items-start gap-3"
+                >
                     <Avatar class="size-9 shrink-0">
-                        <AvatarFallback>{{ initials(message.author?.name ?? '?') }}</AvatarFallback>
+                        <AvatarFallback>{{
+                            initials(message.author?.name ?? '?')
+                        }}</AvatarFallback>
                     </Avatar>
                     <div class="min-w-0 flex-1 space-y-2">
-                        <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-                            <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-                                <span class="font-medium">{{ message.author?.name ?? 'Deleted user' }}</span>
-                                <time :datetime="message.created_at" class="text-xs text-muted-foreground">
+                        <div
+                            class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1"
+                        >
+                            <div
+                                class="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm"
+                            >
+                                <span class="font-medium">{{
+                                    message.author?.name ?? 'Deleted user'
+                                }}</span>
+                                <time
+                                    :datetime="message.created_at"
+                                    class="text-xs text-muted-foreground"
+                                >
                                     {{ formattedDate(message.created_at) }}
                                 </time>
-                                <span v-if="message.updated_at && message.updated_at !== message.created_at" class="text-xs text-muted-foreground">(edited)</span>
+                                <span
+                                    v-if="
+                                        message.updated_at &&
+                                        message.updated_at !==
+                                            message.created_at
+                                    "
+                                    class="text-xs text-muted-foreground"
+                                    >(edited)</span
+                                >
                             </div>
-                            <div v-if="message.can_update || message.can_delete" class="flex gap-1">
-                                <Button v-if="message.can_update" type="button" variant="ghost" size="sm" :aria-label="`Edit message by ${message.author?.name ?? 'user'}`" @click="editingId = message.id">
+                            <div
+                                v-if="message.can_update || message.can_delete"
+                                class="flex gap-1"
+                            >
+                                <Button
+                                    v-if="message.can_update"
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    :aria-label="`Edit message by ${message.author?.name ?? 'user'}`"
+                                    @click="editingId = message.id"
+                                >
                                     <Pencil class="size-3.5" /> Edit
                                 </Button>
-                                <Dialog v-if="message.can_delete" :open="deletingId === message.id" @update:open="(value) => deletingId = value ? message.id : null">
+                                <Dialog
+                                    v-if="message.can_delete"
+                                    :open="deletingId === message.id"
+                                    @update:open="
+                                        (value) =>
+                                            (deletingId = value
+                                                ? message.id
+                                                : null)
+                                    "
+                                >
                                     <DialogTrigger as-child>
-                                        <Button type="button" variant="ghost" size="sm" :aria-label="`Delete message by ${message.author?.name ?? 'user'}`">
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            :aria-label="`Delete message by ${message.author?.name ?? 'user'}`"
+                                        >
                                             <Trash2 class="size-3.5" /> Delete
                                         </Button>
                                     </DialogTrigger>
                                     <DialogContent>
                                         <DialogHeader>
-                                            <DialogTitle>Delete message?</DialogTitle>
-                                            <DialogDescription>This permanently removes your message from the discussion.</DialogDescription>
+                                            <DialogTitle
+                                                >Delete message?</DialogTitle
+                                            >
+                                            <DialogDescription
+                                                >This permanently removes your
+                                                message from the
+                                                discussion.</DialogDescription
+                                            >
                                         </DialogHeader>
                                         <DialogFooter>
-                                            <Form :action="`${messagesUrl}/${message.id}`" method="delete" :options="stayOnTask" @success="deletingId = null" @error="notifyError" v-slot="{ processing }">
-                                                <Button type="submit" variant="destructive" :disabled="processing"><LoaderCircle v-if="processing" class="size-4 animate-spin" />{{ processing ? 'Deleting…' : 'Delete message' }}</Button>
+                                            <Form
+                                                :action="`${messagesUrl}/${message.id}`"
+                                                method="delete"
+                                                :options="stayOnTask"
+                                                @success="deletingId = null"
+                                                @error="notifyError"
+                                                v-slot="{ processing }"
+                                            >
+                                                <Button
+                                                    type="submit"
+                                                    variant="destructive"
+                                                    :disabled="processing"
+                                                    ><LoaderCircle
+                                                        v-if="processing"
+                                                        class="size-4 animate-spin"
+                                                    />{{
+                                                        processing
+                                                            ? 'Deleting…'
+                                                            : 'Delete message'
+                                                    }}</Button
+                                                >
                                             </Form>
                                         </DialogFooter>
                                     </DialogContent>
@@ -112,21 +220,66 @@ function formattedDate(value: string): string {
                             />
                             <InputError :message="errors.body" />
                             <div class="flex gap-2">
-                                <Button size="sm" :disabled="processing"><LoaderCircle v-if="processing" class="size-4 animate-spin" />{{ processing ? 'Saving…' : 'Save changes' }}</Button>
-                                <Button type="button" size="sm" variant="outline" :disabled="processing" @click="editingId = null">Cancel</Button>
+                                <Button size="sm" :disabled="processing"
+                                    ><LoaderCircle
+                                        v-if="processing"
+                                        class="size-4 animate-spin"
+                                    />{{
+                                        processing ? 'Saving…' : 'Save changes'
+                                    }}</Button
+                                >
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    :disabled="processing"
+                                    @click="editingId = null"
+                                    >Cancel</Button
+                                >
                             </div>
                         </Form>
-                        <p v-else class="whitespace-pre-wrap break-words text-sm leading-relaxed">{{ message.body }}</p>
-                        <Button v-if="message.can_create_task && editingId !== message.id" as-child size="sm" variant="outline">
-                            <Link :href="`${messagesUrl}/${message.id}/create-task`"><Plus class="size-3.5" /> Create task</Link>
+                        <p
+                            v-else
+                            class="text-sm leading-relaxed break-words whitespace-pre-wrap"
+                        >
+                            {{ message.body }}
+                        </p>
+                        <Button
+                            v-if="
+                                message.can_create_task &&
+                                editingId !== message.id
+                            "
+                            as-child
+                            size="sm"
+                            variant="outline"
+                        >
+                            <Link
+                                :href="`${messagesUrl}/${message.id}/create-task`"
+                                ><Plus class="size-3.5" /> Create task</Link
+                            >
                         </Button>
                     </div>
                 </article>
             </div>
-            <p v-else class="text-sm text-muted-foreground">No messages yet. Start the discussion below.</p>
+            <p v-else class="text-sm text-muted-foreground">
+                No messages yet. Start the discussion below.
+            </p>
 
-            <Form v-if="canPost" :action="messagesUrl" method="post" :options="stayOnTask" @error="notifyError" class="space-y-3 border-t pt-5" reset-on-success v-slot="{ errors, processing }">
-                <label :for="`new-task-message-${taskId}`" class="text-sm font-medium">Write a message</label>
+            <Form
+                v-if="canPost"
+                :action="messagesUrl"
+                method="post"
+                :options="stayOnTask"
+                @error="notifyError"
+                class="space-y-3 border-t pt-5"
+                reset-on-success
+                v-slot="{ errors, processing }"
+            >
+                <label
+                    :for="`new-task-message-${taskId}`"
+                    class="text-sm font-medium"
+                    >Write a message</label
+                >
                 <textarea
                     :id="`new-task-message-${taskId}`"
                     name="body"
@@ -139,10 +292,20 @@ function formattedDate(value: string): string {
                 />
                 <InputError :message="errors.body" />
                 <div class="flex justify-end">
-                    <Button :disabled="processing"><LoaderCircle v-if="processing" class="size-4 animate-spin" /><Send v-else class="size-4" />{{ processing ? 'Posting…' : 'Post message' }}</Button>
+                    <Button :disabled="processing"
+                        ><LoaderCircle
+                            v-if="processing"
+                            class="size-4 animate-spin"
+                        /><Send v-else class="size-4" />{{
+                            processing ? 'Posting…' : 'Post message'
+                        }}</Button
+                    >
                 </div>
             </Form>
-            <p v-else class="border-t pt-4 text-xs text-muted-foreground">You can read this discussion, but only project contributors can post messages.</p>
+            <p v-else class="border-t pt-4 text-xs text-muted-foreground">
+                You can read this discussion, but only project contributors can
+                post messages.
+            </p>
         </CardContent>
     </Card>
 </template>

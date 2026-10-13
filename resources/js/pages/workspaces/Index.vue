@@ -16,7 +16,12 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
 import type { WorkspaceSummary } from '@/types';
 
 type MemberPreview = { id: number; name: string };
@@ -61,7 +66,11 @@ function roleLabel(role: WorkspaceSummary['role']): string {
                         <h2 class="text-base font-medium">Your workspaces</h2>
                         <p class="text-sm text-muted-foreground">
                             {{ workspaces.length }}
-                            {{ workspaces.length === 1 ? 'workspace' : 'workspaces' }}
+                            {{
+                                workspaces.length === 1
+                                    ? 'workspace'
+                                    : 'workspaces'
+                            }}
                         </p>
                     </div>
                 </div>
@@ -72,7 +81,9 @@ function roleLabel(role: WorkspaceSummary['role']): string {
                         :key="workspaceItem.id"
                         class="gap-4 py-5"
                     >
-                        <CardContent class="flex flex-wrap items-center gap-4 px-5">
+                        <CardContent
+                            class="flex flex-wrap items-center gap-4 px-5"
+                        >
                             <div
                                 class="flex size-10 shrink-0 items-center justify-center rounded-lg border bg-muted/50"
                             >
@@ -84,61 +95,101 @@ function roleLabel(role: WorkspaceSummary['role']): string {
                                     <p class="truncate font-medium">
                                         {{ workspaceItem.name }}
                                     </p>
-                                    <Badge v-if="workspaceItem.is_current" variant="secondary">
+                                    <Badge
+                                        v-if="workspaceItem.is_current"
+                                        variant="secondary"
+                                    >
                                         <Check class="size-3" />
                                         Current
                                     </Badge>
                                 </div>
                                 <p class="text-sm text-muted-foreground">
-                                    {{ roleLabel(workspaceItem.role) }} · {{ workspaceItem.slug }}
+                                    {{ roleLabel(workspaceItem.role) }} ·
+                                    {{ workspaceItem.slug }}
                                 </p>
                             </div>
 
-                            <div class="flex w-full flex-wrap items-center justify-end gap-3 sm:w-auto">
+                            <div
+                                class="flex w-full flex-wrap items-center justify-end gap-3 sm:w-auto"
+                            >
                                 <TooltipProvider :delay-duration="150">
                                     <div
-                                        v-if="props.memberPreviews[workspaceItem.id]?.members.length"
+                                        v-if="
+                                            props.memberPreviews[
+                                                workspaceItem.id
+                                            ]?.members.length
+                                        "
                                         class="flex shrink-0 items-center -space-x-2"
                                         :aria-label="`Members of ${workspaceItem.name}`"
                                     >
                                         <Tooltip
-                                            v-for="member in props.memberPreviews[workspaceItem.id]?.members ?? []"
+                                            v-for="member in props
+                                                .memberPreviews[
+                                                workspaceItem.id
+                                            ]?.members ?? []"
                                             :key="member.id"
                                         >
                                             <TooltipTrigger as-child>
                                                 <span
-                                                    class="inline-flex shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                                    class="inline-flex shrink-0 rounded-full focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
                                                     :aria-label="member.name"
                                                     tabindex="0"
                                                 >
-                                                    <UserAvatar :user-id="member.id" :name="member.name" compact stacked />
+                                                    <UserAvatar
+                                                        :user-id="member.id"
+                                                        :name="member.name"
+                                                        compact
+                                                        stacked
+                                                    />
                                                 </span>
                                             </TooltipTrigger>
-                                            <TooltipContent>{{ member.name }}</TooltipContent>
+                                            <TooltipContent>{{
+                                                member.name
+                                            }}</TooltipContent>
                                         </Tooltip>
-                                        <Tooltip v-if="props.memberPreviews[workspaceItem.id]?.remaining">
+                                        <Tooltip
+                                            v-if="
+                                                props.memberPreviews[
+                                                    workspaceItem.id
+                                                ]?.remaining
+                                            "
+                                        >
                                             <TooltipTrigger as-child>
                                                 <span
-                                                    class="relative z-10 flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground ring-2 ring-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                                    class="relative z-10 flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground ring-2 ring-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                                                     tabindex="0"
                                                     :aria-label="`${props.memberPreviews[workspaceItem.id]?.remaining ?? 0} more members`"
                                                 >
-                                                    +{{ props.memberPreviews[workspaceItem.id]?.remaining ?? 0 }}
+                                                    +{{
+                                                        props.memberPreviews[
+                                                            workspaceItem.id
+                                                        ]?.remaining ?? 0
+                                                    }}
                                                 </span>
                                             </TooltipTrigger>
                                             <TooltipContent>
-                                                {{ props.memberPreviews[workspaceItem.id]?.remaining ?? 0 }} more members
+                                                {{
+                                                    props.memberPreviews[
+                                                        workspaceItem.id
+                                                    ]?.remaining ?? 0
+                                                }}
+                                                more members
                                             </TooltipContent>
                                         </Tooltip>
                                     </div>
                                 </TooltipProvider>
 
                                 <Button
-                                    v-if="workspaceItem.role === 'owner' || workspaceItem.role === 'admin'"
+                                    v-if="
+                                        workspaceItem.role === 'owner' ||
+                                        workspaceItem.role === 'admin'
+                                    "
                                     variant="outline"
                                     as-child
                                 >
-                                    <Link :href="`/workspaces/${workspaceItem.id}/members`">
+                                    <Link
+                                        :href="`/workspaces/${workspaceItem.id}/members`"
+                                    >
                                         <Users class="size-4" /> Members
                                     </Link>
                                 </Button>
@@ -149,7 +200,10 @@ function roleLabel(role: WorkspaceSummary['role']): string {
                                     method="put"
                                     v-slot="{ processing }"
                                 >
-                                    <Button variant="outline" :disabled="processing">
+                                    <Button
+                                        variant="outline"
+                                        :disabled="processing"
+                                    >
                                         Use workspace
                                     </Button>
                                 </Form>
@@ -163,7 +217,9 @@ function roleLabel(role: WorkspaceSummary['role']): string {
                 </div>
 
                 <Card v-else class="border-dashed">
-                    <CardContent class="flex flex-col items-center py-10 text-center">
+                    <CardContent
+                        class="flex flex-col items-center py-10 text-center"
+                    >
                         <div
                             class="mb-4 flex size-11 items-center justify-center rounded-full bg-muted"
                         >
@@ -171,7 +227,8 @@ function roleLabel(role: WorkspaceSummary['role']): string {
                         </div>
                         <p class="font-medium">No workspaces yet</p>
                         <p class="mt-1 max-w-sm text-sm text-muted-foreground">
-                            Create your first workspace to start organizing projects and tasks.
+                            Create your first workspace to start organizing
+                            projects and tasks.
                         </p>
                     </CardContent>
                 </Card>
