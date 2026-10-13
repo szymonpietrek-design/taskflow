@@ -16,10 +16,11 @@ use Illuminate\Support\Carbon;
  * @property int $user_id
  * @property WorkspaceRole $role
  * @property Carbon|null $joined_at
+ * @property Carbon|null $suspended_at
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
-#[Fillable(['workspace_id', 'user_id', 'role', 'joined_at'])]
+#[Fillable(['workspace_id', 'user_id', 'role', 'joined_at', 'suspended_at'])]
 class WorkspaceMember extends Model
 {
     /** @use HasFactory<WorkspaceMemberFactory> */
@@ -35,6 +36,7 @@ class WorkspaceMember extends Model
         return [
             'role' => WorkspaceRole::class,
             'joined_at' => 'datetime',
+            'suspended_at' => 'datetime',
         ];
     }
 

@@ -4,6 +4,8 @@ namespace Tests\Feature\Workspaces;
 
 use App\Actions\Workspaces\CreateWorkspace;
 use App\Models\User;
+use App\Models\WorkspaceMember;
+use App\Enums\WorkspaceRole;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
@@ -36,6 +38,45 @@ class WorkspaceManagementTest extends TestCase
                 ->where('workspace.items.1.name', 'Beta Team')
                 ->where('workspace.items.1.is_current', false),
             );
+    }
+
+    public function test_workspace_cards_preview_three_active_members_and_count_the_remainder(): void
+    {
+        $owner = User::factory()->create(['name' => 'Current Owner']);
+        $workspace = app(CreateWorkspace::class)->handle($owner, 'Alpha Team');
+        $secondWorkspace = app(CreateWorkspace::class)->handle($owner, 'Beta Team');
+        $outside = User::factory()->create(['name' => 'Outside Person']);
+        app(CreateWorkspace::class)->handle($outside, 'Other Team');
+
+        foreach (['Alice Example', 'Bob Example', 'Carol Example', 'Dave Example'] as $name) {
+            $user = User::factory()->create(['name' => $name]);
+            WorkspaceMember::factory()->create([
+                'workspace_id' => $workspace->id,
+                'user_id' => $user->id,
+                'role' => WorkspaceRole::MEMBER,
+            ]);
+        }
+
+        $suspended = User::factory()->create(['name' => 'Suspended Person']);
+        WorkspaceMember::factory()->create([
+            'workspace_id' => $workspace->id,
+            'user_id' => $suspended->id,
+            'role' => WorkspaceRole::MEMBER,
+            'suspended_at' => now(),
+        ]);
+
+        $this->actingAs($owner)
+            ->get(route('workspaces.index'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('workspaces/Index')
+                ->has("memberPreviews.{$workspace->id}.members", 3)
+                ->where("memberPreviews.{$workspace->id}.remaining", 2)
+                ->where("memberPreviews.{$workspace->id}.members.0.name", 'Current Owner')
+                ->has("memberPreviews.{$secondWorkspace->id}.members", 1)
+                ->where("memberPreviews.{$secondWorkspace->id}.remaining", 0)
+                ->missing('memberPreviews.'.$outside->workspaces()->first()->id)
+                ->etc());
     }
 
     public function test_user_can_create_a_workspace_from_the_inertia_flow(): void

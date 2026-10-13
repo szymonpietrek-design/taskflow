@@ -45,7 +45,8 @@ class TaskPolicy
             return true;
         }
 
-        return $this->projectMembership($user, $project)?->role === ProjectRole::MANAGER;
+        return $workspaceMembership !== null
+            && $this->projectMembership($user, $project)?->role === ProjectRole::MANAGER;
     }
 
     private function canViewProject(User $user, Project $project): bool
@@ -81,6 +82,7 @@ class TaskPolicy
     {
         return $user->workspaceMemberships()
             ->where('workspace_id', $project->workspace_id)
+            ->whereNull('suspended_at')
             ->first();
     }
 

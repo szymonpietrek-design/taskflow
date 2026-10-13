@@ -41,6 +41,7 @@ class ProjectPolicy
     {
         $membership = $user->workspaceMemberships()
             ->where('workspace_id', $workspace->id)
+            ->whereNull('suspended_at')
             ->first();
 
         return $membership !== null && $this->isWorkspaceAdministrator($membership);
@@ -94,6 +95,7 @@ class ProjectPolicy
     {
         return $user->workspaceMemberships()
             ->where('workspace_id', $project->workspace_id)
+            ->whereNull('suspended_at')
             ->first();
     }
 

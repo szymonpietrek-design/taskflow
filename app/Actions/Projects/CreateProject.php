@@ -44,6 +44,7 @@ final class CreateProject
 
         $membership = $creator->workspaceMemberships()
             ->where('workspace_id', $workspace->id)
+            ->whereNull('suspended_at')
             ->first();
 
         if (! in_array($membership?->role, [WorkspaceRole::OWNER, WorkspaceRole::ADMIN], true)) {

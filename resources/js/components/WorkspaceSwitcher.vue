@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Link, router, usePage } from '@inertiajs/vue3';
-import { Check, ChevronsUpDown, PanelsTopLeft, Settings2 } from '@lucide/vue';
+import { Check, ChevronsUpDown, PanelsTopLeft, Settings2, Users } from '@lucide/vue';
 import { computed } from 'vue';
 import {
     DropdownMenu,
@@ -101,6 +101,16 @@ function switchWorkspace(workspaceId: number): void {
                     </DropdownMenuItem>
 
                     <DropdownMenuSeparator />
+
+                    <DropdownMenuItem
+                        v-if="currentWorkspace && (currentWorkspace.role === 'owner' || currentWorkspace.role === 'admin')"
+                        as-child
+                    >
+                        <Link :href="`/workspaces/${currentWorkspace.id}/members`" class="cursor-pointer">
+                            <Users class="size-4" />
+                            Members
+                        </Link>
+                    </DropdownMenuItem>
 
                     <DropdownMenuItem as-child>
                         <Link href="/workspaces" class="cursor-pointer">

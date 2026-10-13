@@ -34,6 +34,7 @@ final class ProjectContext
         $workspaceId = $currentWorkspace['id'];
         $workspaceMembership = $user->workspaceMemberships()
             ->where('workspace_id', $workspaceId)
+            ->whereNull('suspended_at')
             ->first();
 
         if ($workspaceMembership === null) {

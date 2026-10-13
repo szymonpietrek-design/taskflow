@@ -51,6 +51,7 @@ class WorkspacePolicy
     {
         return $user->workspaceMemberships()
             ->where('workspace_id', $workspace->id)
+            ->whereNull('suspended_at')
             ->first();
     }
 }

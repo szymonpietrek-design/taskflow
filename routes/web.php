@@ -21,6 +21,7 @@ use App\Http\Controllers\Tasks\TaskWorklogController;
 use App\Http\Controllers\Worklogs\WorklogController;
 use App\Http\Controllers\Workspaces\CurrentWorkspaceController;
 use App\Http\Controllers\Workspaces\WorkspaceController;
+use App\Http\Controllers\Workspaces\WorkspaceMemberController;
 use Illuminate\Support\Facades\Route;
 
 Route::inertia('/', 'Welcome')->name('home');
@@ -100,6 +101,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('tasks.messages.destroy');
 
     Route::get('workspaces', [WorkspaceController::class, 'index'])->name('workspaces.index');
+    Route::get('workspaces/{workspace}/members', [WorkspaceMemberController::class, 'index'])->name('workspaces.members.index');
+    Route::post('workspaces/{workspace}/members', [WorkspaceMemberController::class, 'store'])
+        ->middleware('throttle:20,1')->name('workspaces.members.store');
+    Route::patch('workspaces/{workspace}/members/{member}/suspend', [WorkspaceMemberController::class, 'suspend'])
+        ->middleware('throttle:20,1')->name('workspaces.members.suspend');
+    Route::patch('workspaces/{workspace}/members/{member}/restore', [WorkspaceMemberController::class, 'restore'])
+        ->middleware('throttle:20,1')->name('workspaces.members.restore');
+    Route::delete('workspaces/{workspace}/members/{member}', [WorkspaceMemberController::class, 'destroy'])
+        ->middleware('throttle:20,1')->name('workspaces.members.destroy');
     Route::post('workspaces', [WorkspaceController::class, 'store'])->name('workspaces.store');
     Route::put('workspaces/{workspace}/current', [CurrentWorkspaceController::class, 'update'])
         ->name('workspaces.current.update');
