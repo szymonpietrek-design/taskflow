@@ -90,7 +90,8 @@ final class ReportGenerationContext
         if (in_array(ReportSource::WORKLOGS->value, $selected, true)) {
             $entries = TaskWorklog::query()->whereHas('task', fn (Builder $query) => $query->where('project_id', $report->project_id))
                 ->when($report->contributor_ids !== null, fn (Builder $q) => $q->whereIn('user_id', $report->contributor_ids))
-                ->whereBetween('work_date', [$start->toDateString(), $end->toDateString()])
+                ->where('work_date', '>=', $start->toDateString())
+                ->where('work_date', '<', $end->addDay()->toDateString())
                 ->with(['task:id,project_id,number,title', 'author:id,name'])
                 ->orderBy('work_date')->orderBy('id')->limit(121)->get();
             $this->assertLimit($entries->count(), 120, 'worklog entries');

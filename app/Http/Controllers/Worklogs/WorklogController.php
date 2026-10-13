@@ -39,10 +39,11 @@ class WorklogController extends Controller
         // All of the user's entries count to the limit, even if access is later removed.
         $weekTotals = TaskWorklog::query()
             ->where('user_id', $userId)
-            ->whereBetween('work_date', [$weekStart->toDateString(), $weekEnd->toDateString()])
-            ->selectRaw('work_date, SUM(duration_minutes) as minutes')
-            ->groupBy('work_date')
-            ->pluck('minutes', 'work_date');
+            ->where('work_date', '>=', $weekStart->toDateString())
+            ->where('work_date', '<', $weekEnd->addDay()->toDateString())
+            ->selectRaw('DATE(work_date) AS work_day, SUM(duration_minutes) AS minutes')
+            ->groupByRaw('DATE(work_date)')
+            ->pluck('minutes', 'work_day');
 
         $week = collect(range(0, 6))->map(function (int $offset) use ($weekStart, $weekTotals): array {
             $day = $weekStart->addDays($offset)->toDateString();
