@@ -15,6 +15,7 @@ use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceMember;
 use App\Support\Reports\ReportGenerationContext;
+use App\Support\Reports\WorkReportDocument;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
@@ -75,10 +76,10 @@ class ReportAiGenerationTest extends TestCase
         $this->assertStringContainsString('## Summary', $report->body);
         $this->actingAs($owner)->get(route('reports.show', [$project, $report]))
             ->assertOk()->assertInertia(fn (Assert $page) => $page
-                ->where('report.is_generated', true)
-                ->where('report.generated_locale', 'pl')
-                ->where('can_generate', true)
-                ->where('report_html', fn ($html) => str_contains($html, '<h2>Summary</h2>')));
+            ->where('report.is_generated', true)
+            ->where('report.generated_locale', 'pl')
+            ->where('can_generate', true)
+            ->where('report_html', fn ($html) => str_contains($html, '<h2>Summary</h2>')));
     }
 
     public function test_work_report_builds_frozen_rows_and_exact_totals_from_worklogs(): void
@@ -174,7 +175,7 @@ class ReportAiGenerationTest extends TestCase
             'labels' => ['missing' => 'Zadanie ukończone w całości.'],
         ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
 
-        $body = app(\App\Support\Reports\WorkReportDocument::class)->render(
+        $body = app(WorkReportDocument::class)->render(
             $context, "```json\n{$translation}\n```", 'pl',
         );
         $this->assertStringContainsString('Naprawiono paginację', $body);
@@ -200,7 +201,7 @@ class ReportAiGenerationTest extends TestCase
         ]], JSON_THROW_ON_ERROR);
 
         $this->expectException(\InvalidArgumentException::class);
-        app(\App\Support\Reports\WorkReportDocument::class)->render($context, $response, 'pl');
+        app(WorkReportDocument::class)->render($context, $response, 'pl');
     }
 
     public function test_personal_report_generation_contains_only_own_entries(): void
@@ -223,6 +224,7 @@ class ReportAiGenerationTest extends TestCase
             $this->assertSame(1, $payload['worklogs']['entries']);
             $this->assertSame(60, $payload['worklogs']['total_minutes']);
             $this->assertStringNotContainsString('Other private work', $context);
+
             return 'My summary';
         });
         $this->actingAs($owner)->get(route('reports.show', [$project, $report]))->assertOk();

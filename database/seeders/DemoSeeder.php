@@ -19,8 +19,8 @@ use App\Models\Report;
 use App\Models\Task;
 use App\Models\TaskActivity;
 use App\Models\TaskMessage;
-use App\Models\TaskWorklog;
 use App\Models\TaskStatus;
+use App\Models\TaskWorklog;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceMember;
@@ -99,7 +99,9 @@ final class DemoSeeder extends Seeder
         foreach (['owner' => WorkspaceRole::OWNER, 'developer' => WorkspaceRole::ADMIN, 'reviewer' => WorkspaceRole::MEMBER] as $key => $role) {
             $this->once(WorkspaceMember::class, ['workspace_id' => $workspace->id, 'user_id' => $users[$key]->id], [
                 'role' => $role,
-                'joined_at' => $base->addDay()->addMinutes(match ($key) {'owner' => 0, 'developer' => 30, default => 60}),
+                'joined_at' => $base->addDay()->addMinutes(match ($key) {
+                    'owner' => 0, 'developer' => 30, default => 60
+                }),
                 'created_at' => $base->addDay(),
                 'updated_at' => $base->addDay(),
             ]);
@@ -112,8 +114,12 @@ final class DemoSeeder extends Seeder
             foreach (['owner' => ProjectRole::MANAGER, 'developer' => ProjectRole::MEMBER, 'reviewer' => ProjectRole::MEMBER] as $key => $role) {
                 $this->once(ProjectMember::class, ['project_id' => $project->id, 'user_id' => $users[$key]->id], [
                     'role' => $role,
-                    'created_at' => $project->created_at->addMinutes(match ($key) {'owner' => 0, 'developer' => 20, default => 45}),
-                    'updated_at' => $project->created_at->addMinutes(match ($key) {'owner' => 0, 'developer' => 20, default => 45}),
+                    'created_at' => $project->created_at->addMinutes(match ($key) {
+                        'owner' => 0, 'developer' => 20, default => 45
+                    }),
+                    'updated_at' => $project->created_at->addMinutes(match ($key) {
+                        'owner' => 0, 'developer' => 20, default => 45
+                    }),
                 ]);
             }
         }
@@ -207,8 +213,8 @@ final class DemoSeeder extends Seeder
     }
 
     /**
-     * @param array<string, array<int, Task>> $tasksByProject
-     * @param array<string, User> $users
+     * @param  array<string, array<int, Task>>  $tasksByProject
+     * @param  array<string, User>  $users
      */
     private function seedWorklogs(array $tasksByProject, array $users, CarbonImmutable $base): void
     {
@@ -281,10 +287,10 @@ final class DemoSeeder extends Seeder
     }
 
     /**
-     * @param array<int, array<string, mixed>> $specs
-     * @param array<string, TaskStatus> $statuses
-     * @param array<string, User> $users
-     * @param array<string, Release> $releases
+     * @param  array<int, array<string, mixed>>  $specs
+     * @param  array<string, TaskStatus>  $statuses
+     * @param  array<string, User>  $users
+     * @param  array<string, Release>  $releases
      * @return array<int, Task>
      */
     private function tasks(Project $project, array $specs, array $statuses, array $users, array $releases, CarbonImmutable $base): array
@@ -379,9 +385,9 @@ final class DemoSeeder extends Seeder
     /**
      * Does not update existing models. On reruns edited records keep their current content.
      *
-     * @param class-string<Model> $modelClass
-     * @param array<string, mixed> $identity
-     * @param array<string, mixed> $attributes
+     * @param  class-string<Model>  $modelClass
+     * @param  array<string, mixed>  $identity
+     * @param  array<string, mixed>  $attributes
      */
     private function once(string $modelClass, array $identity, array $attributes): Model
     {

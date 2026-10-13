@@ -15,7 +15,6 @@ use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceMember;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Validation\ValidationException;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
@@ -45,12 +44,12 @@ class ReleaseChangelogTest extends TestCase
 
         $this->actingAs($owner)->get(route('releases.show', [$project, $release]))
             ->assertOk()->assertInertia(fn (Assert $page) => $page
-                ->component('releases/Show')
-                ->where('can_edit_changelog', true)
-                ->where('changelog.draft_body', "## Added\n- Export reports")
-                ->where('changelog.has_unpublished_changes', true)
-                ->where('changelog.published_html', null)
-                ->where('changelog.draft_html', fn (string $html) => str_contains($html, '<h2>Added</h2>')));
+            ->component('releases/Show')
+            ->where('can_edit_changelog', true)
+            ->where('changelog.draft_body', "## Added\n- Export reports")
+            ->where('changelog.has_unpublished_changes', true)
+            ->where('changelog.published_html', null)
+            ->where('changelog.draft_html', fn (string $html) => str_contains($html, '<h2>Added</h2>')));
     }
 
     public function test_release_must_be_released_before_publishing_changelog(): void
@@ -150,11 +149,11 @@ class ReleaseChangelogTest extends TestCase
         ]);
         $this->actingAs($reader)->get(route('releases.show', [$project, $release]))
             ->assertOk()->assertInertia(fn (Assert $page) => $page
-                ->component('releases/Show')
-                ->where('can_edit_changelog', false)
-                ->where('changelog.draft_body', '')
-                ->where('changelog.draft_html', null)
-                ->where('changelog.published_html', fn (string $html) => str_contains($html, 'Visible notes') && !str_contains($html, 'Private changes')));
+            ->component('releases/Show')
+            ->where('can_edit_changelog', false)
+            ->where('changelog.draft_body', '')
+            ->where('changelog.draft_html', null)
+            ->where('changelog.published_html', fn (string $html) => str_contains($html, 'Visible notes') && ! str_contains($html, 'Private changes')));
         $this->actingAs($reader)->put($this->draftUrl($project, $release), ['draft_body' => 'Unauthorized'])
             ->assertForbidden();
         $this->actingAs($reader)->post($this->publishUrl($project, $release))

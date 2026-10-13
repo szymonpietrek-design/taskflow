@@ -133,7 +133,7 @@ class ReleaseTaskAssignmentTest extends TestCase
         ]);
         $this->actingAs($reader)->get(route('releases.show', [$project, $release]))
             ->assertOk()->assertInertia(fn (Assert $page) => $page->component('releases/Show')
-                ->where('can_manage_tasks', false)->where('available_count', 0));
+            ->where('can_manage_tasks', false)->where('available_count', 0));
         $this->actingAs($reader)->post(route('releases.tasks.store', [$project, $release]), [
             'task_id' => $task->id,
         ])->assertForbidden();

@@ -37,16 +37,16 @@ class TaskListFiltersTest extends TestCase
 
         $this->actingAs($owner)->get(route('tasks.index', ['project' => $project, 'q' => 'OAuth']))
             ->assertOk()->assertInertia(fn (Assert $page) => $page
-                ->has('tasks', 1)->where('tasks.0.id', $second->id)
-                ->where('filters.q', 'OAuth')->where('pagination.total', 1));
+            ->has('tasks', 1)->where('tasks.0.id', $second->id)
+            ->where('filters.q', 'OAuth')->where('pagination.total', 1));
 
         $this->actingAs($owner)->get(route('tasks.index', ['project' => $project, 'q' => 'APP-2']))
             ->assertOk()->assertInertia(fn (Assert $page) => $page
-                ->has('tasks', 1)->where('tasks.0.id', $second->id));
+            ->has('tasks', 1)->where('tasks.0.id', $second->id));
 
         $this->actingAs($owner)->get(route('tasks.index', ['project' => $project, 'q' => '%']))
             ->assertOk()->assertInertia(fn (Assert $page) => $page
-                ->has('tasks', 0)->where('pagination.total', 0));
+            ->has('tasks', 0)->where('pagination.total', 0));
     }
 
     public function test_status_priority_and_assignee_filters_can_be_combined(): void
@@ -81,9 +81,9 @@ class TaskListFiltersTest extends TestCase
 
         $this->actingAs($owner)->get(route('tasks.index', $project))
             ->assertOk()->assertInertia(fn (Assert $page) => $page
-                ->has('tasks', 15)->where('tasks.0.reference', 'APP-17')
-                ->where('pagination.total', 17)->where('pagination.last_page', 2)
-                ->has('parent_tasks', 17));
+            ->has('tasks', 15)->where('tasks.0.reference', 'APP-17')
+            ->where('pagination.total', 17)->where('pagination.last_page', 2)
+            ->has('parent_tasks', 17));
 
         $this->actingAs($owner)->get(route('tasks.index', [
             'project' => $project, 'sort' => 'oldest', 'page' => 2,
@@ -103,12 +103,12 @@ class TaskListFiltersTest extends TestCase
 
         $this->actingAs($owner)->get(route('tasks.index', ['project' => $project, 'sort' => 'priority']))
             ->assertOk()->assertInertia(fn (Assert $page) => $page
-                ->where('tasks.0.title', 'Urgent')->where('tasks.2.title', 'Later'));
+            ->where('tasks.0.title', 'Urgent')->where('tasks.2.title', 'Later'));
 
         $this->actingAs($owner)->get(route('tasks.index', ['project' => $project, 'sort' => 'due_date']))
             ->assertOk()->assertInertia(fn (Assert $page) => $page
-                ->where('tasks.0.title', 'Urgent')->where('tasks.1.title', 'Later')
-                ->where('tasks.2.title', 'Undated'));
+            ->where('tasks.0.title', 'Urgent')->where('tasks.1.title', 'Later')
+            ->where('tasks.2.title', 'Undated'));
     }
 
     public function test_task_list_includes_aggregated_worklogs_for_each_task_without_leaking_other_projects(): void
@@ -134,14 +134,14 @@ class TaskListFiltersTest extends TestCase
 
         $this->actingAs($owner)->get(route('tasks.index', $project))
             ->assertOk()->assertInertia(fn (Assert $page) => $page
-                ->component('tasks/Index')
-                ->has('tasks', 2)
-                ->where('tasks.0.id', $empty->id)
-                ->where('tasks.0.worklog_total_minutes', 0)
-                ->where('tasks.0.worklog_entries_count', 0)
-                ->where('tasks.1.id', $first->id)
-                ->where('tasks.1.worklog_total_minutes', 135)
-                ->where('tasks.1.worklog_entries_count', 2)
+            ->component('tasks/Index')
+            ->has('tasks', 2)
+            ->where('tasks.0.id', $empty->id)
+            ->where('tasks.0.worklog_total_minutes', 0)
+            ->where('tasks.0.worklog_entries_count', 0)
+            ->where('tasks.1.id', $first->id)
+            ->where('tasks.1.worklog_total_minutes', 135)
+            ->where('tasks.1.worklog_entries_count', 2)
             );
 
         $this->actingAs($owner)->get(route('tasks.index', [
@@ -175,8 +175,8 @@ class TaskListFiltersTest extends TestCase
 
         $this->actingAs($viewer)->get(route('tasks.index', ['project' => $project, 'assignee_id' => $owner->id]))
             ->assertOk()->assertInertia(fn (Assert $page) => $page
-                ->where('can_create', false)->has('tasks', 1)
-                ->has('filter_assignees', 1)->has('assignees', 0)->has('parent_tasks', 0));
+            ->where('can_create', false)->has('tasks', 1)
+            ->has('filter_assignees', 1)->has('assignees', 0)->has('parent_tasks', 0));
 
         $project->forceFill(['visibility' => ProjectVisibility::PRIVATE])->save();
         $this->actingAs($viewer)->get(route('tasks.index', $project))->assertForbidden();

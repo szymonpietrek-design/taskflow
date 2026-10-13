@@ -21,6 +21,7 @@ use App\Models\TaskStatus;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceMember;
+use App\Support\Releases\ReleaseChangelogContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
 use Prism\Prism\Facades\Prism;
@@ -74,12 +75,12 @@ class GenerateReleaseChangelogTest extends TestCase
         $this->assertSame('en', $changelog->draft_locale);
 
         $fake->assertCallCount(1);
-        $fake->assertRequest(function ($requests) use ($task): void {
+        $fake->assertRequest(function ($requests): void {
             $this->assertSame('deepseek', $requests[0]->provider());
             $this->assertSame('deepseek-chat', $requests[0]->model());
         });
         // Source builder is independent of AI provider; verify it has the input data.
-        $context = app(\App\Support\Releases\ReleaseChangelogContext::class)->build($release);
+        $context = app(ReleaseChangelogContext::class)->build($release);
         $this->assertStringContainsString('Implement notifications', $context);
         $this->assertStringContainsString('Email notification works.', $context);
         $this->assertStringContainsString('STATUS_CHANGED', $context);
@@ -130,7 +131,8 @@ class GenerateReleaseChangelogTest extends TestCase
             'completed_at' => null,
         ]);
 
-        $spy = new class implements ChangelogTextGenerator {
+        $spy = new class implements ChangelogTextGenerator
+        {
             public ?string $input = null;
 
             public function generate(string $context, string $language): string
@@ -186,12 +188,14 @@ class GenerateReleaseChangelogTest extends TestCase
     {
         [$owner, $project, $release] = $this->fixtures();
         $this->task($owner, $project, $release);
-        $spy = new class implements ChangelogTextGenerator {
+        $spy = new class implements ChangelogTextGenerator
+        {
             public ?string $receivedLanguage = null;
 
             public function generate(string $context, string $language): string
             {
                 $this->receivedLanguage = $language;
+
                 return "## Behoben\n- Verbesserte Anmeldung";
             }
         };
@@ -219,7 +223,8 @@ class GenerateReleaseChangelogTest extends TestCase
         [$owner, $project, $release] = $this->fixtures();
         $release->update(['status' => ReleaseStatus::RELEASED, 'released_at' => now()]);
         $this->task($owner, $project, $release);
-        $generator = new class implements ChangelogTextGenerator {
+        $generator = new class implements ChangelogTextGenerator
+        {
             public function generate(string $context, string $language): string
             {
                 return $language === 'pl'
@@ -327,7 +332,8 @@ class GenerateReleaseChangelogTest extends TestCase
         $this->task($owner, $project, $release);
         app(SaveReleaseChangelog::class)->handle($owner, $release, '## Original draft');
 
-        $this->app->bind(ChangelogTextGenerator::class, fn () => new class implements ChangelogTextGenerator {
+        $this->app->bind(ChangelogTextGenerator::class, fn () => new class implements ChangelogTextGenerator
+        {
             public function generate(string $context, string $language): string
             {
                 throw new \RuntimeException('Fake upstream error');
@@ -346,10 +352,12 @@ class GenerateReleaseChangelogTest extends TestCase
         $this->task($owner, $project, $release);
         app(SaveReleaseChangelog::class)->handle($owner, $release, 'Initial');
 
-        $this->app->bind(ChangelogTextGenerator::class, fn () => new class implements ChangelogTextGenerator {
+        $this->app->bind(ChangelogTextGenerator::class, fn () => new class implements ChangelogTextGenerator
+        {
             public function generate(string $context, string $language): string
             {
                 ReleaseChangelog::query()->firstOrFail()->update(['draft_body' => 'Concurrent edit']);
+
                 return '## AI response';
             }
         });
@@ -390,6 +398,7 @@ class GenerateReleaseChangelogTest extends TestCase
             'created_by' => $owner->id,
             'status' => ReleaseStatus::DRAFT,
         ]);
+
         return [$owner, $project, $release];
     }
 

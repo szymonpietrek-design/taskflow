@@ -71,7 +71,6 @@ class Task extends Model
         ];
     }
 
-
     public function reference(): string
     {
         return $this->project->key.'-'.$this->number;

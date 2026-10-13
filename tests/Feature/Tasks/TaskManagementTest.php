@@ -10,7 +10,6 @@ use App\Enums\TaskStatusCategory;
 use App\Enums\TaskType;
 use App\Enums\WorkspaceRole;
 use App\Models\Project;
-use App\Models\Task;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceMember;

@@ -6,6 +6,8 @@ use App\Enums\ReportFormat;
 use App\Enums\WorkspaceRole;
 use App\Models\Project;
 use App\Models\Report;
+use App\Models\Task;
+use App\Models\TaskWorklog;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceMember;
@@ -53,8 +55,8 @@ class ReportEditingTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page->where('editable_content', $body));
 
         // Editing the document does not modify any source TaskWorklogs.
-        $task = \App\Models\Task::factory()->create(['project_id' => $project->id, 'created_by' => $owner->id]);
-        $log = \App\Models\TaskWorklog::query()->create([
+        $task = Task::factory()->create(['project_id' => $project->id, 'created_by' => $owner->id]);
+        $log = TaskWorklog::query()->create([
             'task_id' => $task->id, 'user_id' => $owner->id, 'work_date' => '2026-10-01',
             'duration_minutes' => 120, 'description' => null, 'is_creative' => false,
         ]);

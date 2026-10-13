@@ -8,7 +8,6 @@ use App\Enums\ProjectType;
 use App\Enums\ProjectVisibility;
 use App\Enums\TaskStatusCategory;
 use App\Enums\WorkspaceRole;
-use App\Models\Project;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceMember;
@@ -53,7 +52,6 @@ class CreateProjectTest extends TestCase
             'user_id' => $user->id,
             'role' => ProjectRole::MANAGER->value,
         ]);
-
 
         $this->assertDatabaseCount('task_statuses', 4);
         $this->assertDatabaseHas('task_statuses', [

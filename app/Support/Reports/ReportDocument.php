@@ -17,7 +17,7 @@ final class ReportDocument
             ? null
             : User::query()->whereIn('id', $report->contributor_ids)->orderBy('name')->pluck('name')->all();
 
-        $pdfPresentation = new ReportPdfPresentation();
+        $pdfPresentation = new ReportPdfPresentation;
         $markdown = $publicHtml ? ($report->body ?? '') : $pdfPresentation->body($report);
 
         return view('reports.document', [

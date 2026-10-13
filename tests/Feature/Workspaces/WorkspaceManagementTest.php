@@ -3,9 +3,9 @@
 namespace Tests\Feature\Workspaces;
 
 use App\Actions\Workspaces\CreateWorkspace;
+use App\Enums\WorkspaceRole;
 use App\Models\User;
 use App\Models\WorkspaceMember;
-use App\Enums\WorkspaceRole;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;

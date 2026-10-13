@@ -15,9 +15,7 @@ use InvalidArgumentException;
 
 final class ChangeReleaseStatus
 {
-    public function __construct(private readonly ReleaseProgress $releaseProgress)
-    {
-    }
+    public function __construct(private readonly ReleaseProgress $releaseProgress) {}
 
     public function handle(
         User $actor,

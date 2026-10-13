@@ -3,7 +3,6 @@
 namespace Tests\Feature\Releases;
 
 use App\Services\Ai\PrismChangelogGenerator;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use InvalidArgumentException;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Facades\Prism;
@@ -43,7 +42,7 @@ class PrismChangelogGeneratorTest extends TestCase
 
         Prism::fake([TextResponseFake::make()->withText(
             "# Release 1.0.2\n\n## Added\n\n- AI capabilities in the application (TEST2-2)\n"
-            . "- Another improvement [TEST2-3]\n"
+            ."- Another improvement [TEST2-3]\n"
         )]);
 
         $context = json_encode([
@@ -71,7 +70,7 @@ class PrismChangelogGeneratorTest extends TestCase
 
         Prism::fake([TextResponseFake::make()->withText(
             "## Fixed\n\n- Improved handling of HTTP-404 responses (APP-999)\n"
-            . "- UTF-8 encoding fixed in editor [APP-12]"
+            .'- UTF-8 encoding fixed in editor [APP-12]'
         )]);
 
         $context = json_encode([
@@ -82,7 +81,7 @@ class PrismChangelogGeneratorTest extends TestCase
 
         $this->assertSame(
             "## Fixed\n\n- Improved handling of HTTP-404 responses\n"
-            . "- UTF-8 encoding fixed in editor",
+            .'- UTF-8 encoding fixed in editor',
             app(PrismChangelogGenerator::class)->generate($context, 'en'),
         );
     }
@@ -104,8 +103,8 @@ class PrismChangelogGeneratorTest extends TestCase
         config()->set('services.ai_chat', [
             'provider' => 'deepseek', 'api_key' => 'fake-key', 'model' => 'deepseek-chat',
         ]);
-        $fake = Prism::fake([TextResponseFake::make()->withText('## Hinzugefügt' . "\n" . '- Neue Funktion')]);
-        $this->assertSame('## Hinzugefügt' . "\n" . '- Neue Funktion',
+        $fake = Prism::fake([TextResponseFake::make()->withText('## Hinzugefügt'."\n".'- Neue Funktion')]);
+        $this->assertSame('## Hinzugefügt'."\n".'- Neue Funktion',
             app(PrismChangelogGenerator::class)->generate('{}', 'de'));
         $fake->assertCallCount(1);
     }

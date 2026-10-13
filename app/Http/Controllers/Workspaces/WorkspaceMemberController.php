@@ -171,4 +171,3 @@ class WorkspaceMemberController extends Controller
         );
     }
 }
-

@@ -3,13 +3,13 @@
 namespace Tests\Feature\Workspaces;
 
 use App\Actions\Workspaces\CreateWorkspace;
+use App\Enums\ProjectRole;
+use App\Enums\ProjectVisibility;
 use App\Enums\WorkspaceRole;
-use App\Models\User;
 use App\Models\Project;
 use App\Models\ProjectMember;
 use App\Models\Task;
-use App\Enums\ProjectRole;
-use App\Enums\ProjectVisibility;
+use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceMember;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -160,6 +160,7 @@ class WorkspaceMembersTest extends TestCase
                 ->where('members.last_page', 2)
                 ->etc());
     }
+
     public function test_owner_can_add_an_existing_user_as_member(): void
     {
         $owner = User::factory()->create();
@@ -491,10 +492,10 @@ class WorkspaceMembersTest extends TestCase
 
         $this->actingAs($owner)->get(route('workspaces.members.index', $workspace))
             ->assertOk()->assertInertia(fn (Assert $page) => $page
-                ->component('workspaces/Members')
-                ->where('members.data.1.is_suspended', true)
-                ->where('members.data.1.can_manage', true)
-                ->etc());
+            ->component('workspaces/Members')
+            ->where('members.data.1.is_suspended', true)
+            ->where('members.data.1.can_manage', true)
+            ->etc());
         $this->actingAs($owner)->post(route('workspaces.members.store', $workspace), [
             'email' => $person->email, 'role' => 'member',
         ])->assertSessionHasErrors('email');
@@ -502,5 +503,4 @@ class WorkspaceMembersTest extends TestCase
             ->where('workspace_id', $workspace->id)->where('user_id', $person->id)->count());
         $this->assertNotNull($member->fresh()->suspended_at);
     }
-
 }

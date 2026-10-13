@@ -4,6 +4,7 @@ namespace App\Actions\Tasks;
 
 use App\Enums\TaskStatusCategory;
 use App\Models\Project;
+use App\Models\TaskStatus;
 use Illuminate\Database\Eloquent\Collection;
 
 final class EnsureDefaultTaskStatuses
@@ -11,7 +12,7 @@ final class EnsureDefaultTaskStatuses
     /**
      * Ensure a project has the default workflow when it has no statuses yet.
      *
-     * @return Collection<int, \App\Models\TaskStatus>
+     * @return Collection<int, TaskStatus>
      */
     public function handle(Project $project): Collection
     {

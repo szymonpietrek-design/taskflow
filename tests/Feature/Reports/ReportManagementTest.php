@@ -2,8 +2,8 @@
 
 namespace Tests\Feature\Reports;
 
-use App\Enums\ReportFormat;
 use App\Enums\ProjectVisibility;
+use App\Enums\ReportFormat;
 use App\Enums\WorkspaceRole;
 use App\Models\Project;
 use App\Models\Report;
@@ -48,8 +48,8 @@ class ReportManagementTest extends TestCase
 
         $this->actingAs($owner)->get(route('reports.index', $project))
             ->assertOk()->assertInertia(fn (Assert $page) => $page
-                ->component('reports/Index')->where('reports.total', 1)
-                ->where('reports.data.0.title', 'Weekly summary')->where('can_create', true));
+            ->component('reports/Index')->where('reports.total', 1)
+            ->where('reports.data.0.title', 'Weekly summary')->where('can_create', true));
     }
 
     public function test_work_report_requires_worklogs_and_gets_a_format_specific_title(): void
@@ -168,10 +168,10 @@ class ReportManagementTest extends TestCase
 
         $this->actingAs($owner)->get(route('reports.show', [$project, $report]))
             ->assertOk()->assertInertia(fn (Assert $page) => $page
-                ->component('reports/Show')
-                ->where('source_counts.tasks', 1)
-                ->where('source_counts.messages', 1)
-                ->where('source_counts.activity', 1));
+            ->component('reports/Show')
+            ->where('source_counts.tasks', 1)
+            ->where('source_counts.messages', 1)
+            ->where('source_counts.activity', 1));
     }
 
     public function test_worklogs_source_uses_work_date_inclusively_and_only_current_project(): void
@@ -209,12 +209,12 @@ class ReportManagementTest extends TestCase
 
         $this->actingAs($owner)->get(route('reports.show', [$project, $report]))
             ->assertOk()->assertInertia(fn (Assert $page) => $page
-                ->component('reports/Show')
-                ->where('source_counts.worklogs.entries', 2)
-                ->where('source_counts.worklogs.total_minutes', 165)
-                ->where('source_counts.tasks', null)
-                ->where('source_counts.messages', null)
-                ->where('source_counts.activity', null));
+            ->component('reports/Show')
+            ->where('source_counts.worklogs.entries', 2)
+            ->where('source_counts.worklogs.total_minutes', 165)
+            ->where('source_counts.tasks', null)
+            ->where('source_counts.messages', null)
+            ->where('source_counts.activity', null));
     }
 
     public function test_worklog_breakdown_splits_time_by_contributor_task_and_creative_work(): void
@@ -260,32 +260,32 @@ class ReportManagementTest extends TestCase
 
         $this->actingAs($owner)->get(route('reports.show', [$project, $report]))
             ->assertOk()->assertInertia(fn (Assert $page) => $page
-                ->component('reports/Show')
-                ->where('source_counts.worklogs.entries', 5)
-                ->where('source_counts.worklogs.total_minutes', 345)
-                ->where('source_counts.worklogs.creative_entries', 3)
-                ->where('source_counts.worklogs.creative_minutes', 165)
-                ->has('source_counts.worklogs.by_user', 3)
-                ->where('source_counts.worklogs.by_user.0.user_id', $owner->id)
-                ->where('source_counts.worklogs.by_user.0.total_minutes', 240)
-                ->where('source_counts.worklogs.by_user.0.creative_minutes', 60)
-                ->where('source_counts.worklogs.by_user.0.entries', 3)
-                ->where('source_counts.worklogs.by_user.1.user_id', $colleague->id)
-                ->where('source_counts.worklogs.by_user.1.name', 'Alex Developer')
-                ->where('source_counts.worklogs.by_user.1.total_minutes', 75)
-                ->where('source_counts.worklogs.by_user.2.user_id', null)
-                ->where('source_counts.worklogs.by_user.2.name', 'Former user')
-                ->where('source_counts.worklogs.by_user.2.total_minutes', 30)
-                ->has('source_counts.worklogs.by_task', 2)
-                ->where('source_counts.worklogs.by_task.0.task_id', $first->id)
-                ->where('source_counts.worklogs.by_task.0.number', 17)
-                ->where('source_counts.worklogs.by_task.0.title', 'Improve the task page')
-                ->where('source_counts.worklogs.by_task.0.total_minutes', 180)
-                ->where('source_counts.worklogs.by_task.0.creative_minutes', 135)
-                ->where('source_counts.worklogs.by_task.0.entries', 3)
-                ->where('source_counts.worklogs.by_task.1.task_id', $second->id)
-                ->where('source_counts.worklogs.by_task.1.total_minutes', 165)
-                ->where('source_counts.worklogs.by_task.1.creative_minutes', 30));
+            ->component('reports/Show')
+            ->where('source_counts.worklogs.entries', 5)
+            ->where('source_counts.worklogs.total_minutes', 345)
+            ->where('source_counts.worklogs.creative_entries', 3)
+            ->where('source_counts.worklogs.creative_minutes', 165)
+            ->has('source_counts.worklogs.by_user', 3)
+            ->where('source_counts.worklogs.by_user.0.user_id', $owner->id)
+            ->where('source_counts.worklogs.by_user.0.total_minutes', 240)
+            ->where('source_counts.worklogs.by_user.0.creative_minutes', 60)
+            ->where('source_counts.worklogs.by_user.0.entries', 3)
+            ->where('source_counts.worklogs.by_user.1.user_id', $colleague->id)
+            ->where('source_counts.worklogs.by_user.1.name', 'Alex Developer')
+            ->where('source_counts.worklogs.by_user.1.total_minutes', 75)
+            ->where('source_counts.worklogs.by_user.2.user_id', null)
+            ->where('source_counts.worklogs.by_user.2.name', 'Former user')
+            ->where('source_counts.worklogs.by_user.2.total_minutes', 30)
+            ->has('source_counts.worklogs.by_task', 2)
+            ->where('source_counts.worklogs.by_task.0.task_id', $first->id)
+            ->where('source_counts.worklogs.by_task.0.number', 17)
+            ->where('source_counts.worklogs.by_task.0.title', 'Improve the task page')
+            ->where('source_counts.worklogs.by_task.0.total_minutes', 180)
+            ->where('source_counts.worklogs.by_task.0.creative_minutes', 135)
+            ->where('source_counts.worklogs.by_task.0.entries', 3)
+            ->where('source_counts.worklogs.by_task.1.task_id', $second->id)
+            ->where('source_counts.worklogs.by_task.1.total_minutes', 165)
+            ->where('source_counts.worklogs.by_task.1.creative_minutes', 30));
     }
 
     public function test_report_accepts_four_sources_and_empty_worklogs_show_zero(): void
@@ -299,12 +299,12 @@ class ReportManagementTest extends TestCase
 
         $this->actingAs($owner)->get(route('reports.show', [$project, $report]))
             ->assertOk()->assertInertia(fn (Assert $page) => $page
-                ->where('source_counts.worklogs.entries', 0)
-                ->where('source_counts.worklogs.total_minutes', 0)
-                ->where('source_counts.worklogs.creative_entries', 0)
-                ->where('source_counts.worklogs.creative_minutes', 0)
-                ->has('source_counts.worklogs.by_user', 0)
-                ->has('source_counts.worklogs.by_task', 0));
+            ->where('source_counts.worklogs.entries', 0)
+            ->where('source_counts.worklogs.total_minutes', 0)
+            ->where('source_counts.worklogs.creative_entries', 0)
+            ->where('source_counts.worklogs.creative_minutes', 0)
+            ->has('source_counts.worklogs.by_user', 0)
+            ->has('source_counts.worklogs.by_task', 0));
     }
 
     public function test_unselected_sources_are_not_queried_for_preview(): void
@@ -313,10 +313,10 @@ class ReportManagementTest extends TestCase
         $report = $this->report($project, $owner, ['tasks']);
         $this->actingAs($owner)->get(route('reports.show', [$project, $report]))
             ->assertOk()->assertInertia(fn (Assert $page) => $page
-                ->where('source_counts.tasks', 0)
-                ->where('source_counts.messages', null)
-                ->where('source_counts.activity', null)
-                ->where('source_counts.worklogs', null));
+            ->where('source_counts.tasks', 0)
+            ->where('source_counts.messages', null)
+            ->where('source_counts.activity', null)
+            ->where('source_counts.worklogs', null));
     }
 
     public function test_reader_can_create_only_personal_reports_and_cannot_read_team_reports(): void

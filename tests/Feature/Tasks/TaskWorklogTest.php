@@ -10,11 +10,12 @@ use App\Enums\WorkspaceRole;
 use App\Models\Project;
 use App\Models\ProjectMember;
 use App\Models\Task;
+use App\Models\TaskWorklog;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceMember;
-use Illuminate\Support\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
@@ -214,7 +215,7 @@ class TaskWorklogTest extends TestCase
 
         $this->assertSame(3, $task->worklogs()->count());
         $this->assertSame(480, (int) $task->worklogs()->where('user_id', $contributor->id)->sum('duration_minutes'));
-        $this->assertSame(480, (int) \App\Models\TaskWorklog::query()
+        $this->assertSame(480, (int) TaskWorklog::query()
             ->where('user_id', $owner->id)->whereDate('work_date', $date)->sum('duration_minutes'));
     }
 
@@ -381,6 +382,7 @@ class TaskWorklogTest extends TestCase
             'workspace_id' => $workspace->id, 'user_id' => $owner->id, 'role' => WorkspaceRole::OWNER,
         ]);
         $project = app(CreateProject::class)->handle($owner, $workspace, 'Project '.$key, $key);
+
         return [$project, $owner, app(CreateTask::class)->handle($owner, $project, 'Worklog task')];
     }
 
@@ -390,6 +392,7 @@ class TaskWorklogTest extends TestCase
         WorkspaceMember::factory()->create([
             'workspace_id' => $project->workspace_id, 'user_id' => $reader->id, 'role' => WorkspaceRole::MEMBER,
         ]);
+
         return $reader;
     }
 
@@ -399,6 +402,7 @@ class TaskWorklogTest extends TestCase
         ProjectMember::factory()->create([
             'project_id' => $project->id, 'user_id' => $contributor->id, 'role' => ProjectRole::MEMBER,
         ]);
+
         return $contributor;
     }
 }

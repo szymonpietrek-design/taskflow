@@ -10,7 +10,6 @@ use App\Enums\TaskPriority;
 use App\Enums\TaskType;
 use App\Enums\WorkspaceRole;
 use App\Models\Project;
-use App\Models\ProjectMember;
 use App\Models\Task;
 use App\Models\TaskMessage;
 use App\Models\User;

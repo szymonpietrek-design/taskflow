@@ -11,7 +11,7 @@ use Carbon\CarbonImmutable;
 final class CreateReport
 {
     /**
-     * @param array{title?:string|null,format?:string,period_start:string,period_end:string,sources:array<int,string>,contributor_ids?:array<int,int>|null} $data
+     * @param  array{title?:string|null,format?:string,period_start:string,period_end:string,sources:array<int,string>,contributor_ids?:array<int,int>|null}  $data
      */
     public function handle(User $user, Project $project, array $data): Report
     {

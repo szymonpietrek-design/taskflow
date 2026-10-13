@@ -12,9 +12,7 @@ use Illuminate\Database\Eloquent\Builder;
 
 final class ReportSourceOverview
 {
-    public function __construct(private readonly ReportWorklogBreakdown $worklogBreakdown)
-    {
-    }
+    public function __construct(private readonly ReportWorklogBreakdown $worklogBreakdown) {}
 
     /** @return array<string, mixed> */
     public function forReport(Report $report): array

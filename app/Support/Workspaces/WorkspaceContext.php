@@ -3,6 +3,7 @@
 namespace App\Support\Workspaces;
 
 use App\Enums\WorkspaceRole;
+use App\Models\Workspace;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 
@@ -53,7 +54,7 @@ class WorkspaceContext
     }
 
     /**
-     * @param  Collection<int, \App\Models\Workspace>  $workspaces
+     * @param  Collection<int, Workspace>  $workspaces
      */
     private function resolveCurrentWorkspaceId(Request $request, Collection $workspaces): ?int
     {

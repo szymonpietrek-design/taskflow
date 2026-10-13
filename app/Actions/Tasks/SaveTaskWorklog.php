@@ -46,6 +46,7 @@ class SaveTaskWorklog
 
             if ($worklog !== null) {
                 $worklog->update($attributes);
+
                 return $worklog;
             }
 

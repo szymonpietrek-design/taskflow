@@ -6,11 +6,13 @@ use App\Actions\Releases\ChangeReleaseStatus;
 use App\Enums\ProjectRole;
 use App\Enums\ProjectType;
 use App\Enums\ReleaseStatus;
+use App\Enums\TaskStatusCategory;
 use App\Enums\WorkspaceRole;
 use App\Models\Project;
 use App\Models\ProjectMember;
 use App\Models\Release;
 use App\Models\Task;
+use App\Models\TaskActivity;
 use App\Models\TaskStatus;
 use App\Models\User;
 use App\Models\Workspace;
@@ -144,7 +146,7 @@ class ReleaseLifecycleTest extends TestCase
 
         $this->actingAs($reader)->get(route('releases.show', [$project, $release]))
             ->assertOk()->assertInertia(fn (Assert $page) => $page->component('releases/Show')
-                ->where('can_manage_release', false));
+            ->where('can_manage_release', false));
         $this->actingAs($reader)->patch($this->url($project, $release), [
             'status' => ReleaseStatus::PLANNED->value,
         ])->assertForbidden();
@@ -209,7 +211,7 @@ class ReleaseLifecycleTest extends TestCase
         app(ChangeReleaseStatus::class)->handle($owner, $release, ReleaseStatus::PLANNED);
         app(ChangeReleaseStatus::class)->handle($owner, $release->fresh(), ReleaseStatus::RELEASED);
         $this->assertSame($existing, $release->tasks()->count());
-        $this->assertSame(0, \App\Models\TaskActivity::query()->count());
+        $this->assertSame(0, TaskActivity::query()->count());
     }
 
     public function test_publishing_release_locks_its_task_membership(): void
@@ -217,7 +219,7 @@ class ReleaseLifecycleTest extends TestCase
         [$owner, $project, $release] = $this->fixtures();
         $status = TaskStatus::factory()->create([
             'project_id' => $project->id,
-            'category' => \App\Enums\TaskStatusCategory::DONE->value,
+            'category' => TaskStatusCategory::DONE->value,
         ]);
         $task = Task::factory()->create([
             'project_id' => $project->id,

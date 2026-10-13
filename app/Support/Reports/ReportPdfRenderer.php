@@ -15,7 +15,7 @@ final class ReportPdfRenderer
             throw new \RuntimeException('PDF export requires dompdf/dompdf. Install it using Composer.');
         }
 
-        $options = new Options();
+        $options = new Options;
         $options->set('defaultFont', 'DejaVu Sans');
         $options->set('isRemoteEnabled', false);
         $options->set('isPhpEnabled', false);

@@ -96,6 +96,7 @@ final class DemoScenario
 
     /**
      * Entries: [project, title, start day, end day, creation minute-of-day].
+     *
      * @return array<int, array{string,string,int,int,int}>
      */
     public static function reports(): array

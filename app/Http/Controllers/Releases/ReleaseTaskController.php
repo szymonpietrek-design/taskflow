@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers\Releases;
 
-use App\Actions\Releases\SetTaskRelease;
 use App\Actions\Releases\AttachCompletedTasks;
+use App\Actions\Releases\SetTaskRelease;
 use App\Enums\ProjectType;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Releases\AttachReleaseTaskRequest;

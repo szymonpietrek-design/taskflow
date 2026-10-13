@@ -66,7 +66,7 @@ class GlobalWorklogTest extends TestCase
 
         $this->actingAs($user)->get(route('worklogs.index', ['date' => '2026-05-11']))
             ->assertOk()->assertInertia(fn (Assert $page) => $page
-                ->where('total_minutes', 45)->where('entries.total', 1));
+            ->where('total_minutes', 45)->where('entries.total', 1));
     }
 
     public function test_worklog_keeps_sidebar_projects_scoped_to_current_workspace(): void
@@ -149,8 +149,8 @@ class GlobalWorklogTest extends TestCase
 
         $this->actingAs($admin)->get(route('worklogs.index', ['date' => '2026-05-12']))
             ->assertOk()->assertInertia(fn (Assert $page) => $page
-                ->where('visible_minutes', 90)
-                ->where('entries.total', 1));
+            ->where('visible_minutes', 90)
+            ->where('entries.total', 1));
     }
 
     public function test_daily_total_is_not_limited_to_the_current_page(): void
@@ -208,14 +208,14 @@ class GlobalWorklogTest extends TestCase
 
         $this->actingAs($user)->get(route('worklogs.index', ['date' => '2026-05-12']))
             ->assertOk()->assertInertia(fn (Assert $page) => $page
-                ->has('week', 7)
-                ->where('week.0.date', '2026-05-11')
-                ->where('week.0.total_minutes', 60)
-                ->where('week.1.date', '2026-05-12')
-                ->where('week.1.total_minutes', 170)
-                ->where('total_minutes', 170)
-                ->where('visible_minutes', 45)
-                ->where('entries.total', 1));
+            ->has('week', 7)
+            ->where('week.0.date', '2026-05-11')
+            ->where('week.0.total_minutes', 60)
+            ->where('week.1.date', '2026-05-12')
+            ->where('week.1.total_minutes', 170)
+            ->where('total_minutes', 170)
+            ->where('visible_minutes', 45)
+            ->where('entries.total', 1));
     }
 
     public function test_global_worklog_can_search_tasks_and_create_edit_delete_own_entries(): void
@@ -232,8 +232,8 @@ class GlobalWorklogTest extends TestCase
 
         $this->actingAs($user)->get(route('worklogs.index', ['date' => $date]))
             ->assertOk()->assertInertia(fn (Assert $page) => $page
-                ->has('worklog_projects', 1)
-                ->where('worklog_projects.0.id', $project->id));
+            ->has('worklog_projects', 1)
+            ->where('worklog_projects.0.id', $project->id));
 
         $this->actingAs($user)->get(route('worklogs.tasks', [$project, 'search' => 'login']))
             ->assertOk()->assertJsonCount(1, 'tasks')->assertJsonPath('tasks.0.id', $task->id);
@@ -251,8 +251,8 @@ class GlobalWorklogTest extends TestCase
 
         $this->actingAs($user)->get(route('worklogs.index', ['date' => $date]))
             ->assertOk()->assertInertia(fn (Assert $page) => $page
-                ->where('entries.data.0.can_manage', true)
-                ->where('entries.data.0.work_date', $date));
+            ->where('entries.data.0.can_manage', true)
+            ->where('entries.data.0.work_date', $date));
 
         $this->actingAs($user)->patch(route('worklogs.update', $log), [
             'work_date' => $date, 'timezone' => 'Europe/Warsaw',

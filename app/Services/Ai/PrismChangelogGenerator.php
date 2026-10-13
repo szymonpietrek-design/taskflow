@@ -86,8 +86,8 @@ PROMPT;
                 'url' => $baseUrl,
             ])
             ->withSystemPrompt(sprintf($instructions, $language))
-            ->withPrompt("Create release notes only from this JSON data:
-".$context)
+            ->withPrompt('Create release notes only from this JSON data:
+'.$context)
             ->withMaxTokens($maxTokens)
             ->withClientOptions(['timeout' => 90, 'connect_timeout' => 10])
             ->asText();

@@ -8,11 +8,10 @@ use App\Enums\ReportSource;
 use App\Models\Project;
 use App\Models\Report;
 use App\Models\User;
+use App\Support\Reports\ReportAccess;
 use App\Support\Reports\ReportGenerationContext;
 use App\Support\Reports\WorkReportDocument;
-use App\Support\Reports\ReportAccess;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Gate;
 use InvalidArgumentException;
 
 final class GenerateReport

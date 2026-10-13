@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Releases;
 
+use App\Actions\Releases\CreateRelease;
 use App\Enums\ProjectRole;
 use App\Enums\ProjectType;
 use App\Enums\ProjectVisibility;
@@ -50,14 +51,14 @@ class ReleaseManagementTest extends TestCase
 
         $this->actingAs($owner)->get(route('releases.show', [$project, $release]))
             ->assertOk()->assertInertia(fn (Assert $page) => $page->component('releases/Show')
-                ->where('release.version', '1.2.3')->where('release.status', 'draft'));
+            ->where('release.version', '1.2.3')->where('release.status', 'draft'));
     }
 
     public function test_releases_are_sorted_by_numeric_version_components(): void
     {
         [$owner, $project] = $this->application();
         foreach (['1.2.0', '1.10.0', '2.0.0'] as $version) {
-            app(\App\Actions\Releases\CreateRelease::class)->handle($owner, $project, $version);
+            app(CreateRelease::class)->handle($owner, $project, $version);
         }
 
         $this->actingAs($owner)->get(route('releases.index', $project))
@@ -70,7 +71,7 @@ class ReleaseManagementTest extends TestCase
     public function test_version_validation_and_duplicate_are_reported_as_form_errors(): void
     {
         [$owner, $project] = $this->application();
-        app(\App\Actions\Releases\CreateRelease::class)->handle($owner, $project, '1.0.0');
+        app(CreateRelease::class)->handle($owner, $project, '1.0.0');
 
         $this->actingAs($owner)->post(route('releases.store', $project), ['version' => '01.1.0'])
             ->assertSessionHasErrors(['version']);

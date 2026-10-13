@@ -4,6 +4,7 @@ namespace Tests\Feature\Seeders;
 
 use App\Enums\ProjectType;
 use App\Enums\ReleaseStatus;
+use App\Enums\TaskActivityType;
 use App\Models\Project;
 use App\Models\Release;
 use App\Models\ReleaseChangelog;
@@ -185,7 +186,7 @@ class DemoSeederTest extends TestCase
         $this->assertSame($release->id, (int) $previouslyAssignedTask->fresh()->release_id);
         $this->assertSame($activityCount, TaskActivity::query()->count());
         $this->assertSame(0, $unassignedTask->activities()
-            ->where('type', \App\Enums\TaskActivityType::RELEASE_CHANGED->value)->count());
+            ->where('type', TaskActivityType::RELEASE_CHANGED->value)->count());
     }
 
     public function test_reseeding_does_not_exceed_daily_limit_after_a_manual_entry(): void

@@ -3,22 +3,22 @@
 namespace App\Http\Controllers\Releases;
 
 use App\Actions\Releases\CreateRelease;
-use App\Enums\TaskStatusCategory;
-use App\Support\Releases\ReleaseProgress;
 use App\Enums\ProjectType;
 use App\Enums\ReleaseStatus;
-use App\Models\Task;
+use App\Enums\TaskStatusCategory;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Releases\StoreReleaseRequest;
 use App\Models\Project;
 use App\Models\Release;
+use App\Models\Task;
+use App\Support\Releases\ReleaseProgress;
 use Carbon\CarbonImmutable;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 use InvalidArgumentException;
@@ -124,7 +124,6 @@ class ReleaseController extends Controller
         $changelog = $release->changelog;
         $draft = $canEditChangelog ? ($changelog?->draft_body ?? '') : '';
         $published = $changelog?->published_body;
-
 
         return Inertia::render('releases/Show', [
             'project' => $this->projectData($project),
