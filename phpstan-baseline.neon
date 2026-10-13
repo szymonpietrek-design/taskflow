@@ -1,0 +1,937 @@
+parameters:
+	ignoreErrors:
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$role\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Actions/Projects/CreateProject.php
+
+		-
+			message: '#^Anonymous function should return App\\Models\\Project but returns Illuminate\\Database\\Eloquent\\Model\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Actions/Projects/CreateProject.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:memberships\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Actions/Projects/CreateProject.php
+
+		-
+			message: '#^Parameter \#1 \$project of method App\\Actions\\Tasks\\EnsureDefaultTaskStatuses\:\:handle\(\) expects App\\Models\\Project, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Actions/Projects/CreateProject.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$archived_at\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Actions/Releases/AttachCompletedTasks.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Actions/Releases/AttachCompletedTasks.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$type\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Actions/Releases/AttachCompletedTasks.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$archived_at\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Actions/Releases/ChangeReleaseStatus.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Actions/Releases/ChangeReleaseStatus.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$type\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Actions/Releases/ChangeReleaseStatus.php
+
+		-
+			message: '#^Anonymous function should return App\\Models\\Release but returns Illuminate\\Database\\Eloquent\\Model\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Actions/Releases/CreateRelease.php
+
+		-
+			message: '#^Parameter \#2 \$release of method App\\Actions\\Releases\\AttachCompletedTasks\:\:handle\(\) expects App\\Models\\Release, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Actions/Releases/CreateRelease.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$archived_at\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Actions/Releases/GenerateReleaseChangelog.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$draft_body\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Actions/Releases/GenerateReleaseChangelog.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$release_id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Actions/Releases/GenerateReleaseChangelog.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$type\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Actions/Releases/GenerateReleaseChangelog.php
+
+		-
+			message: '#^Anonymous function should return App\\Models\\ReleaseChangelog but returns Illuminate\\Database\\Eloquent\\Model\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Actions/Releases/GenerateReleaseChangelog.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>draft_body" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Actions/Releases/GenerateReleaseChangelog.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$archived_at\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Actions/Releases/PublishReleaseChangelog.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$draft_body\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Actions/Releases/PublishReleaseChangelog.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$draft_locale\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Actions/Releases/PublishReleaseChangelog.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$published_body\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Actions/Releases/PublishReleaseChangelog.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$published_locale\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Actions/Releases/PublishReleaseChangelog.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$type\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Actions/Releases/PublishReleaseChangelog.php
+
+		-
+			message: '#^Anonymous function should return App\\Models\\ReleaseChangelog but returns Illuminate\\Database\\Eloquent\\Model\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Actions/Releases/PublishReleaseChangelog.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$archived_at\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Actions/Releases/SaveReleaseChangelog.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$draft_body\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Actions/Releases/SaveReleaseChangelog.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$release_id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Actions/Releases/SaveReleaseChangelog.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$type\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Actions/Releases/SaveReleaseChangelog.php
+
+		-
+			message: '#^Anonymous function should return App\\Models\\ReleaseChangelog but returns Illuminate\\Database\\Eloquent\\Model\.$#'
+			identifier: return.type
+			count: 2
+			path: app/Actions/Releases/SaveReleaseChangelog.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$archived_at\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Actions/Releases/SetTaskRelease.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$type\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Actions/Releases/SetTaskRelease.php
+
+		-
+			message: '#^Method App\\Actions\\Reports\\CreateReport\:\:handle\(\) should return App\\Models\\Report but returns Illuminate\\Database\\Eloquent\\Model\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Actions/Reports/CreateReport.php
+
+		-
+			message: '#^Parameter \#1 \$project of method App\\Actions\\Reports\\GenerateReport\:\:assertEditable\(\) expects App\\Models\\Project, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Actions/Reports/GenerateReport.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$category\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Actions/Tasks/ChangeTaskStatus.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Actions/Tasks/ChangeTaskStatus.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Actions/Tasks/ChangeTaskStatus.php
+
+		-
+			message: '#^Anonymous function should return App\\Models\\Task but returns Illuminate\\Database\\Eloquent\\Model\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Actions/Tasks/CreateTask.php
+
+		-
+			message: '#^Method App\\Actions\\Tasks\\EnsureDefaultTaskStatuses\:\:handle\(\) should return Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\TaskStatus\> but returns Illuminate\\Database\\Eloquent\\Collection\<int, Illuminate\\Database\\Eloquent\\Model\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Actions/Tasks/EnsureDefaultTaskStatuses.php
+
+		-
+			message: '#^Anonymous function should return App\\Models\\TaskStatus but returns Illuminate\\Database\\Eloquent\\Model\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Actions/Tasks/ManageTaskStatuses.php
+
+		-
+			message: '#^Method App\\Actions\\Tasks\\ManageTaskStatuses\:\:lockStatus\(\) should return App\\Models\\TaskStatus but returns Illuminate\\Database\\Eloquent\\Model\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Actions/Tasks/ManageTaskStatuses.php
+
+		-
+			message: '#^Anonymous function should return App\\Models\\TaskWorklog but returns Illuminate\\Database\\Eloquent\\Model\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Actions/Tasks/SaveTaskWorklog.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Actions/Tasks/UpdateTaskDetails.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Actions/Tasks/UpdateTaskDetails.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\Projects\\ProjectController\:\:currentWorkspace\(\) never returns App\\Models\\Workspace so it can be removed from the return type\.$#'
+			identifier: return.unusedType
+			count: 1
+			path: app/Http/Controllers/Projects/ProjectController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\Projects\\ProjectController\:\:currentWorkspace\(\) should return App\\Models\\Workspace\|null but returns \(Illuminate\\Database\\Eloquent\\Model&object\{pivot\: Illuminate\\Database\\Eloquent\\Relations\\Pivot\}\)\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Http/Controllers/Projects/ProjectController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$draft_body\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/Releases/ReleaseController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$draft_locale\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Http/Controllers/Releases/ReleaseController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/Releases/ReleaseController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$published_at\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/Releases/ReleaseController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$published_body\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/Releases/ReleaseController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$published_locale\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Http/Controllers/Releases/ReleaseController.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Pagination\\AbstractPaginator\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:through\(\) expects callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: array\<string, int\|string\|null\>, Closure\(App\\Models\\Release\)\: array\<string, int\|string\|null\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Http/Controllers/Releases/ReleaseController.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Pagination\\AbstractPaginator\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:through\(\) expects callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: array\{id\: int, reference\: string, title\: string, status\: string, completed\: bool\}, Closure\(App\\Models\\Task\)\: array\{id\: int, reference\: string, title\: string, status\: string, completed\: bool\} given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Http/Controllers/Releases/ReleaseController.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>draft_body" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Http/Controllers/Releases/ReleaseController.php
+
+		-
+			message: '#^Parameter \#2 \$task of method App\\Actions\\Releases\\SetTaskRelease\:\:handle\(\) expects App\\Models\\Task, Illuminate\\Database\\Eloquent\\Collection\<int, Illuminate\\Database\\Eloquent\\Model\>\|Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Http/Controllers/Releases/ReleaseTaskController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$archived_at\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/Reports/PublicReportController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/Reports/ReportController.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Pagination\\AbstractPaginator\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:through\(\) expects callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: array\<string, mixed\>, Closure\(App\\Models\\Report\)\: array\<string, mixed\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Http/Controllers/Reports/ReportController.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\Task\:\:\$worklog_entries_count\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/Tasks/TaskController.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\Task\:\:\$worklog_total_minutes\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/Tasks/TaskController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$category\.$#'
+			identifier: property.notFound
+			count: 3
+			path: app/Http/Controllers/Tasks/TaskController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 11
+			path: app/Http/Controllers/Tasks/TaskController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$key\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/Tasks/TaskController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 7
+			path: app/Http/Controllers/Tasks/TaskController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$number\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Http/Controllers/Tasks/TaskController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$project_id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/Tasks/TaskController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$title\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/Tasks/TaskController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$version\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/Tasks/TaskController.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 3
+			path: app/Http/Controllers/Tasks/TaskController.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) expects callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: array\{id\: int, body\: string, author\: array\{id\: mixed, name\: mixed\}\|null, created_at\: string\|null, updated_at\: string\|null, can_update\: bool, can_delete\: bool, can_create_task\: bool\}, Closure\(App\\Models\\TaskMessage\)\: array\{id\: int, body\: string, author\: array\{id\: mixed, name\: mixed\}\|null, created_at\: string\|null, updated_at\: string\|null, can_update\: bool, can_delete\: bool, can_create_task\: bool\} given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Http/Controllers/Tasks/TaskController.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) expects callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: array\{id\: int, name\: string, category\: ''canceled''\|''done''\|''in_progress''\|''todo''\}, Closure\(App\\Models\\TaskStatus\)\: array\{id\: int, name\: string, category\: ''canceled''\|''done''\|''in_progress''\|''todo''\} given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Http/Controllers/Tasks/TaskController.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) expects callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: array\{id\: int, reference\: non\-falsy\-string, title\: string, status\: array\{id\: mixed, name\: mixed, category\: lowercase\-string\}, assignee\: array\{id\: mixed, name\: mixed\}\|null, due_date\: string\|null\}, Closure\(App\\Models\\Task\)\: array\{id\: int, reference\: non\-falsy\-string, title\: string, status\: array\{id\: mixed, name\: mixed, category\: lowercase\-string\}, assignee\: array\{id\: mixed, name\: mixed\}\|null, due_date\: string\|null\} given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Http/Controllers/Tasks/TaskController.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) expects callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: array\{id\: int, reference\: non\-falsy\-string, title\: string\}, Closure\(App\\Models\\Task\)\: array\{id\: int, reference\: non\-falsy\-string, title\: string\} given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Http/Controllers/Tasks/TaskController.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) expects callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: array\{id\: int, work_date\: string, duration_minutes\: int, description\: string\|null, is_creative\: bool, author\: array\{id\: mixed, name\: mixed\}\|null, can_update\: bool, can_delete\: bool\}, Closure\(App\\Models\\TaskWorklog\)\: array\{id\: int, work_date\: string, duration_minutes\: int, description\: string\|null, is_creative\: bool, author\: array\{id\: mixed, name\: mixed\}\|null, can_update\: bool, can_delete\: bool\} given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Http/Controllers/Tasks/TaskController.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) expects callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: non\-empty\-array\<string, mixed\>, Closure\(App\\Models\\Task\)\: non\-empty\-array\<string, mixed\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Http/Controllers/Tasks/TaskController.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Support\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:filter\(\) expects \(callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: bool\)\|null, Closure\(App\\Models\\Task\)\: bool given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Http/Controllers/Tasks/TaskController.php
+
+		-
+			message: '#^Parameter \#3 \$status of method App\\Actions\\Tasks\\ChangeTaskStatus\:\:handle\(\) expects App\\Models\\TaskStatus, Illuminate\\Database\\Eloquent\\Collection\<int, Illuminate\\Database\\Eloquent\\Model\>\|Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Http/Controllers/Tasks/TaskController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/Tasks/TaskFromMessageController.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) expects callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: array\{id\: int, name\: string, category\: ''canceled''\|''done''\|''in_progress''\|''todo''\}, Closure\(App\\Models\\TaskStatus\)\: array\{id\: int, name\: string, category\: ''canceled''\|''done''\|''in_progress''\|''todo''\} given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Http/Controllers/Tasks/TaskFromMessageController.php
+
+		-
+			message: '#^Parameter \#8 \$status of method App\\Actions\\Tasks\\CreateTaskFromMessage\:\:handle\(\) expects App\\Models\\TaskStatus\|null, Illuminate\\Database\\Eloquent\\Collection\<int, Illuminate\\Database\\Eloquent\\Model\>\|Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Http/Controllers/Tasks/TaskFromMessageController.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Http/Controllers/Tasks/TaskFromMessageController.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) expects callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: array\{id\: int, name\: string, category\: 1\|2\|3\|4, category_label\: non\-falsy\-string, task_count\: int\<0, max\>\}, Closure\(App\\Models\\TaskStatus\)\: array\{id\: int, name\: string, category\: 1\|2\|3\|4, category_label\: non\-falsy\-string, task_count\: int\<0, max\>\} given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Http/Controllers/Tasks/TaskStatusController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/Worklogs/WorklogController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/Worklogs/WorklogController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$number\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/Worklogs/WorklogController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$project\.$#'
+			identifier: property.notFound
+			count: 3
+			path: app/Http/Controllers/Worklogs/WorklogController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$project_id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/Worklogs/WorklogController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$title\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/Worklogs/WorklogController.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,App\\Models\\Project\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Http/Controllers/Worklogs/WorklogController.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,App\\Models\\TaskWorklog\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Http/Controllers/Worklogs/WorklogController.php
+
+		-
+			message: '#^Parameter \#2 \$task of method App\\Actions\\Tasks\\SaveTaskWorklog\:\:handle\(\) expects App\\Models\\Task, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Http/Controllers/Worklogs/WorklogController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/Workspaces/WorkspaceController.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Support\\Collection\<\(int\|string\),mixed\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Http/Controllers/Workspaces/WorkspaceController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$email\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/Workspaces/WorkspaceMemberController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/Workspaces/WorkspaceMemberController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$role\.$#'
+			identifier: property.notFound
+			count: 3
+			path: app/Http/Controllers/Workspaces/WorkspaceMemberController.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Pagination\\AbstractPaginator\<int,App\\Models\\WorkspaceMember\>\:\:through\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Http/Controllers/Workspaces/WorkspaceMemberController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$role\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Requests/Workspaces/StoreWorkspaceMemberRequest.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$key\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/Task.php
+
+		-
+			message: '#^Method App\\Policies\\ProjectPolicy\:\:projectMembership\(\) should return App\\Models\\ProjectMember\|null but returns Illuminate\\Database\\Eloquent\\Model\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Policies/ProjectPolicy.php
+
+		-
+			message: '#^Method App\\Policies\\ProjectPolicy\:\:workspaceMembership\(\) should return App\\Models\\WorkspaceMember\|null but returns Illuminate\\Database\\Eloquent\\Model\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Policies/ProjectPolicy.php
+
+		-
+			message: '#^Parameter \#1 \$membership of method App\\Policies\\ProjectPolicy\:\:isWorkspaceAdministrator\(\) expects App\\Models\\WorkspaceMember, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Policies/ProjectPolicy.php
+
+		-
+			message: '#^Method App\\Policies\\TaskPolicy\:\:projectMembership\(\) should return App\\Models\\ProjectMember\|null but returns Illuminate\\Database\\Eloquent\\Model\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Policies/TaskPolicy.php
+
+		-
+			message: '#^Method App\\Policies\\TaskPolicy\:\:workspaceMembership\(\) should return App\\Models\\WorkspaceMember\|null but returns Illuminate\\Database\\Eloquent\\Model\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Policies/TaskPolicy.php
+
+		-
+			message: '#^Parameter \#2 \$project of method App\\Policies\\TaskPolicy\:\:canContribute\(\) expects App\\Models\\Project, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Policies/TaskPolicy.php
+
+		-
+			message: '#^Parameter \#2 \$project of method App\\Policies\\TaskPolicy\:\:canViewProject\(\) expects App\\Models\\Project, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Policies/TaskPolicy.php
+
+		-
+			message: '#^Parameter \#2 \$project of method App\\Policies\\TaskPolicy\:\:projectMembership\(\) expects App\\Models\\Project, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Policies/TaskPolicy.php
+
+		-
+			message: '#^Parameter \#2 \$project of method App\\Policies\\TaskPolicy\:\:workspaceMembership\(\) expects App\\Models\\Project, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Policies/TaskPolicy.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$archived_at\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Policies/TaskWorklogPolicy.php
+
+		-
+			message: '#^Parameter \#2 \$task of method App\\Policies\\TaskWorklogPolicy\:\:create\(\) expects App\\Models\\Task, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Policies/TaskWorklogPolicy.php
+
+		-
+			message: '#^Method App\\Policies\\WorkspacePolicy\:\:membership\(\) should return App\\Models\\WorkspaceMember\|null but returns Illuminate\\Database\\Eloquent\\Model\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Policies/WorkspacePolicy.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$role\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Support/Projects/ProjectContext.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$body\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Support/Releases/ReleaseChangelogContext.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$created_at\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Support/Releases/ReleaseChangelogContext.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$data\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Support/Releases/ReleaseChangelogContext.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$key\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Support/Releases/ReleaseChangelogContext.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Support/Releases/ReleaseChangelogContext.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$type\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Support/Releases/ReleaseChangelogContext.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 2
+			path: app/Support/Releases/ReleaseChangelogContext.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) expects callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: array\{reference\: non\-falsy\-string, title\: string, description\: string\|null, type\: ''BUG''\|''FEATURE''\|''IMPROVEMENT''\|''TASK'', priority\: ''HIGH''\|''LOW''\|''NORMAL''\|''URGENT'', status\: mixed, completed\: bool, messages\: array\<int, array\{text\: string\|null, date\: mixed\}\>, messages_truncated\: bool, activities\: array\<int, array\{type\: mixed, data\: mixed, date\: mixed\}\>, activities_truncated\: bool\}, Closure\(App\\Models\\Task\)\: array\{reference\: non\-falsy\-string, title\: string, description\: string\|null, type\: ''BUG''\|''FEATURE''\|''IMPROVEMENT''\|''TASK'', priority\: ''HIGH''\|''LOW''\|''NORMAL''\|''URGENT'', status\: mixed, completed\: bool, messages\: array\<int, array\{text\: string\|null, date\: mixed\}\>, messages_truncated\: bool, activities\: array\<int, array\{type\: mixed, data\: mixed, date\: mixed\}\>, activities_truncated\: bool\} given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Support/Releases/ReleaseChangelogContext.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$key\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Support/Releases/ReleaseProgress.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>canceled" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Support/Releases/ReleaseProgress.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>completed" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Support/Releases/ReleaseProgress.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>done" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Support/Releases/ReleaseProgress.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>in_progress" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Support/Releases/ReleaseProgress.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>todo" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Support/Releases/ReleaseProgress.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>total" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Support/Releases/ReleaseProgress.php
+
+		-
+			message: '#^Parameter \#2 \$project of method App\\Support\\Reports\\ReportAccess\:\:canCreate\(\) expects App\\Models\\Project, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Support/Reports/ReportAccess.php
+
+		-
+			message: '#^Parameter \#2 \$project of method App\\Support\\Reports\\ReportAccess\:\:canManageTeam\(\) expects App\\Models\\Project, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
+			identifier: argument.type
+			count: 2
+			path: app/Support/Reports/ReportAccess.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Support/Reports/ReportDocument.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$category\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Support/Reports/ReportGenerationContext.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$key\.$#'
+			identifier: property.notFound
+			count: 5
+			path: app/Support/Reports/ReportGenerationContext.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 3
+			path: app/Support/Reports/ReportGenerationContext.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$number\.$#'
+			identifier: property.notFound
+			count: 3
+			path: app/Support/Reports/ReportGenerationContext.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$title\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Support/Reports/ReportGenerationContext.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,App\\Models\\Task\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Support/Reports/ReportGenerationContext.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,App\\Models\\TaskWorklog\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Support/Reports/ReportGenerationContext.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Support/Reports/ReportGenerationContext.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Support/Reports/ReportPdfPresentation.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>creative_entries" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Support/Reports/ReportWorklogBreakdown.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>creative_minutes" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Support/Reports/ReportWorklogBreakdown.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>entries" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Support/Reports/ReportWorklogBreakdown.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>total_minutes" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Support/Reports/ReportWorklogBreakdown.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Support/Workspaces/WorkspaceContext.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Support/Workspaces/WorkspaceContext.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$pivot\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Support/Workspaces/WorkspaceContext.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$slug\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Support/Workspaces/WorkspaceContext.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Support/Workspaces/WorkspaceContext.php
+
+		-
+			message: '#^Parameter \#2 \$workspaces of method App\\Support\\Workspaces\\WorkspaceContext\:\:resolveCurrentWorkspaceId\(\) expects Illuminate\\Support\\Collection\<int, App\\Models\\Workspace\>, Illuminate\\Database\\Eloquent\\Collection\<int, Illuminate\\Database\\Eloquent\\Model\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Support/Workspaces/WorkspaceContext.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between int and null will always evaluate to true\.$#'
+			identifier: notIdentical.alwaysTrue
+			count: 1
+			path: database/factories/TaskFactory.php
+
+		-
+			message: '#^Unreachable statement \- code above always terminates\.$#'
+			identifier: deadCode.unreachable
+			count: 1
+			path: database/factories/TaskFactory.php
+
+		-
+			message: '#^Offset ''1\.0\.0'' does not exist on non\-empty\-array\<\*NEVER\*, App\\Models\\Release\>\.$#'
+			identifier: offsetAccess.notFound
+			count: 1
+			path: database/seeders/DemoSeeder.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between null and null will always evaluate to true\.$#'
+			identifier: identical.alwaysTrue
+			count: 1
+			path: database/seeders/DemoSeeder.php
+
+		-
+			message: '#^Using nullsafe method call on non\-nullable type Illuminate\\Console\\Command\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 3
+			path: database/seeders/DemoSeeder.php
+
+		-
+			message: '#^Variable \$releasedDay on left side of \?\? always exists and is always null\.$#'
+			identifier: nullCoalesce.variable
+			count: 1
+			path: database/seeders/DemoSeeder.php
