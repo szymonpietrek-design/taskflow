@@ -31,7 +31,7 @@ final class ChangeReleaseStatus
             $project = $lockedRelease->project;
 
             if ($project->type !== ProjectType::APPLICATION || $project->archived_at !== null) {
-                throw new InvalidArgumentException('Release status cannot be changed in this project.');
+                throw new InvalidArgumentException(__('Release status cannot be changed in this project.'));
             }
 
             $allowed = match ($lockedRelease->status) {
@@ -41,7 +41,7 @@ final class ChangeReleaseStatus
             };
 
             if (! in_array($target, $allowed, true)) {
-                throw new InvalidArgumentException('This release status transition is not allowed.');
+                throw new InvalidArgumentException(__('This release status transition is not allowed.'));
             }
 
             $values = ['status' => $target];

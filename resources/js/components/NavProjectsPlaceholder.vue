@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n';
 import { FolderKanban } from '@lucide/vue';
 import {
     SidebarGroup,
@@ -7,16 +8,17 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
+const { t } = useI18n();
 </script>
 
 <template>
     <SidebarGroup class="px-2 py-0">
-        <SidebarGroupLabel>Projects</SidebarGroupLabel>
+        <SidebarGroupLabel>{{ t('audit.projects') }}</SidebarGroupLabel>
         <SidebarMenu>
             <SidebarMenuItem>
-                <SidebarMenuButton disabled tooltip="No projects yet">
+                <SidebarMenuButton disabled :tooltip="t('audit.no_projects_yet')">
                     <FolderKanban />
-                    <span>No projects yet</span>
+                    <span>{{ t('audit.no_projects_yet') }}</span>
                 </SidebarMenuButton>
             </SidebarMenuItem>
         </SidebarMenu>

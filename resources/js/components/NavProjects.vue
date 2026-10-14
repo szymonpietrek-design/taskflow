@@ -10,8 +10,10 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
+import { useI18n } from '@/composables/useI18n';
 
 const page = usePage();
+const { t } = useI18n();
 const projects = computed(() => page.props.projects.items);
 
 function isActive(projectId: number): boolean {
@@ -24,13 +26,13 @@ function isActive(projectId: number): boolean {
 
 <template>
     <SidebarGroup class="px-2 py-0">
-        <SidebarGroupLabel>Projects</SidebarGroupLabel>
+        <SidebarGroupLabel>{{ t('nav.projects') }}</SidebarGroupLabel>
 
         <SidebarGroupAction v-if="page.props.workspace.current" as-child>
             <Link
                 href="/projects"
-                aria-label="Manage projects"
-                title="Manage projects"
+                :aria-label="t('nav.manageProjects')"
+                :title="t('nav.manageProjects')"
             >
                 <Plus class="size-4" />
             </Link>
@@ -61,16 +63,16 @@ function isActive(projectId: number): boolean {
                 <SidebarMenuButton v-if="page.props.workspace.current" as-child>
                     <Link href="/projects">
                         <FolderKanban />
-                        <span>No projects yet</span>
+                        <span>{{ t('nav.noProjects') }}</span>
                     </Link>
                 </SidebarMenuButton>
                 <SidebarMenuButton
                     v-else
                     disabled
-                    tooltip="Choose a workspace first"
+                    :tooltip="t('nav.chooseWorkspaceFirst')"
                 >
                     <FolderKanban />
-                    <span>Choose a workspace</span>
+                    <span>{{ t('nav.chooseWorkspace') }}</span>
                 </SidebarMenuButton>
             </SidebarMenuItem>
         </SidebarMenu>

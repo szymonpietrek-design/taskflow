@@ -32,7 +32,7 @@ final class CreateTaskFromMessage
         ?DateTimeInterface $dueDate = null,
     ): Task {
         if ($sourceTask->project_id !== $project->id || $sourceMessage->task_id !== $sourceTask->id) {
-            throw new InvalidArgumentException('Source message must belong to the selected project and task.');
+            throw new InvalidArgumentException(__('Source message must belong to the selected project and task.'));
         }
 
         Gate::forUser($creator)->authorize('view', $sourceTask);
@@ -46,7 +46,7 @@ final class CreateTaskFromMessage
             $currentMessage = TaskMessage::query()->whereKey($sourceMessage->id)->lockForUpdate()->firstOrFail();
 
             if ($currentMessage->task_id !== $sourceTask->id) {
-                throw new InvalidArgumentException('Source message was moved to another task.');
+                throw new InvalidArgumentException(__('Source message was moved to another task.'));
             }
 
             $task = $this->createTask->handle(

@@ -33,11 +33,11 @@ final class AttachCompletedTasks
             $release->refresh();
 
             if ($project->type !== ProjectType::APPLICATION || $project->archived_at !== null) {
-                throw new InvalidArgumentException('Completed tasks can only be attached in active application projects.');
+                throw new InvalidArgumentException(__('Completed tasks can only be attached in active application projects.'));
             }
 
             if (! in_array($release->status, [ReleaseStatus::DRAFT, ReleaseStatus::PLANNED], true)) {
-                throw new InvalidArgumentException('Tasks in released or canceled versions cannot be changed.');
+                throw new InvalidArgumentException(__('Tasks in released or canceled versions cannot be changed.'));
             }
 
             $attached = 0;

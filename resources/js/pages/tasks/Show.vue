@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n';
 import { Form, Head, Link } from '@inertiajs/vue3';
 import { ArrowLeft, CalendarDays, LoaderCircle, Pencil } from '@lucide/vue';
 import { computed, ref, watch } from 'vue';
@@ -66,7 +67,7 @@ const hasStatusChange = computed(
 const stayOnTask = { preserveScroll: true, preserveState: true };
 const notifyError = () =>
     toast.error(
-        'Could not update the status. Check the selection and try again.',
+        t('fix.no_time_change'),
     );
 
 defineOptions({
@@ -74,6 +75,7 @@ defineOptions({
         breadcrumbs: [{ title: 'Projects', href: '/projects' }],
     },
 });
+const { t, displayLabel, locale } = useI18n();
 </script>
 
 <template>
@@ -85,13 +87,13 @@ defineOptions({
                 :href="`/projects/${project.id}/tasks`"
                 class="mb-3 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
             >
-                <ArrowLeft class="size-4" /> {{ project.name }} / Tasks
+                <ArrowLeft class="size-4" /> {{ project.name }} / {{ t('followup.tasks') }}
             </Link>
             <div class="flex flex-wrap items-center gap-2">
                 <Badge variant="secondary">{{ task.reference }}</Badge>
-                <Badge variant="outline">{{ task.type_label }}</Badge>
+                <Badge variant="outline">{{ displayLabel(task.type_label) }}</Badge>
                 <Badge variant="outline"
-                    >{{ task.priority_label }} priority</Badge
+                    >{{ t('followup.priority') }}: {{ displayLabel(task.priority_label) }}</Badge
                 >
             </div>
             <div class="mt-3 flex items-start justify-between gap-4">
@@ -105,7 +107,7 @@ defineOptions({
                     variant="outline"
                     @click="editingDetails = true"
                 >
-                    <Pencil class="size-4" /> Edit task
+                    <Pencil class="size-4" /> {{ t('stage2.edit_task') }}
                 </Button>
             </div>
         </div>
@@ -122,7 +124,7 @@ defineOptions({
                 />
                 <Card v-else>
                     <CardHeader>
-                        <CardTitle>Description</CardTitle>
+                        <CardTitle>{{ t('stage2.description') }}</CardTitle>
                     </CardHeader>
                     <CardContent>
                         <p
@@ -132,13 +134,13 @@ defineOptions({
                             {{ task.description }}
                         </p>
                         <p v-else class="text-sm text-muted-foreground">
-                            No description yet.
+                            {{ t('stage2.no_description_yet') }}
                         </p>
                         <p
                             v-if="task.source_task"
                             class="mt-4 text-xs text-muted-foreground"
                         >
-                            Created from a message in
+                            {{ t('stage2.created_from_a_message_in') }}
                             <Link
                                 :href="`/projects/${project.id}/tasks/${task.source_task.id}${task.source_task.message_id ? '#message-' + task.source_task.message_id : ''}`"
                                 class="underline"
@@ -146,14 +148,14 @@ defineOptions({
                                 {{ task.source_task.reference }}
                             </Link>
                             <span v-if="!task.source_task.message_id">
-                                (source message removed)</span
+                                {{ t('stage2.source_message_removed') }}</span
                             >
                         </p>
                         <p
                             v-if="task.parent"
                             class="mt-4 text-xs text-muted-foreground"
                         >
-                            Subtask of
+                            {{ t('stage2.subtask_of') }}
                             <Link
                                 :href="`/projects/${project.id}/tasks/${task.parent.id}`"
                                 class="underline"
@@ -192,10 +194,10 @@ defineOptions({
             </div>
 
             <Card>
-                <CardHeader><CardTitle>Details</CardTitle></CardHeader>
+                <CardHeader><CardTitle>{{ t('stage2.details') }}</CardTitle></CardHeader>
                 <CardContent class="space-y-4 text-sm">
                     <div>
-                        <p class="text-xs text-muted-foreground">Status</p>
+                        <p class="text-xs text-muted-foreground">{{ t('stage2.status') }}</p>
                         <Form
                             v-if="can_update"
                             :action="statusUrl"
@@ -215,9 +217,9 @@ defineOptions({
                                 :disabled="processing"
                             >
                                 <SelectTrigger
-                                    aria-label="Task status"
+                                    :aria-label="t('stage2.task_status')"
                                     class="w-full"
-                                    ><SelectValue placeholder="Select status"
+                                    ><SelectValue :placeholder="t('stage2.select_status')"
                                 /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem
@@ -239,7 +241,7 @@ defineOptions({
                                     v-if="processing"
                                     class="size-4 animate-spin"
                                 />{{
-                                    processing ? 'Updating…' : 'Update status'
+                                    processing ? t('followup.updating') : t('followup.update_status')
                                 }}
                             </Button>
                         </Form>
@@ -249,7 +251,7 @@ defineOptions({
                     </div>
                     <div v-if="task.release">
                         <Label class="text-xs text-muted-foreground"
-                            >Release</Label
+                            >{{ t('stage2.release') }}</Label
                         >
                         <p class="mt-1">
                             <Link
@@ -261,33 +263,33 @@ defineOptions({
                     </div>
                     <div>
                         <Label class="text-xs text-muted-foreground"
-                            >Assigned to</Label
+                            >{{ t('stage2.assigned_to') }}</Label
                         >
                         <p class="mt-1">
-                            {{ task.assignee?.name ?? 'Unassigned' }}
+                            {{ task.assignee?.name ?? t('fix.no_assignee') }}
                         </p>
                     </div>
                     <div>
                         <Label class="text-xs text-muted-foreground"
-                            >Created by</Label
+                            >{{ t('stage2.created_by') }}</Label
                         >
                         <p class="mt-1">{{ task.creator.name }}</p>
                     </div>
                     <div>
                         <Label class="text-xs text-muted-foreground"
-                            >Due date</Label
+                            >{{ t('stage2.due_date') }}</Label
                         >
                         <p class="mt-1 inline-flex items-center gap-1">
                             <CalendarDays
                                 class="size-4 text-muted-foreground"
                             />
-                            {{ task.due_date ?? 'Not set' }}
+                            {{ task.due_date ?? t('fix.not_set') }}
                         </p>
                     </div>
                     <div v-if="task.completed_at">
-                        <p class="text-xs text-muted-foreground">Completed</p>
+                        <p class="text-xs text-muted-foreground">{{ t('stage2.completed') }}</p>
                         <p class="mt-1">
-                            {{ new Date(task.completed_at).toLocaleString() }}
+                            {{ new Date(task.completed_at).toLocaleString(locale === 'pl' ? 'pl-PL' : 'en-US') }}
                         </p>
                     </div>
                 </CardContent>

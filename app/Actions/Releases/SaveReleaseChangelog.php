@@ -22,7 +22,7 @@ final class SaveReleaseChangelog
             if ($locked->project->type !== ProjectType::APPLICATION
                 || $locked->project->archived_at !== null
                 || $locked->status === ReleaseStatus::CANCELED) {
-                throw new InvalidArgumentException('Cannot edit a changelog for this release.');
+                throw new InvalidArgumentException(__('Cannot edit a changelog for this release.'));
             }
 
             // A published snapshot must never be overwritten by editing the draft.
@@ -30,7 +30,7 @@ final class SaveReleaseChangelog
             $changelog->release_id = $locked->id;
             $body = trim($draftBody);
             if (mb_strlen($body) > 50000) {
-                throw new InvalidArgumentException('The changelog must not exceed 50000 characters.');
+                throw new InvalidArgumentException(__('The changelog must not exceed 50000 characters.'));
             }
             if ($changelog->exists && $changelog->draft_body === $body) {
                 return $changelog;

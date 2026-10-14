@@ -15,25 +15,25 @@ final class PrismReportGenerator implements ReportTextGenerator
     public function generate(string $context, string $language): string
     {
         if (! preg_match('/\A[a-z]{2,3}(?:-[a-z0-9]{2,8})*\z/i', $language) || strlen($language) > 35) {
-            throw new InvalidArgumentException('Select a valid language code, such as en, pl or pt-BR.');
+            throw new InvalidArgumentException(__('Select a valid language code, such as en, pl or pt-BR.'));
         }
 
         // The same provider settings are used by release changelog generation.
         $settings = config('services.ai_chat', []);
         if (($settings['provider'] ?? null) !== 'deepseek') {
-            throw new InvalidArgumentException('Configure AI_CHAT_PROVIDER=deepseek first.');
+            throw new InvalidArgumentException(__('Configure AI_CHAT_PROVIDER=deepseek first.'));
         }
         $key = trim((string) ($settings['api_key'] ?? ''));
         if ($key === '') {
-            throw new InvalidArgumentException('Set DEEPSEEK_API_KEY in the local .env file.');
+            throw new InvalidArgumentException(__('Set DEEPSEEK_API_KEY in the local .env file.'));
         }
         $url = rtrim((string) ($settings['base_url'] ?? 'https://api.deepseek.com/v1'), '/');
         if (! str_starts_with($url, 'https://')) {
-            throw new InvalidArgumentException('DEEPSEEK_BASE_URL must use HTTPS.');
+            throw new InvalidArgumentException(__('DEEPSEEK_BASE_URL must use HTTPS.'));
         }
         $model = trim((string) ($settings['model'] ?? 'deepseek-chat'));
         if ($model === '') {
-            throw new InvalidArgumentException('Choose a DeepSeek model in .env.');
+            throw new InvalidArgumentException(__('Choose a DeepSeek model in .env.'));
         }
         $maxTokens = max(200, min(8000, (int) ($settings['max_tokens'] ?? 2000)));
 
@@ -106,11 +106,11 @@ PROMPT;
             ->asText();
 
         if ($response->finishReason === FinishReason::Length) {
-            throw new RuntimeException('The AI report was truncated. Increase the maximum token limit.');
+            throw new RuntimeException(__('The AI report was truncated. Increase the maximum token limit.'));
         }
         $body = trim($response->text);
         if ($body === '' || mb_strlen($body) > 50000) {
-            throw new RuntimeException('AI returned an empty or excessively long report.');
+            throw new RuntimeException(__('AI returned an empty or excessively long report.'));
         }
 
         return $body;

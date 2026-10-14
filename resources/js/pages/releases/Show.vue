@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n';
 import { Form, Head, Link } from '@inertiajs/vue3';
 import {
     AlertTriangle,
@@ -123,9 +124,9 @@ const plannedDate = shallowRef<DateValue | undefined>(
         ? parseDate(props.release.planned_for.slice(0, 10))
         : undefined,
 );
-const plannedDateFormatter = new DateFormatter('en-US', {
+const plannedDateFormatter = computed(() => new DateFormatter(locale.value === 'pl' ? 'pl-PL' : 'en-US', {
     dateStyle: 'medium',
-});
+}));
 watch(
     () => props.release.planned_for,
     (value) => {
@@ -220,7 +221,7 @@ const stayOnSearch = {
 };
 const notifyFormError = () =>
     toast.error(
-        'Could not complete the action. Review the form and try again.',
+        t('audit.could_not_complete_the_action_review_the_form_and_try_again'),
     );
 
 const confirmFinalAction = (event: MouseEvent, message: string) => {
@@ -232,6 +233,7 @@ const confirmFinalAction = (event: MouseEvent, message: string) => {
 defineOptions({
     layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }] },
 });
+const { t, locale, formatText, translateLiteral } = useI18n();
 </script>
 
 <template>
@@ -240,7 +242,7 @@ defineOptions({
     <div class="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-4 md:p-6">
         <Button as-child size="sm" variant="ghost" class="-ml-3 w-fit">
             <Link :href="`/projects/${project.id}/releases`"
-                ><ArrowLeft class="size-4" /> All releases</Link
+                ><ArrowLeft class="size-4" /> {{ t('stage3.all_releases') }}</Link
             >
         </Button>
         <div class="space-y-3">
@@ -250,7 +252,7 @@ defineOptions({
                     :variant="
                         release.status === 'released' ? 'default' : 'outline'
                     "
-                    >{{ release.status_label }}</Badge
+                    >{{ translateLiteral(release.status_label) }}</Badge
                 >
             </div>
             <div>
@@ -269,39 +271,36 @@ defineOptions({
             <Card>
                 <CardHeader class="pb-2"
                     ><CardTitle class="flex items-center gap-2 text-sm"
-                        ><CalendarDays class="size-4" /> Planned date</CardTitle
+                        ><CalendarDays class="size-4" /> {{ t('stage3.planned_date') }}</CardTitle
                     ></CardHeader
                 >
                 <CardContent class="font-medium">{{
-                    release.planned_for ?? 'Not scheduled'
+                    release.planned_for ?? t('audit.not_scheduled')
                 }}</CardContent>
             </Card>
             <Card>
                 <CardHeader class="pb-2"
                     ><CardTitle class="flex items-center gap-2 text-sm"
-                        ><Clock3 class="size-4" /> Released at</CardTitle
+                        ><Clock3 class="size-4" /> {{ t('stage3.released_at') }}</CardTitle
                     ></CardHeader
                 >
                 <CardContent class="font-medium">{{
                     release.released_at
-                        ? new Date(release.released_at).toLocaleString()
-                        : 'Not released'
+                        ? new Date(release.released_at).toLocaleString(locale === 'pl' ? 'pl-PL' : 'en-US')
+                        : t('audit.not_released')
                 }}</CardContent>
             </Card>
         </div>
         <Card>
             <CardHeader class="pb-3">
-                <CardTitle>Release progress</CardTitle>
+                <CardTitle>{{ t('stage3.release_progress') }}</CardTitle>
             </CardHeader>
             <CardContent class="space-y-5">
                 <div
                     class="flex flex-wrap items-baseline justify-between gap-2"
                 >
                     <p class="text-sm text-muted-foreground">
-                        {{ release_progress.completed }} of
-                        {{ release_progress.total }}
-                        {{ release_progress.total === 1 ? 'task' : 'tasks' }}
-                        completed
+                        {{ formatText('audit.count_completed', { completed: release_progress.completed, total: release_progress.total }) }}
                     </p>
                     <span
                         class="text-2xl font-semibold tracking-tight tabular-nums"
@@ -310,7 +309,7 @@ defineOptions({
                 </div>
                 <div
                     role="progressbar"
-                    aria-label="Release completion"
+                    :aria-label="t('audit.release_progress_label')"
                     :aria-valuenow="release_progress.percentage"
                     aria-valuemin="0"
                     aria-valuemax="100"
@@ -331,7 +330,7 @@ defineOptions({
                         /><span class="font-medium tabular-nums">{{
                             release_progress.done
                         }}</span>
-                        Done</span
+                        {{ t('audit.done') }}</span
                     >
                     <span class="inline-flex items-center gap-2"
                         ><CircleDot
@@ -340,7 +339,7 @@ defineOptions({
                         /><span class="font-medium tabular-nums">{{
                             release_progress.in_progress
                         }}</span>
-                        In progress</span
+                        {{ t('audit.in_progress') }}</span
                     >
                     <span class="inline-flex items-center gap-2"
                         ><Circle
@@ -349,7 +348,7 @@ defineOptions({
                         /><span class="font-medium tabular-nums">{{
                             release_progress.todo
                         }}</span>
-                        Todo</span
+                        {{ t('audit.todo') }}</span
                     >
                     <span
                         v-if="release_progress.canceled > 0"
@@ -360,14 +359,14 @@ defineOptions({
                         /><span class="font-medium tabular-nums">{{
                             release_progress.canceled
                         }}</span>
-                        Canceled</span
+                        {{ t('audit.canceled') }}</span
                     >
                 </div>
                 <p
                     v-if="release_progress.total === 0"
                     class="text-xs text-muted-foreground"
                 >
-                    Assign tasks to this release to track its progress.
+                    {{ t('audit.assign_tasks_to_this_release_to_track_its_progress') }}
                 </p>
                 <p
                     v-else-if="
@@ -375,8 +374,7 @@ defineOptions({
                     "
                     class="text-xs text-muted-foreground"
                 >
-                    Some tasks marked Done do not have a completion date and are
-                    not counted as completed.
+                    {{ t('audit.some_tasks_marked_done_do_not_have_a_completion_date_and_are_not_counted_as_completed') }}
                 </p>
 
                 <div
@@ -391,18 +389,10 @@ defineOptions({
                         />
                         <div class="min-w-0 space-y-1">
                             <p class="text-sm font-semibold">
-                                Release is not ready to publish
+                                {{ t('audit.release_is_not_ready_to_publish') }}
                             </p>
                             <p class="text-xs text-muted-foreground">
-                                {{ remainingTasks }}
-                                {{
-                                    remainingTasks === 1
-                                        ? 'task needs'
-                                        : 'tasks need'
-                                }}
-                                attention. Complete or remove
-                                {{ remainingTasks === 1 ? 'it' : 'them' }}
-                                before publishing.
+                                {{ formatText('audit.issues_remaining', { count: remainingTasks }) }}
                             </p>
                         </div>
                     </div>
@@ -423,7 +413,7 @@ defineOptions({
                             </Link>
                             <span class="text-xs text-muted-foreground">{{
                                 task.missing_completion_date
-                                    ? 'Done · Missing completion date'
+                                    ? t('audit.release_need_completion_date')
                                     : task.status
                             }}</span>
                         </li>
@@ -432,48 +422,40 @@ defineOptions({
                         v-if="remainingTasks > release_blockers.length"
                         class="text-xs text-muted-foreground"
                     >
-                        And {{ remainingTasks - release_blockers.length }} more
-                        {{
-                            remainingTasks - release_blockers.length === 1
-                                ? 'task'
-                                : 'tasks'
-                        }}. See the included tasks below.
+                        {{ formatText('audit.more_remaining', { count: remainingTasks - release_blockers.length }) }}
                     </p>
                 </div>
 
                 <div class="space-y-4 border-t pt-5">
                     <div class="space-y-1.5">
-                        <h3 class="text-sm font-semibold">Release lifecycle</h3>
+                        <h3 class="text-sm font-semibold">{{ t('stage3.release_lifecycle') }}</h3>
                         <p
                             v-if="release.status === 'released'"
                             class="text-sm text-muted-foreground"
                         >
-                            This release has been published and is now locked.
-                            Its tasks cannot be reassigned.
+                            {{ t('audit.this_release_has_been_published_and_is_now_locked_its_tasks_cannot_be_reassigned') }}
                         </p>
                         <p
                             v-else-if="release.status === 'canceled'"
                             class="text-sm text-muted-foreground"
                         >
-                            This release was canceled and is now locked.
+                            {{ t('audit.this_release_was_canceled_and_is_now_locked') }}
                         </p>
                         <p
                             v-else-if="!can_manage_release"
                             class="text-sm text-muted-foreground"
                         >
-                            Only project managers can change the release status.
+                            {{ t('audit.only_project_managers_can_change_the_release_status') }}
                         </p>
                         <template v-else>
                             <p
                                 v-if="release.status === 'draft'"
                                 class="text-sm text-muted-foreground"
                             >
-                                Plan this draft or cancel it. Planning does not
-                                publish the release.
+                                {{ t('audit.plan_this_draft_or_cancel_it_planning_does_not_publish_the_release') }}
                             </p>
                             <p v-else class="text-sm text-muted-foreground">
-                                Publish this planned release or cancel it. Both
-                                actions are final.
+                                {{ t('audit.publish_this_planned_release_or_cancel_it_both_actions_are_final') }}
                             </p>
                             <p
                                 v-if="
@@ -482,8 +464,7 @@ defineOptions({
                                 "
                                 class="text-xs text-muted-foreground"
                             >
-                                There are no assigned tasks. You can still
-                                publish this release.
+                                {{ t('audit.there_are_no_assigned_tasks_you_can_still_publish_this_release') }}
                             </p>
                             <p
                                 v-else-if="
@@ -492,7 +473,7 @@ defineOptions({
                                 "
                                 class="text-xs text-muted-foreground"
                             >
-                                All included tasks are completed.
+                                {{ t('audit.all_included_tasks_are_completed') }}
                             </p>
                         </template>
                     </div>
@@ -520,10 +501,10 @@ defineOptions({
                                     <label
                                         for="release-planned-date"
                                         class="block text-sm font-medium"
-                                        >Planned date
+                                        >{{ t('audit.planned_date') }}
                                         <span
                                             class="font-normal text-muted-foreground"
-                                            >(optional)</span
+                                            >{{ t('stage3.optional') }}</span
                                         ></label
                                     >
                                     <input
@@ -550,7 +531,7 @@ defineOptions({
                                                                   getLocalTimeZone(),
                                                               ),
                                                           )
-                                                        : 'Select a date'
+                                                        : t('audit.no_date')
                                                 }}</span>
                                                 <CalendarDays
                                                     class="size-4 shrink-0 opacity-70"
@@ -582,7 +563,7 @@ defineOptions({
                                                         close();
                                                     "
                                                 >
-                                                    Clear date
+                                                    {{ t('audit.clear_date') }}
                                                 </Button>
                                             </div>
                                         </PopoverContent>
@@ -600,8 +581,8 @@ defineOptions({
                                         /><CalendarDays v-else class="size-4" />
                                         {{
                                             processing
-                                                ? 'Planning…'
-                                                : 'Mark as planned'
+                                                ? t('audit.planning')
+                                                : t('audit.mark_as_planned')
                                         }}</Button
                                     >
                                     <InputError :message="errors.status" />
@@ -624,7 +605,7 @@ defineOptions({
                                     @click="
                                         confirmFinalAction(
                                             $event,
-                                            'Publish this release? You will not be able to change its status or task assignments.',
+                                            t('audit.publish_this_release_you_will_not_be_able_to_change_its_status_or_task_assignments'),
                                         )
                                     "
                                     ><LoaderCircle
@@ -633,8 +614,8 @@ defineOptions({
                                     /><Package v-else class="size-4" />
                                     {{
                                         processing
-                                            ? 'Publishing…'
-                                            : 'Publish release'
+                                            ? t('audit.publishing')
+                                            : t('audit.publish_release')
                                     }}</Button
                                 >
                                 <InputError :message="errors.status" />
@@ -656,7 +637,7 @@ defineOptions({
                                     @click="
                                         confirmFinalAction(
                                             $event,
-                                            'Cancel this release? This cannot be undone.',
+                                            t('audit.cancel_this_release_this_cannot_be_undone'),
                                         )
                                     "
                                     ><LoaderCircle
@@ -665,8 +646,8 @@ defineOptions({
                                     /><X v-else class="size-4" />
                                     {{
                                         processing
-                                            ? 'Canceling…'
-                                            : 'Cancel release'
+                                            ? t('audit.canceling')
+                                            : t('audit.cancel_release')
                                     }}</Button
                                 >
                                 <InputError :message="errors.status" />
@@ -679,7 +660,7 @@ defineOptions({
         <Card>
             <CardHeader
                 ><CardTitle class="flex items-center gap-2"
-                    ><Package class="size-4" /> Release notes</CardTitle
+                    ><Package class="size-4" /> {{ t('stage3.release_notes') }}</CardTitle
                 ></CardHeader
             >
             <CardContent>
@@ -690,14 +671,14 @@ defineOptions({
                     {{ release.description }}
                 </p>
                 <p v-else class="text-sm text-muted-foreground">
-                    No internal release notes provided.
+                    {{ t('audit.no_internal_release_notes_provided') }}
                 </p>
             </CardContent>
         </Card>
         <Card>
             <CardHeader>
                 <CardTitle class="flex items-center gap-2"
-                    ><FileText class="size-4" /> Release changelog</CardTitle
+                    ><FileText class="size-4" /> {{ t('stage3.release_changelog') }}</CardTitle
                 >
             </CardHeader>
             <CardContent class="space-y-6">
@@ -709,8 +690,8 @@ defineOptions({
                             "
                             >{{
                                 changelog.published_at
-                                    ? 'Published'
-                                    : 'Not published'
+                                    ? t('audit.published')
+                                    : t('fix.not_published')
                             }}</Badge
                         >
                         <span
@@ -719,7 +700,7 @@ defineOptions({
                             >{{
                                 new Date(
                                     changelog.published_at,
-                                ).toLocaleString()
+                                ).toLocaleString(locale === 'pl' ? 'pl-PL' : 'en-US')
                             }}</span
                         >
                     </div>
@@ -727,36 +708,34 @@ defineOptions({
                         v-if="changelog.published_locale"
                         class="text-xs text-muted-foreground"
                     >
-                        Published language:
+                        {{ t('fix.release_published_language') }}
                         {{ languageLabel(changelog.published_locale) }}
                     </p>
                     <template v-if="changelog.published_html">
-                        <p class="text-sm font-medium">Published content</p>
+                        <p class="text-sm font-medium">{{ t('stage3.published_content') }}</p>
                         <div
                             class="release-changelog-preview max-w-none rounded-md border p-4 text-sm break-words [&_a]:underline [&_code]:font-mono [&_h1]:text-lg [&_h2]:text-base [&_li]:ml-5 [&_ol]:list-decimal [&_p]:mb-2 [&_strong]:font-semibold [&_ul]:list-disc"
                             v-html="changelog.published_html"
                         ></div>
                     </template>
                     <p v-else class="text-sm text-muted-foreground">
-                        No published changelog yet.
+                        {{ t('audit.no_published_changelog_yet') }}
                     </p>
                 </div>
                 <template v-if="can_edit_changelog">
                     <div class="space-y-3 border-t pt-5">
                         <h3 class="text-sm font-semibold">
-                            Edit draft (Markdown)
+                            {{ t('audit.edit_draft_markdown') }}
                         </h3>
                         <div
                             class="space-y-4 rounded-md border bg-muted/20 p-4"
                         >
                             <div class="space-y-1">
                                 <p class="text-sm font-medium">
-                                    Generate with AI
+                                    {{ t('audit.generate_with_ai') }}
                                 </p>
                                 <p class="text-xs text-muted-foreground">
-                                    Uses assigned tasks, discussion, and
-                                    activity. Sends these to Agent AI; replaces
-                                    only the saved draft.
+                                    {{ t('audit.uses_assigned_tasks_discussion_and_activity_sends_these_to_agent_ai_replaces_only_the_save') }}
                                 </p>
                             </div>
                             <Form
@@ -779,7 +758,7 @@ defineOptions({
                                         <label
                                             for="changelog-language"
                                             class="block text-sm font-medium"
-                                            >Output language</label
+                                            >{{ t('stage3.output_language') }}</label
                                         >
                                         <Select v-model="selectedLanguage">
                                             <SelectTrigger
@@ -787,7 +766,7 @@ defineOptions({
                                                 class="w-full"
                                             >
                                                 <SelectValue
-                                                    placeholder="Choose a language"
+                                                    :placeholder="t('audit.choose_a_language')"
                                                 />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -799,7 +778,7 @@ defineOptions({
                                                     {{ language.label }}
                                                 </SelectItem>
                                                 <SelectItem value="__other"
-                                                    >Other language…</SelectItem
+                                                    >{{ t('stage3.other_language') }}</SelectItem
                                                 >
                                             </SelectContent>
                                         </Select>
@@ -811,7 +790,7 @@ defineOptions({
                                         <label
                                             for="changelog-custom-language"
                                             class="block text-sm font-medium"
-                                            >Language code</label
+                                            >{{ t('stage3.language_code') }}</label
                                         >
                                         <Input
                                             id="changelog-custom-language"
@@ -837,7 +816,7 @@ defineOptions({
                                         @click="
                                             confirmFinalAction(
                                                 $event,
-                                                'Generate with AI? Task data will be sent to an external AI provider. The saved draft will be replaced; published content stays unchanged.',
+                                                t('audit.generate_with_ai_task_data_will_be_sent_to_an_external_ai_provider_the_saved_draft_will_be'),
                                             )
                                         "
                                     >
@@ -847,8 +826,8 @@ defineOptions({
                                         /><FileText v-else class="size-4" />
                                         {{
                                             processing
-                                                ? 'Generating…'
-                                                : 'Generate draft with AI'
+                                                ? t('audit.generating')
+                                                : t('audit.generate_draft_with_ai')
                                         }}
                                     </Button>
                                 </div>
@@ -859,20 +838,17 @@ defineOptions({
                                 v-if="!ai_configured"
                                 class="text-xs text-muted-foreground"
                             >
-                                Configure an AI provider in your local .env to
-                                enable generation.
+                                {{ t('audit.configure_an_ai_provider_in_your_local_env_to_enable_generation') }}
                             </p>
                             <p
                                 v-else-if="task_count === 0"
                                 class="text-xs text-muted-foreground"
                             >
-                                Assign at least one task to this release to
-                                enable generation.
+                                {{ t('audit.assign_at_least_one_task_to_this_release_to_enable_generation') }}
                             </p>
                         </div>
                         <p class="text-xs text-muted-foreground">
-                            Saving a draft never changes published content. Save
-                            before previewing.
+                            {{ t('audit.saving_a_draft_never_changes_published_content_save_before_previewing') }}
                         </p>
                         <Form
                             :action="`${releaseUrl}/changelog`"
@@ -903,21 +879,21 @@ defineOptions({
                                 />
                                 {{
                                     processing
-                                        ? 'Saving…'
-                                        : 'Save changelog draft'
+                                        ? t('audit.saving')
+                                        : t('audit.save_changelog_draft')
                                 }}</Button
                             >
                         </Form>
                     </div>
                     <div class="space-y-2">
                         <h3 class="text-sm font-semibold">
-                            Saved draft preview
+                            {{ t('audit.saved_draft_preview') }}
                         </h3>
                         <p
                             v-if="changelog.draft_locale"
                             class="text-xs text-muted-foreground"
                         >
-                            Draft language:
+                            {{ t('fix.release_draft_language') }}
                             {{ languageLabel(changelog.draft_locale) }}
                         </p>
                         <div
@@ -926,7 +902,7 @@ defineOptions({
                             v-html="changelog.draft_html"
                         ></div>
                         <p v-else class="text-sm text-muted-foreground">
-                            Save some Markdown to see its preview here.
+                            {{ t('audit.save_some_markdown_to_see_its_preview_here') }}
                         </p>
                     </div>
                     <div
@@ -953,7 +929,7 @@ defineOptions({
                                 @click="
                                     confirmFinalAction(
                                         $event,
-                                        'Publish the saved changelog? This updates the published snapshot.',
+                                        t('audit.publish_the_saved_changelog_this_updates_the_published_snapshot'),
                                     )
                                 "
                             >
@@ -963,34 +939,33 @@ defineOptions({
                                 /><Package v-else class="size-4" />
                                 {{
                                     processing
-                                        ? 'Publishing…'
+                                        ? t('audit.publishing')
                                         : changelog.published_at
-                                          ? 'Publish changes'
-                                          : 'Publish changelog'
+                                          ? t('audit.publish_changes')
+                                          : t('audit.publish_changelog')
                                 }}
                             </Button>
                         </Form>
                         <p class="text-xs text-muted-foreground">
-                            Only a saved draft can be published. Later edits
-                            remain private until published again.
+                            {{ t('audit.only_a_saved_draft_can_be_published_later_edits_remain_private_until_published_again') }}
                         </p>
                     </div>
                     <p v-else class="text-xs text-muted-foreground">
-                        Publish the Release before publishing its changelog.
+                        {{ t('audit.publish_the_release_before_publishing_its_changelog') }}
                     </p>
                 </template>
             </CardContent>
         </Card>
         <Card>
             <CardHeader>
-                <CardTitle>Included tasks ({{ task_count }})</CardTitle>
+                <CardTitle>{{ formatText('fix.included_tasks', { count: task_count }) }}</CardTitle>
             </CardHeader>
             <CardContent class="space-y-4">
                 <p
                     v-if="tasks.data.length === 0"
                     class="text-sm text-muted-foreground"
                 >
-                    No tasks assigned to this release yet.
+                    {{ t('audit.no_tasks_assigned_to_this_release_yet') }}
                 </p>
                 <div
                     v-for="task in tasks.data"
@@ -1005,7 +980,7 @@ defineOptions({
                         >
                         <p class="text-xs text-muted-foreground">
                             {{ task.status }}
-                            <span v-if="task.completed">· Completed</span>
+                            <span v-if="task.completed">{{ t('stage3.completed') }}</span>
                         </p>
                     </div>
                     <Form
@@ -1026,7 +1001,7 @@ defineOptions({
                                 v-if="processing"
                                 class="size-4 animate-spin"
                             /><X v-else class="size-4" />
-                            {{ processing ? 'Removing…' : 'Remove' }}</Button
+                            {{ processing ? t('audit.removing') : t('audit.remove') }}</Button
                         >
                         <InputError :message="errors.release" />
                     </Form>
@@ -1041,13 +1016,12 @@ defineOptions({
                         size="sm"
                         variant="outline"
                         ><Link :href="tasks.prev_page_url" preserve-scroll
-                            >Previous</Link
+                            >{{ t('stage3.previous') }}</Link
                         ></Button
                     >
                     <span v-else></span>
                     <span class="text-xs text-muted-foreground"
-                        >Page {{ tasks.current_page }} /
-                        {{ tasks.last_page }}</span
+                        >{{ formatText('audit.count_pages', { page: tasks.current_page, pages: tasks.last_page }) }}</span
                     >
                     <Button
                         v-if="tasks.next_page_url"
@@ -1055,14 +1029,14 @@ defineOptions({
                         size="sm"
                         variant="outline"
                         ><Link :href="tasks.next_page_url" preserve-scroll
-                            >Next</Link
+                            >{{ t('stage3.next') }}</Link
                         ></Button
                     >
                 </div>
             </CardContent>
         </Card>
         <Card v-if="can_manage_tasks">
-            <CardHeader><CardTitle>Add existing task</CardTitle></CardHeader>
+            <CardHeader><CardTitle>{{ t('stage3.add_existing_task') }}</CardTitle></CardHeader>
             <CardContent class="space-y-4">
                 <div
                     v-if="completed_available_count > 0"
@@ -1070,17 +1044,10 @@ defineOptions({
                 >
                     <div class="space-y-1">
                         <p class="text-sm font-medium">
-                            {{ completed_available_count }} completed
-                            {{
-                                completed_available_count === 1
-                                    ? 'task'
-                                    : 'tasks'
-                            }}
-                            ready to add
+                            {{ formatText('audit.available_completed', { count: completed_available_count }) }}
                         </p>
                         <p class="text-xs text-muted-foreground">
-                            Only unassigned Done tasks are included. You can
-                            remove them individually.
+                            {{ t('audit.only_unassigned_done_tasks_are_included_you_can_remove_them_individually') }}
                         </p>
                     </div>
                     <Form
@@ -1100,7 +1067,7 @@ defineOptions({
                                 v-if="processing"
                                 class="size-4 animate-spin"
                             /><Plus v-else class="size-4" />
-                            {{ processing ? 'Adding…' : 'Add all completed' }}
+                            {{ processing ? t('audit.adding') : t('audit.add_all_completed') }}
                         </Button>
                         <InputError :message="errors.release" />
                     </Form>
@@ -1116,7 +1083,7 @@ defineOptions({
                         name="q"
                         type="search"
                         :default-value="task_search"
-                        :placeholder="`Search title or ${project.key}-12`"
+                        :placeholder="formatText('audit.search_title', { reference: `${project.key}-12` })"
                         class="min-w-48 flex-1"
                     />
                     <Button
@@ -1127,18 +1094,17 @@ defineOptions({
                             v-if="processing"
                             class="size-4 animate-spin"
                         />
-                        {{ processing ? 'Searching…' : 'Search' }}</Button
+                        {{ processing ? t('audit.searching') : t('audit.search') }}</Button
                     >
                 </Form>
                 <p
                     v-if="available_count > 0"
                     class="text-xs text-muted-foreground"
                 >
-                    {{ available_count }} available tasks<span
+                    {{ formatText('audit.available_tasks', { count: available_count }) }}<span
                         v-if="available_count > available_tasks.length"
                     >
-                        · showing latest {{ available_tasks.length }} — narrow
-                        your search</span
+                        · {{ formatText('audit.showing_latest', { count: available_tasks.length }) }}</span
                     >
                 </p>
                 <div
@@ -1148,8 +1114,8 @@ defineOptions({
                     <p class="text-sm text-muted-foreground">
                         {{
                             task_search
-                                ? 'No unassigned tasks match your search.'
-                                : 'No available tasks to add.'
+                                ? t('audit.no_unassigned_tasks_match_your_search')
+                                : t('audit.no_available_tasks_to_add')
                         }}
                     </p>
                     <Button
@@ -1160,7 +1126,7 @@ defineOptions({
                         class="w-fit"
                     >
                         <Link :href="releaseUrl" preserve-scroll
-                            >Clear search</Link
+                            >{{ t('stage3.clear_search') }}</Link
                         >
                     </Button>
                 </div>
@@ -1184,7 +1150,7 @@ defineOptions({
                             <label
                                 for="release-task-select"
                                 class="block text-sm font-medium"
-                                >Task</label
+                                >{{ t('stage3.task') }}</label
                             >
                             <Select
                                 v-model="selectedTaskId"
@@ -1195,7 +1161,7 @@ defineOptions({
                                     class="w-full min-w-0"
                                 >
                                     <SelectValue
-                                        placeholder="Select unassigned task"
+                                        :placeholder="t('audit.select_unassigned_task')"
                                     />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -1222,7 +1188,7 @@ defineOptions({
                                 v-if="processing"
                                 class="size-4 animate-spin"
                             /><Plus v-else class="size-4" />
-                            {{ processing ? 'Adding…' : 'Add to release' }}
+                            {{ processing ? t('audit.adding') : t('audit.add_to_release') }}
                         </Button>
                     </div>
                     <InputError :message="errors.task_id" />

@@ -29,11 +29,11 @@ final class CreateRelease
         Gate::forUser($creator)->authorize('update', $project);
 
         if ($project->type !== ProjectType::APPLICATION) {
-            throw new InvalidArgumentException('Only application projects can have releases.');
+            throw new InvalidArgumentException(__('Only application projects can have releases.'));
         }
 
         if ($project->archived_at !== null) {
-            throw new InvalidArgumentException('Cannot create a release in an archived project.');
+            throw new InvalidArgumentException(__('Cannot create a release in an archived project.'));
         }
 
         $parsedVersion = ReleaseVersion::parse(trim($version));
@@ -41,11 +41,11 @@ final class CreateRelease
         $description = $description !== null ? trim($description) : null;
 
         if ($name !== null && mb_strlen($name) > 160) {
-            throw new InvalidArgumentException('Release name must not exceed 160 characters.');
+            throw new InvalidArgumentException(__('Release name must not exceed 160 characters.'));
         }
 
         if ($project->releases()->where('version', $parsedVersion->toString())->exists()) {
-            throw new InvalidArgumentException('This version already exists in the project.');
+            throw new InvalidArgumentException(__('This version already exists in the project.'));
         }
 
         // The database unique index remains the final guard against concurrent inserts.

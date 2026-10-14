@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n';
 import { Form, Link } from '@inertiajs/vue3';
 import {
     LoaderCircle,
@@ -52,7 +53,7 @@ watch(
 );
 const stayOnTask = { preserveScroll: true, preserveState: true };
 const notifyError = () =>
-    toast.error('Could not save the message. Check the form and try again.');
+    toast.error(t('fix.could_not_save_message'));
 
 function initials(name: string): string {
     return (
@@ -67,22 +68,22 @@ function initials(name: string): string {
 }
 
 function formattedDate(value: string): string {
-    return new Date(value).toLocaleString();
+    return new Date(value).toLocaleString(locale.value === 'pl' ? 'pl-PL' : 'en-US');
 }
+const { t, locale } = useI18n();
 </script>
 
 <template>
     <Card>
         <CardHeader>
             <CardTitle class="flex items-center gap-2">
-                <MessageSquare class="size-4" /> Discussion
+                <MessageSquare class="size-4" /> {{ t('stage2.discussion') }}
                 <span class="text-sm font-normal text-muted-foreground"
                     >({{ messages.length }})</span
                 >
             </CardTitle>
             <CardDescription
-                >Messages and decisions about this task. System activity is
-                recorded separately.</CardDescription
+                >{{ t('followup.discussion_help') }}</CardDescription
             >
         </CardHeader>
         <CardContent class="space-y-6">
@@ -106,7 +107,7 @@ function formattedDate(value: string): string {
                                 class="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm"
                             >
                                 <span class="font-medium">{{
-                                    message.author?.name ?? 'Deleted user'
+                                    message.author?.name ?? t('fix.deleted_user')
                                 }}</span>
                                 <time
                                     :datetime="message.created_at"
@@ -121,7 +122,7 @@ function formattedDate(value: string): string {
                                             message.created_at
                                     "
                                     class="text-xs text-muted-foreground"
-                                    >(edited)</span
+                                    >{{ t('stage2.edited') }}</span
                                 >
                             </div>
                             <div
@@ -136,7 +137,7 @@ function formattedDate(value: string): string {
                                     :aria-label="`Edit message by ${message.author?.name ?? 'user'}`"
                                     @click="editingId = message.id"
                                 >
-                                    <Pencil class="size-3.5" /> Edit
+                                    <Pencil class="size-3.5" /> {{ t('stage2.edit') }}
                                 </Button>
                                 <Dialog
                                     v-if="message.can_delete"
@@ -155,18 +156,16 @@ function formattedDate(value: string): string {
                                             size="sm"
                                             :aria-label="`Delete message by ${message.author?.name ?? 'user'}`"
                                         >
-                                            <Trash2 class="size-3.5" /> Delete
+                                            <Trash2 class="size-3.5" /> {{ t('stage2.delete') }}
                                         </Button>
                                     </DialogTrigger>
                                     <DialogContent>
                                         <DialogHeader>
                                             <DialogTitle
-                                                >Delete message?</DialogTitle
+                                                >{{ t('stage2.delete_message') }}</DialogTitle
                                             >
                                             <DialogDescription
-                                                >This permanently removes your
-                                                message from the
-                                                discussion.</DialogDescription
+                                                >{{ t('audit.this_permanently_removes_your_message_from_the_discussion') }}</DialogDescription
                                             >
                                         </DialogHeader>
                                         <DialogFooter>
@@ -187,8 +186,8 @@ function formattedDate(value: string): string {
                                                         class="size-4 animate-spin"
                                                     />{{
                                                         processing
-                                                            ? 'Deleting…'
-                                                            : 'Delete message'
+                                                            ? t('fix.deleting')
+                                                            : t('fix.delete_message')
                                                     }}</Button
                                                 >
                                             </Form>
@@ -215,7 +214,7 @@ function formattedDate(value: string): string {
                                 rows="3"
                                 maxlength="10000"
                                 required
-                                aria-label="Edit message"
+                                :aria-label="t('stage2.edit_message')"
                                 class="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
                             />
                             <InputError :message="errors.body" />
@@ -225,7 +224,7 @@ function formattedDate(value: string): string {
                                         v-if="processing"
                                         class="size-4 animate-spin"
                                     />{{
-                                        processing ? 'Saving…' : 'Save changes'
+                                        processing ? t('audit.saving') : t('audit.save_changes')
                                     }}</Button
                                 >
                                 <Button
@@ -234,7 +233,7 @@ function formattedDate(value: string): string {
                                     variant="outline"
                                     :disabled="processing"
                                     @click="editingId = null"
-                                    >Cancel</Button
+                                    >{{ t('stage2.cancel') }}</Button
                                 >
                             </div>
                         </Form>
@@ -255,14 +254,14 @@ function formattedDate(value: string): string {
                         >
                             <Link
                                 :href="`${messagesUrl}/${message.id}/create-task`"
-                                ><Plus class="size-3.5" /> Create task</Link
+                                ><Plus class="size-3.5" /> {{ t('stage2.create_task') }}</Link
                             >
                         </Button>
                     </div>
                 </article>
             </div>
             <p v-else class="text-sm text-muted-foreground">
-                No messages yet. Start the discussion below.
+                {{ t('stage2.no_messages_yet_start_the_discussion_below') }}
             </p>
 
             <Form
@@ -278,7 +277,7 @@ function formattedDate(value: string): string {
                 <label
                     :for="`new-task-message-${taskId}`"
                     class="text-sm font-medium"
-                    >Write a message</label
+                    >{{ t('stage2.write_a_message') }}</label
                 >
                 <textarea
                     :id="`new-task-message-${taskId}`"
@@ -287,7 +286,7 @@ function formattedDate(value: string): string {
                     rows="4"
                     maxlength="10000"
                     required
-                    placeholder="Share an update, a question or a decision..."
+                    :placeholder="t('stage2.share_an_update_a_question_or_a_decision')"
                     class="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
                 />
                 <InputError :message="errors.body" />
@@ -297,14 +296,13 @@ function formattedDate(value: string): string {
                             v-if="processing"
                             class="size-4 animate-spin"
                         /><Send v-else class="size-4" />{{
-                            processing ? 'Posting…' : 'Post message'
+                            processing ? t('followup.posting') : t('followup.post')
                         }}</Button
                     >
                 </div>
             </Form>
             <p v-else class="border-t pt-4 text-xs text-muted-foreground">
-                You can read this discussion, but only project contributors can
-                post messages.
+                {{ t('stage2.you_can_read_this_discussion_but_only_project_contributors_can_post_message') }}
             </p>
         </CardContent>
     </Card>

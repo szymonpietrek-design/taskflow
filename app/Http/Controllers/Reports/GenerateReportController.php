@@ -23,7 +23,7 @@ final class GenerateReportController extends Controller
             $language = $request->validated('language', str_replace('_', '-', app()->getLocale()));
             $generate->handle($request->user(), $report, $language);
         } catch (InvalidArgumentException $exception) {
-            throw ValidationException::withMessages(['ai_generation' => $exception->getMessage()]);
+            throw ValidationException::withMessages(['ai_generation' => __($exception->getMessage())]);
         } catch (Throwable $exception) {
             // Provider exceptions can include prompts and sensitive data. Never log or expose them.
             throw ValidationException::withMessages([

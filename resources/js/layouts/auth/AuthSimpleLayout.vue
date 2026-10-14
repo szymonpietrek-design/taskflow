@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { Link } from '@inertiajs/vue3';
+import { Link, router, usePage } from '@inertiajs/vue3';
+import { useI18n } from '@/composables/useI18n';
 import AppLogoIcon from '@/components/AppLogoIcon.vue';
 import { home } from '@/routes';
 
@@ -7,6 +8,14 @@ defineProps<{
     title?: string;
     description?: string;
 }>();
+
+const page = usePage();
+const { locale } = useI18n();
+function chooseLanguage(language: 'pl' | 'en') {
+    if (language !== locale.value) {
+        router.post('/ui-locale', { locale: language }, { preserveState: false, preserveScroll: true });
+    }
+}
 </script>
 
 <template>
@@ -37,6 +46,11 @@ defineProps<{
                     </div>
                 </div>
                 <slot />
+                <nav v-if="!page.props.auth.user" class="flex justify-center gap-2 text-xs text-muted-foreground" aria-label="Language / Język">
+                    <button type="button" class="rounded px-2 py-1 hover:text-foreground" :class="locale === 'en' ? 'font-semibold text-foreground underline underline-offset-4' : ''" :aria-current="locale === 'en' ? 'true' : undefined" @click="chooseLanguage('en')">English</button>
+                    <span aria-hidden="true">·</span>
+                    <button type="button" class="rounded px-2 py-1 hover:text-foreground" :class="locale === 'pl' ? 'font-semibold text-foreground underline underline-offset-4' : ''" :aria-current="locale === 'pl' ? 'true' : undefined" @click="chooseLanguage('pl')">Polski</button>
+                </nav>
             </div>
         </div>
     </div>

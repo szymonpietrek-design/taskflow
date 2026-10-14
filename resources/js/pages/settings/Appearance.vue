@@ -2,6 +2,7 @@
 import { Head } from '@inertiajs/vue3';
 import AppearanceTabs from '@/components/AppearanceTabs.vue';
 import Heading from '@/components/Heading.vue';
+import { useI18n } from '@/composables/useI18n';
 import { edit } from '@/routes/appearance';
 
 defineOptions({
@@ -14,18 +15,20 @@ defineOptions({
         ],
     },
 });
+
+const { t } = useI18n();
 </script>
 
 <template>
-    <Head title="Appearance settings" />
+    <Head :title="t('appearance.pageTitle')" />
 
-    <h1 class="sr-only">Appearance settings</h1>
+    <h1 class="sr-only">{{ t('appearance.pageTitle') }}</h1>
 
     <div class="space-y-6">
         <Heading
             variant="small"
-            title="Appearance settings"
-            description="Update the appearance settings for your account"
+            :title="t('appearance.heading')"
+            :description="t('appearance.description')"
         />
         <AppearanceTabs />
     </div>

@@ -16,7 +16,7 @@ final class CreateWorkspace
         $name = trim($name);
 
         if ($name === '') {
-            throw new InvalidArgumentException('Workspace name cannot be empty.');
+            throw new InvalidArgumentException(__('Workspace name cannot be empty.'));
         }
 
         return DB::transaction(function () use ($creator, $name): Workspace {

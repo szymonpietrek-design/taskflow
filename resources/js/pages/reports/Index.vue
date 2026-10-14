@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n';
 import { Form, Head, Link } from '@inertiajs/vue3';
 import {
     ArrowLeft,
@@ -64,7 +65,7 @@ const props = defineProps<{
     };
 }>();
 const baseUrl = `/projects/${props.project.id}/reports`;
-const formatter = new DateFormatter('en-US', { dateStyle: 'medium' });
+const formatter = computed(() => new DateFormatter(locale.value === 'pl' ? 'pl-PL' : 'en-US', { dateStyle: 'medium' }));
 const start = shallowRef<DateValue | undefined>(
     parseDate(today(getLocalTimeZone()).subtract({ days: 30 }).toString()),
 );
@@ -72,12 +73,12 @@ const end = shallowRef<DateValue | undefined>(today(getLocalTimeZone()));
 const sources = [
     {
         value: 'tasks',
-        title: 'Tasks',
-        description: 'Created or completed tasks',
+        title: 'fix.breadcrumb_tasks',
+        description: 'fix.report_source_tasks',
     },
-    { value: 'messages', title: 'Messages', description: 'Task discussions' },
-    { value: 'activity', title: 'Activity', description: 'Recorded changes' },
-    { value: 'worklogs', title: 'Worklogs', description: 'Recorded time' },
+    { value: 'messages', title: 'fix.report_source_messages_title', description: 'fix.report_source_messages' },
+    { value: 'activity', title: 'fix.report_source_activity_title', description: 'fix.report_source_activity' },
+    { value: 'worklogs', title: 'fix.report_source_worklogs_title', description: 'fix.report_source_worklogs' },
 ];
 const selected = shallowRef<string[]>([
     'tasks',
@@ -100,10 +101,10 @@ function chooseFormat(value: 'project_summary' | 'work_report') {
     }
 }
 const sourceLabels: Record<string, string> = {
-    tasks: 'Tasks',
-    messages: 'Messages',
-    activity: 'Activity',
-    worklogs: 'Worklogs',
+    tasks: 'fix.report_source_tasks_title',
+    messages: 'fix.report_source_messages_title',
+    activity: 'fix.report_source_activity_title',
+    worklogs: 'fix.report_source_worklogs_title',
 };
 const validPeriod = computed(() =>
     Boolean(
@@ -121,12 +122,13 @@ function changeSource(value: string, checked: boolean) {
 }
 function formatDate(value?: DateValue) {
     return value
-        ? formatter.format(value.toDate(getLocalTimeZone()))
-        : 'Select a date';
+        ? formatter.value.format(value.toDate(getLocalTimeZone()))
+        : t('audit.no_date');
 }
 defineOptions({
     layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }] },
 });
+const { t, locale, formatText, translateLiteral } = useI18n();
 </script>
 
 <template>
@@ -135,15 +137,14 @@ defineOptions({
         <div class="space-y-3">
             <Button variant="ghost" size="sm" as-child class="-ml-3 w-fit">
                 <Link :href="`/projects/${project.id}`"
-                    ><ArrowLeft class="size-4" /> Back to project</Link
+                    ><ArrowLeft class="size-4" /> {{ t('stage3.back_to_project') }}</Link
                 >
             </Button>
             <Badge variant="secondary" class="w-fit">{{ project.key }}</Badge>
             <div>
-                <h1 class="text-2xl font-semibold tracking-tight">Reports</h1>
+                <h1 class="text-2xl font-semibold tracking-tight">{{ t('stage3.reports') }}</h1>
                 <p class="mt-1 text-sm text-muted-foreground">
-                    Create reports from project activity and worklogs for
-                    {{ project.name }}.
+                    {{ formatText('audit.reports_created_for', { project: project.name }) }}
                 </p>
             </div>
         </div>
@@ -153,10 +154,10 @@ defineOptions({
         >
             <section class="space-y-3">
                 <div class="flex items-center justify-between">
-                    <h2 class="font-medium">Saved reports</h2>
+                    <h2 class="font-medium">{{ t('stage3.saved_reports') }}</h2>
                     <span class="text-sm text-muted-foreground"
                         >{{ reports.total }}
-                        {{ reports.total === 1 ? 'report' : 'reports' }}</span
+                        {{ reports.total === 1 ? t('audit.reports_nominative') : 'reports' }}</span
                     >
                 </div>
                 <Card v-if="reports.data.length === 0" class="border-dashed">
@@ -164,9 +165,9 @@ defineOptions({
                         class="flex flex-col items-center gap-2 py-10 text-center"
                     >
                         <FileText class="size-9 text-muted-foreground" />
-                        <p class="font-medium">No reports yet</p>
+                        <p class="font-medium">{{ t('stage3.no_reports_yet') }}</p>
                         <p class="text-sm text-muted-foreground">
-                            Create your first report.
+                            {{ t('audit.create_your_first_report') }}
                         </p>
                     </CardContent>
                 </Card>
@@ -195,8 +196,8 @@ defineOptions({
                                         "
                                         >{{
                                             report.published_at
-                                                ? 'Published'
-                                                : 'Draft'
+                                                ? t('audit.published')
+                                                : t('audit.draft')
                                         }}</Badge
                                     >
                                 </div>
@@ -205,20 +206,21 @@ defineOptions({
                                 >
                                     <span>{{
                                         report.format === 'work_report'
-                                            ? 'Detailed report'
-                                            : 'Summary'
+                                            ? t('audit.detailed_report')
+                                            : t('audit.summary')
                                     }}</span>
                                     <span>·</span>
                                     <span>{{
                                         formatReportPeriod(
                                             report.period_start,
                                             report.period_end,
+                                        locale,
                                         )
                                     }}</span>
                                     <span>·</span>
                                     <span>{{
                                         report.sources
-                                            .map((s) => sourceLabels[s] ?? s)
+                                            .map((s) => t(sourceLabels[s] ?? s))
                                             .join(', ')
                                     }}</span>
                                 </div>
@@ -226,7 +228,7 @@ defineOptions({
                                     v-if="report.created_by"
                                     class="text-xs text-muted-foreground"
                                 >
-                                    By {{ report.created_by }}
+                                    {{ t('fix.by') }} {{ report.created_by }}
                                 </p>
                             </CardContent>
                         </Card>
@@ -242,35 +244,34 @@ defineOptions({
                         variant="outline"
                         as-child
                         ><Link :href="reports.prev_page_url"
-                            >Previous</Link
+                            >{{ t('stage3.previous') }}</Link
                         ></Button
                     >
                     <Button v-else size="sm" variant="outline" disabled
-                        >Previous</Button
+                        >{{ t('stage3.previous') }}</Button
                     >
                     <span class="text-xs text-muted-foreground"
-                        >Page {{ reports.current_page }} of
-                        {{ reports.last_page }}</span
+                        >{{ formatText('audit.count_pages', { page: reports.current_page, pages: reports.last_page }) }}</span
                     >
                     <Button
                         v-if="reports.next_page_url"
                         size="sm"
                         variant="outline"
                         as-child
-                        ><Link :href="reports.next_page_url">Next</Link></Button
+                        ><Link :href="reports.next_page_url">{{ t('stage3.next') }}</Link></Button
                     >
                     <Button v-else size="sm" variant="outline" disabled
-                        >Next</Button
+                        >{{ t('stage3.next') }}</Button
                     >
                 </div>
             </section>
             <Card v-if="can_create" class="h-fit">
                 <CardHeader>
                     <CardTitle class="flex items-center gap-2"
-                        ><Plus class="size-4" /> New report</CardTitle
+                        ><Plus class="size-4" /> {{ t('stage3.new_report') }}</CardTitle
                     >
                     <CardDescription
-                        >Choose a period and sources.</CardDescription
+                        >{{ t('stage3.choose_a_period_and_sources') }}</CardDescription
                     >
                 </CardHeader>
                 <CardContent>
@@ -281,7 +282,7 @@ defineOptions({
                         v-slot="{ errors, processing }"
                     >
                         <div class="grid gap-2">
-                            <Label>Report content</Label>
+                            <Label>{{ t('stage3.report_content') }}</Label>
                             <input
                                 type="hidden"
                                 name="format"
@@ -307,20 +308,19 @@ defineOptions({
                                     <Label
                                         for="report-detailed"
                                         class="block cursor-pointer text-sm leading-5 font-medium"
-                                        >Include detailed worklog</Label
+                                        >{{ t('stage3.include_detailed_worklog') }}</Label
                                     >
                                     <p
                                         class="text-xs leading-5 text-muted-foreground"
                                     >
-                                        Add a dated table of recorded work,
-                                        people and exact hours.
+                                        {{ t('audit.add_a_dated_table_of_recorded_work_people_and_exact_hours') }}
                                     </p>
                                 </div>
                             </div>
                             <InputError :message="errors.format" />
                         </div>
                         <div class="grid gap-2">
-                            <Label>People</Label>
+                            <Label>{{ t('stage3.people') }}</Label>
                             <template v-if="can_select_people">
                                 <RadioGroup
                                     :model-value="peopleMode"
@@ -337,11 +337,11 @@ defineOptions({
                                         v-for="opt in [
                                             {
                                                 value: 'all',
-                                                text: 'All contributors',
+                                                text: 'fix.report_all_contributors',
                                             },
                                             {
                                                 value: 'selected',
-                                                text: 'Selected people',
+                                                text: 'fix.report_selected_people',
                                             },
                                         ]"
                                         :key="opt.value"
@@ -354,7 +354,7 @@ defineOptions({
                                         <Label
                                             :for="`report-people-${opt.value}`"
                                             class="cursor-pointer font-normal"
-                                            >{{ opt.text }}</Label
+                                            >{{ t(opt.text) }}</Label
                                         >
                                     </div>
                                 </RadioGroup>
@@ -400,35 +400,34 @@ defineOptions({
                                     v-if="peopleMode === 'selected'"
                                     class="text-xs text-muted-foreground"
                                 >
-                                    Only the selected people will be included.
+                                    {{ t('audit.only_the_selected_people_will_be_included') }}
                                 </p>
                             </template>
                             <p v-else class="text-sm text-muted-foreground">
-                                Only your own work. Team reports require project
-                                management permissions.
+                                {{ t('audit.only_your_own_work_team_reports_require_project_management_permissions') }}
                             </p>
                             <InputError :message="errors.contributor_ids" />
                         </div>
                         <div class="grid gap-2">
                             <Label for="report-title"
-                                >Title
+                                >{{ t('audit.title') }}
                                 <span class="font-normal text-muted-foreground"
-                                    >(optional)</span
+                                    >{{ t('stage3.optional') }}</span
                                 ></Label
                             >
                             <Input
                                 id="report-title"
                                 name="title"
                                 maxlength="160"
-                                placeholder="e.g. Weekly project summary"
+                                :placeholder="t('audit.e_g_weekly_project_summary')"
                             />
                             <p class="text-xs text-muted-foreground">
-                                Leave blank to use the selected dates.
+                                {{ t('audit.leave_blank_to_use_the_selected_dates') }}
                             </p>
                             <InputError :message="errors.title" />
                         </div>
                         <div class="grid gap-2">
-                            <Label>From</Label>
+                            <Label>{{ t('stage3.from') }}</Label>
                             <input
                                 type="hidden"
                                 name="period_start"
@@ -455,7 +454,7 @@ defineOptions({
                             <InputError :message="errors.period_start" />
                         </div>
                         <div class="grid gap-2">
-                            <Label>To</Label>
+                            <Label>{{ t('stage3.to') }}</Label>
                             <input
                                 type="hidden"
                                 name="period_end"
@@ -484,11 +483,11 @@ defineOptions({
                                 v-if="!validPeriod"
                                 class="text-xs text-destructive"
                             >
-                                The end date must not precede the start date.
+                                {{ t('audit.the_end_date_must_not_precede_the_start_date') }}
                             </p>
                         </div>
                         <div class="grid gap-2">
-                            <Label>Include sources</Label>
+                            <Label>{{ t('stage3.include_sources') }}</Label>
                             <input
                                 v-for="source in selected"
                                 :key="`selected-source-${source}`"
@@ -523,12 +522,10 @@ defineOptions({
                                     :for="`report-source-${source.value}`"
                                     class="min-w-0 cursor-pointer leading-normal"
                                 >
-                                    <span class="block text-sm font-medium">{{
-                                        source.title
-                                    }}</span>
+                                    <span class="block text-sm font-medium">{{ t(source.title) }}</span>
                                     <span
                                         class="block text-xs font-normal text-muted-foreground"
-                                        >{{ source.description }}</span
+                                        >{{ t(source.description) }}</span
                                     >
                                 </Label>
                             </div>
@@ -536,7 +533,7 @@ defineOptions({
                                 v-if="format === 'work_report'"
                                 class="text-xs text-muted-foreground"
                             >
-                                Worklogs are required for the work register.
+                                {{ t('audit.worklogs_are_required_for_the_work_register') }}
                             </p>
                             <InputError :message="errors.sources" />
                             <InputError :message="errors['sources.0']" />
@@ -557,7 +554,7 @@ defineOptions({
                                 v-if="processing"
                                 class="size-4 animate-spin"
                             /><Plus v-else class="size-4" />
-                            {{ processing ? 'Creating…' : 'Create report' }}
+                            {{ processing ? t('audit.creating') : t('audit.create_report') }}
                         </Button>
                     </Form>
                 </CardContent>

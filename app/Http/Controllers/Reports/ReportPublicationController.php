@@ -39,7 +39,7 @@ final class ReportPublicationController extends Controller
             abort_if($project->fresh()->archived_at !== null, 403);
             if ($publish) {
                 if ($locked->generated_at === null || blank($locked->body)) {
-                    throw ValidationException::withMessages(['publication' => 'Generate a report before publishing.']);
+                    throw ValidationException::withMessages(['publication' => __('Generate a report before publishing.')]);
                 }
                 if ($locked->published_at === null) {
                     $locked->forceFill(['published_at' => now(), 'published_by' => $request->user()->id])->save();

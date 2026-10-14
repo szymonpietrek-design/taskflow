@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n';
 import { Form } from '@inertiajs/vue3';
 import { Eye, EyeOff, LockKeyhole, RefreshCw } from '@lucide/vue';
 import { nextTick, onMounted, ref, useTemplateRef } from 'vue';
@@ -36,17 +37,17 @@ onMounted(async () => {
         await fetchRecoveryCodes();
     }
 });
+const { t } = useI18n();
 </script>
 
 <template>
     <Card class="w-full">
         <CardHeader>
             <CardTitle class="flex gap-3">
-                <LockKeyhole class="size-4" />2FA recovery codes
+                <LockKeyhole class="size-4" />{{ t('audit.2fa_recovery_codes') }}
             </CardTitle>
             <CardDescription>
-                Recovery codes let you regain access if you lose your 2FA
-                device. Store them in a secure password manager.
+                {{ t('audit.recovery_codes_let_you_regain_access_if_you_lose_your_2fa_device_store_them_in_a_secure_pa') }}
             </CardDescription>
         </CardHeader>
         <CardContent>
@@ -58,8 +59,7 @@ onMounted(async () => {
                         :is="isRecoveryCodesVisible ? EyeOff : Eye"
                         class="size-4"
                     />
-                    {{ isRecoveryCodesVisible ? 'Hide' : 'View' }} recovery
-                    codes
+                    {{ t(isRecoveryCodesVisible ? 'fix.hide_recovery_codes' : 'fix.show_recovery_codes') }}
                 </Button>
 
                 <Form
@@ -75,7 +75,7 @@ onMounted(async () => {
                         type="submit"
                         :disabled="processing"
                     >
-                        <RefreshCw /> Regenerate codes
+                        <RefreshCw /> {{ t('audit.regenerate_codes') }}
                     </Button>
                 </Form>
             </div>
@@ -111,10 +111,8 @@ onMounted(async () => {
                         </div>
                     </div>
                     <p class="text-xs text-muted-foreground select-none">
-                        Each recovery code can be used once to access your
-                        account and will be removed after use. If you need more,
-                        click
-                        <span class="font-bold">Regenerate codes</span> above.
+                        {{ t('audit.each_recovery_code_can_be_used_once_to_access_your_account_and_will_be_removed_after_use_i') }}
+                        <span class="font-bold">{{ t('audit.regenerate_codes') }}</span> {{ t('audit.above') }}
                     </p>
                 </div>
             </div>

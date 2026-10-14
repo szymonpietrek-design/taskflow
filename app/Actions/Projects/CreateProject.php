@@ -35,11 +35,11 @@ final class CreateProject
         $description = $description !== null ? trim($description) : null;
 
         if ($name === '') {
-            throw new InvalidArgumentException('Project name cannot be empty.');
+            throw new InvalidArgumentException(__('Project name cannot be empty.'));
         }
 
         if (! preg_match('/^[A-Z][A-Z0-9]{0,11}$/', $key)) {
-            throw new InvalidArgumentException('Project key must contain 1 to 12 uppercase letters or numbers and start with a letter.');
+            throw new InvalidArgumentException(__('Project key must contain 1 to 12 uppercase letters or numbers and start with a letter.'));
         }
 
         $membership = $creator->workspaceMemberships()
@@ -52,7 +52,7 @@ final class CreateProject
         }
 
         if ($workspace->projects()->where('key', $key)->exists()) {
-            throw new InvalidArgumentException('Project key must be unique within the workspace.');
+            throw new InvalidArgumentException(__('Project key must be unique within the workspace.'));
         }
 
         return DB::transaction(function () use (

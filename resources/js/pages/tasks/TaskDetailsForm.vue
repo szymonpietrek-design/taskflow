@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n';
 import { Form } from '@inertiajs/vue3';
 import type { DateValue } from '@internationalized/date';
 import {
@@ -56,9 +57,9 @@ const editDueDate = shallowRef<DateValue | undefined>(
         ? parseDate(props.task.due_date.slice(0, 10))
         : undefined,
 );
-const dateFormatter = new DateFormatter('en-US', { dateStyle: 'medium' });
+const dateFormatter = computed(() => new DateFormatter(locale.value === 'pl' ? 'pl-PL' : 'en-US', { dateStyle: 'medium' }));
 const notifyError = () =>
-    toast.error('Could not update the task. Check the form and try again.');
+    toast.error(t('fix.could_not_update_task'));
 const stayOnTask = { preserveScroll: true, preserveState: true };
 
 const priorities = [
@@ -67,15 +68,15 @@ const priorities = [
     { value: 3, label: 'High' },
     { value: 4, label: 'Urgent' },
 ];
+const { t, locale, formatText, translateLiteral, displayLabel } = useI18n();
 </script>
 
 <template>
     <Card>
         <CardHeader>
-            <CardTitle>Edit task</CardTitle>
+            <CardTitle>{{ t('stage2.edit_task') }}</CardTitle>
             <CardDescription
-                >Update the task details. Only changed fields are recorded in
-                the activity history.</CardDescription
+                >{{ t('audit.update_the_task_details_only_changed_fields_are_recorded_in_the_activity_history') }}</CardDescription
             >
         </CardHeader>
         <CardContent>
@@ -89,7 +90,7 @@ const priorities = [
                 v-slot="{ errors, processing }"
             >
                 <div class="space-y-2">
-                    <Label for="task-edit-title">Title</Label>
+                    <Label for="task-edit-title">{{ t('stage2.title') }}</Label>
                     <Input
                         id="task-edit-title"
                         name="title"
@@ -103,9 +104,9 @@ const priorities = [
                 </div>
                 <div class="space-y-2">
                     <Label for="task-edit-description"
-                        >Description
+                        >{{ t('stage2.description') }}
                         <span class="font-normal text-muted-foreground"
-                            >(optional)</span
+                            >{{ t('stage2.optional') }}</span
                         ></Label
                     >
                     <textarea
@@ -121,7 +122,7 @@ const priorities = [
                 </div>
                 <div class="grid gap-4 sm:grid-cols-2">
                     <div class="space-y-2">
-                        <Label for="task-edit-priority">Priority</Label>
+                        <Label for="task-edit-priority">{{ t('stage2.priority') }}</Label>
                         <input
                             type="hidden"
                             name="priority"
@@ -131,14 +132,14 @@ const priorities = [
                             <SelectTrigger
                                 id="task-edit-priority"
                                 class="w-full"
-                                ><SelectValue placeholder="Select priority"
+                                ><SelectValue :placeholder="t('stage2.select_priority')"
                             /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem
                                     v-for="priority in priorities"
                                     :key="priority.value"
                                     :value="String(priority.value)"
-                                    >{{ priority.label }}</SelectItem
+                                    >{{ displayLabel(priority.label) }}</SelectItem
                                 >
                             </SelectContent>
                         </Select>
@@ -146,9 +147,9 @@ const priorities = [
                     </div>
                     <div class="space-y-2">
                         <Label for="task-edit-assignee"
-                            >Assigned to
+                            >{{ t('stage2.assigned_to') }}
                             <span class="font-normal text-muted-foreground"
-                                >(optional)</span
+                                >{{ t('stage2.optional') }}</span
                             ></Label
                         >
                         <input
@@ -164,11 +165,11 @@ const priorities = [
                             <SelectTrigger
                                 id="task-edit-assignee"
                                 class="w-full"
-                                ><SelectValue placeholder="Select assignee"
+                                ><SelectValue :placeholder="t('stage2.select_assignee')"
                             /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="unassigned"
-                                    >Unassigned</SelectItem
+                                    >{{ t('stage2.unassigned') }}</SelectItem
                                 >
                                 <SelectItem
                                     v-if="
@@ -180,7 +181,7 @@ const priorities = [
                                     "
                                     :value="String(task.assignee.id)"
                                 >
-                                    {{ task.assignee.name }} (current)
+                                    {{ task.assignee.name }} {{ t('stage2.current') }}
                                 </SelectItem>
                                 <SelectItem
                                     v-for="user in assignees"
@@ -195,9 +196,9 @@ const priorities = [
                 </div>
                 <div class="space-y-2">
                     <Label for="task-edit-date"
-                        >Due date
+                        >{{ t('stage2.due_date') }}
                         <span class="font-normal text-muted-foreground"
-                            >(optional)</span
+                            >{{ t('stage2.optional') }}</span
                         ></Label
                     >
                     <input
@@ -222,7 +223,7 @@ const priorities = [
                                                   getLocalTimeZone(),
                                               ),
                                           )
-                                        : 'Select a date'
+                                        : t('audit.no_date')
                                 }}</span>
                                 <CalendarDays
                                     class="size-4 shrink-0 opacity-70"
@@ -250,7 +251,7 @@ const priorities = [
                                         editDueDate = undefined;
                                         close();
                                     "
-                                    >Clear date</Button
+                                    >{{ t('stage2.clear_date') }}</Button
                                 >
                             </div>
                         </PopoverContent>
@@ -262,14 +263,14 @@ const priorities = [
                         ><LoaderCircle
                             v-if="processing"
                             class="size-4 animate-spin"
-                        />{{ processing ? 'Saving…' : 'Save changes' }}</Button
+                        />{{ processing ? t('audit.saving') : t('audit.save_changes') }}</Button
                     >
                     <Button
                         type="button"
                         variant="outline"
                         :disabled="processing"
                         @click="emit('cancel')"
-                        >Cancel</Button
+                        >{{ t('stage2.cancel') }}</Button
                     >
                 </div>
             </Form>

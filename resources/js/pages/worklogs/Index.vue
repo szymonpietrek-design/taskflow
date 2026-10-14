@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import { getLocalTimeZone, parseDate, today } from '@internationalized/date';
 import {
@@ -124,7 +125,7 @@ function duration(minutes: number): string {
     );
 }
 function formatDay(date: string, options: Intl.DateTimeFormatOptions): string {
-    return new Intl.DateTimeFormat('en-US', {
+    return new Intl.DateTimeFormat(locale.value === 'pl' ? 'pl-PL' : 'en-US', {
         ...options,
         timeZone: 'UTC',
     }).format(new Date(`${date}T12:00:00Z`));
@@ -214,7 +215,7 @@ function saveEntry(): void {
         },
         onError: () =>
             toast.error(
-                'Could not save worklog. Check the form and try again.',
+                t('audit.could_not_save_worklog_check_the_form_and_try_again'),
             ),
     };
     if (editingEntry.value) {
@@ -235,7 +236,7 @@ function removeEntry(): void {
         onSuccess: () => {
             deletingEntry.value = null;
         },
-        onError: () => toast.error('Could not delete worklog entry.'),
+        onError: () => toast.error(t('audit.could_not_delete_worklog_entry')),
     });
 }
 
@@ -268,7 +269,7 @@ watch(
                 if (!abort.signal.aborted) taskOptions.value = data.tasks;
             } catch {
                 if (!abort.signal.aborted)
-                    taskError.value = 'Could not load tasks. Try again.';
+                    taskError.value = t('audit.could_not_load_tasks_try_again');
             } finally {
                 if (!abort.signal.aborted) taskLoading.value = false;
             }
@@ -284,38 +285,39 @@ watch(
 defineOptions({
     layout: { breadcrumbs: [{ title: 'My Worklog', href: '/worklogs' }] },
 });
+const { t, locale, formatText, countLabel } = useI18n();
 </script>
 
 <template>
-    <Head title="My Worklog" />
+    <Head :title="t('stage2.my_worklog')" />
     <div
         class="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-5 p-4 md:p-6 lg:p-8"
     >
         <header class="flex flex-wrap items-start justify-between gap-4">
             <div>
                 <h1 class="text-2xl font-semibold tracking-tight">
-                    My Worklog
+                    {{ t('stage2.my_worklog') }}
                 </h1>
                 <p class="mt-1 text-sm text-muted-foreground">
-                    Track daily work across all your projects and workspaces.
+                    {{ t('stage2.track_daily_work_across_all_your_projects_and_workspaces') }}
                 </p>
             </div>
             <Button
                 v-if="worklog_projects.length"
                 type="button"
                 @click="addEntry"
-                ><Plus class="size-4" /> Add worklog</Button
+                ><Plus class="size-4" /> {{ t('stage2.add_worklog') }}</Button
             >
         </header>
 
-        <section class="space-y-3" aria-label="Choose work date">
+        <section class="space-y-3" :aria-label="t('stage2.choose_work_date')">
             <div class="flex flex-wrap items-center justify-between gap-3">
                 <div class="flex items-center gap-2">
                     <Button
                         variant="outline"
                         size="icon"
                         as-child
-                        aria-label="Previous day"
+                        :aria-label="t('stage2.previous_day')"
                         ><Link :href="dayUrl(dayBefore)"
                             ><ChevronLeft class="size-4" /></Link
                     ></Button>
@@ -328,7 +330,7 @@ defineOptions({
                         variant="outline"
                         size="icon"
                         as-child
-                        aria-label="Next day"
+                        :aria-label="t('stage2.next_day')"
                         ><Link :href="dayUrl(dayAfter)"
                             ><ChevronRight class="size-4" /></Link
                     ></Button>
@@ -337,7 +339,7 @@ defineOptions({
                         variant="outline"
                         size="icon"
                         disabled
-                        aria-label="Next day"
+                        :aria-label="t('stage2.next_day')"
                         ><ChevronRight class="size-4"
                     /></Button>
                 </div>
@@ -346,12 +348,12 @@ defineOptions({
                         <WorklogDatePicker
                             :model-value="date"
                             :max-date="localToday"
-                            aria-label="Choose day"
+                            :aria-label="t('stage2.choose_day')"
                             @update:model-value="changeDate"
                         />
                     </div>
                     <Button variant="outline" size="sm" as-child
-                        ><Link :href="dayUrl(localToday)">Today</Link></Button
+                        ><Link :href="dayUrl(localToday)">{{ t('stage2.today') }}</Link></Button
                     >
                 </div>
             </div>
@@ -366,7 +368,7 @@ defineOptions({
                             variant="ghost"
                             class="size-7"
                             as-child
-                            aria-label="Previous week"
+                            :aria-label="t('stage2.previous_week')"
                             ><Link :href="dayUrl(previousWeek)"
                                 ><ChevronLeft class="size-4" /></Link
                         ></Button>
@@ -376,7 +378,7 @@ defineOptions({
                             variant="ghost"
                             class="size-7"
                             as-child
-                            aria-label="Next week"
+                            :aria-label="t('stage2.next_week')"
                             ><Link :href="dayUrl(nextWeek)"
                                 ><ChevronRight class="size-4" /></Link
                         ></Button>
@@ -386,7 +388,7 @@ defineOptions({
                             variant="ghost"
                             class="size-7"
                             disabled
-                            aria-label="Next week"
+                            :aria-label="t('stage2.next_week')"
                             ><ChevronRight class="size-4"
                         /></Button>
                     </div>
@@ -444,13 +446,10 @@ defineOptions({
                     <div class="flex items-start justify-between gap-3">
                         <div class="space-y-1">
                             <CardTitle class="flex items-center gap-2"
-                                ><CalendarDays class="size-4" /> Time
-                                entries</CardTitle
+                                ><CalendarDays class="size-4" /> {{ t('audit.time_entries') }}</CardTitle
                             >
                             <CardDescription
-                                >{{ entries.total }}
-                                {{ entries.total === 1 ? 'entry' : 'entries' }}
-                                for {{ dayLabel }}</CardDescription
+                                >{{ formatText('fix.worklog_for_day', { date: dayLabel, count: countLabel('entry', entries.total) }) }}</CardDescription
                             >
                         </div>
                         <Button
@@ -459,7 +458,7 @@ defineOptions({
                             size="sm"
                             class="shrink-0"
                             @click="addEntry"
-                            ><Plus class="size-4" /> Log time</Button
+                            ><Plus class="size-4" /> {{ t('stage2.log_time') }}</Button
                         >
                     </div>
                 </CardHeader>
@@ -495,7 +494,7 @@ defineOptions({
                                     v-if="entry.is_creative"
                                     variant="secondary"
                                     class="text-xs"
-                                    >Creative work</Badge
+                                    >{{ t('stage2.creative_work') }}</Badge
                                 >
                                 <div
                                     v-if="entry.can_manage"
@@ -507,7 +506,7 @@ defineOptions({
                                         class="h-7 px-2 text-xs text-muted-foreground"
                                         @click="editEntry(entry)"
                                         ><Pencil class="size-3.5" />
-                                        Edit</Button
+                                        {{ t('stage2.edit') }}</Button
                                     >
                                     <Button
                                         variant="ghost"
@@ -515,7 +514,7 @@ defineOptions({
                                         class="h-7 px-2 text-xs text-muted-foreground hover:text-destructive"
                                         @click="deletingEntry = entry"
                                         ><Trash2 class="size-3.5" />
-                                        Delete</Button
+                                        {{ t('stage2.delete') }}</Button
                                     >
                                 </div>
                             </div>
@@ -535,11 +534,10 @@ defineOptions({
                     >
                         <Clock3 class="size-9 text-muted-foreground" />
                         <p class="font-medium">
-                            No visible time entries for this day
+                            {{ t('stage2.no_visible_time_entries_for_this_day') }}
                         </p>
                         <p class="max-w-sm text-sm text-muted-foreground">
-                            Your work across accessible projects will appear
-                            here.
+                            {{ t('stage2.your_work_across_accessible_projects_will_appear_here') }}
                         </p>
                         <Button
                             v-if="worklog_projects.length"
@@ -547,7 +545,7 @@ defineOptions({
                             size="sm"
                             class="mt-2"
                             @click="addEntry"
-                            ><Plus class="size-4" /> Add first entry</Button
+                            ><Plus class="size-4" /> {{ t('stage2.add_first_entry') }}</Button
                         >
                         <Button
                             v-else
@@ -556,7 +554,7 @@ defineOptions({
                             as-child
                             class="mt-2"
                             ><Link href="/projects"
-                                >Browse projects</Link
+                                >{{ t('stage2.browse_projects') }}</Link
                             ></Button
                         >
                     </div>
@@ -570,15 +568,14 @@ defineOptions({
                             variant="outline"
                             as-child
                             ><Link :href="entries.previous_page_url"
-                                >Previous</Link
+                                >{{ t('stage2.previous') }}</Link
                             ></Button
                         >
                         <Button v-else size="sm" variant="outline" disabled
-                            >Previous</Button
+                            >{{ t('stage2.previous') }}</Button
                         >
                         <span class="text-xs text-muted-foreground"
-                            >Page {{ entries.current_page }} of
-                            {{ entries.last_page }}</span
+                            >{{ formatText('fix.page_of', { page: entries.current_page, pages: entries.last_page }) }}</span
                         >
                         <Button
                             v-if="entries.next_page_url"
@@ -586,11 +583,11 @@ defineOptions({
                             variant="outline"
                             as-child
                             ><Link :href="entries.next_page_url"
-                                >Next</Link
+                                >{{ t('stage2.next') }}</Link
                             ></Button
                         >
                         <Button v-else size="sm" variant="outline" disabled
-                            >Next</Button
+                            >{{ t('stage2.next') }}</Button
                         >
                     </div>
                 </CardContent>
@@ -599,16 +596,15 @@ defineOptions({
             <Card class="lg:sticky lg:top-6">
                 <CardHeader>
                     <CardTitle class="flex items-center gap-2"
-                        ><Clock3 class="size-4" /> Daily summary</CardTitle
+                        ><Clock3 class="size-4" /> {{ t('stage2.daily_summary') }}</CardTitle
                     >
                     <CardDescription
-                        >All your work counts toward the daily limit, across
-                        projects.</CardDescription
+                        >{{ t('audit.all_your_work_counts_toward_the_daily_limit_across_projects') }}</CardDescription
                     >
                 </CardHeader>
                 <CardContent class="space-y-4">
                     <div>
-                        <p class="text-xs text-muted-foreground">Logged time</p>
+                        <p class="text-xs text-muted-foreground">{{ t('stage2.logged_time') }}</p>
                         <p class="mt-1 text-3xl font-semibold tabular-nums">
                             {{ duration(total_minutes) }}
                             <span
@@ -625,7 +621,7 @@ defineOptions({
                         "
                         :aria-valuemax="daily_limit_minutes"
                         aria-valuemin="0"
-                        aria-label="Daily logged minutes"
+                        :aria-label="t('stage2.daily_logged_minutes')"
                     >
                         <div
                             class="h-full rounded-full bg-primary transition-all"
@@ -633,20 +629,20 @@ defineOptions({
                         />
                     </div>
                     <div class="flex justify-between border-t pt-4 text-sm">
-                        <span class="text-muted-foreground">Remaining</span
+                        <span class="text-muted-foreground">{{ t('stage2.remaining') }}</span
                         ><span class="font-semibold tabular-nums">{{
                             duration(remaining)
                         }}</span>
                     </div>
                     <div class="flex justify-between text-sm">
-                        <span class="text-muted-foreground">Daily limit</span
+                        <span class="text-muted-foreground">{{ t('stage2.daily_limit') }}</span
                         ><span class="font-medium tabular-nums">{{
                             duration(daily_limit_minutes)
                         }}</span>
                     </div>
                     <div class="flex justify-between text-sm">
                         <span class="text-muted-foreground"
-                            >Visible entries</span
+                            >{{ t('stage2.visible_entries') }}</span
                         ><span class="font-medium tabular-nums">{{
                             entries.total
                         }}</span>
@@ -655,18 +651,14 @@ defineOptions({
                         v-if="hiddenMinutes"
                         class="flex gap-2 border-t pt-3 text-xs leading-relaxed text-muted-foreground"
                     >
-                        <LockKeyhole class="mt-0.5 size-3.5 shrink-0" />{{
-                            duration(hiddenMinutes)
-                        }}
-                        from projects you can no longer access is included in
-                        this total; details are hidden.
+                        <LockKeyhole class="mt-0.5 size-3.5 shrink-0" />
+                        {{ formatText('fix.worklog_inaccessible', { duration: duration(hiddenMinutes) }) }}
                     </p>
                     <p
                         v-if="total_minutes > daily_limit_minutes"
                         class="text-xs text-destructive"
                     >
-                        Historical entries exceed the current daily limit. New
-                        entries cannot increase the total.
+                        {{ t('stage2.historical_entries_exceed_the_current_daily_limit_new_entries_cannot_increa') }}
                     </p>
                 </CardContent>
             </Card>
@@ -687,23 +679,21 @@ defineOptions({
         >
             <DialogHeader>
                 <DialogTitle>{{
-                    editing ? 'Edit worklog' : 'Add worklog'
+                    editing ? t('audit.edit_worklog') : t('audit.add_worklog')
                 }}</DialogTitle>
                 <DialogDescription
-                    >Record time for a task. The daily limit is
-                    {{ duration(daily_limit_minutes) }} across all
-                    projects.</DialogDescription
+                    >{{ formatText('fix.worklog_record_limit', { duration: duration(daily_limit_minutes) }) }}</DialogDescription
                 >
             </DialogHeader>
             <form class="space-y-4" @submit.prevent="saveEntry">
                 <template v-if="!editing">
                     <div class="grid gap-1.5">
-                        <Label for="global-worklog-project">Project</Label>
+                        <Label for="global-worklog-project">{{ t('stage2.project') }}</Label>
                         <Select v-model="projectId" :disabled="form.processing">
                             <SelectTrigger
                                 id="global-worklog-project"
                                 class="w-full"
-                                ><SelectValue placeholder="Choose a project"
+                                ><SelectValue :placeholder="t('stage2.choose_a_project')"
                             /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem
@@ -717,7 +707,7 @@ defineOptions({
                         </Select>
                     </div>
                     <div class="grid gap-1.5">
-                        <Label for="global-worklog-search">Task</Label>
+                        <Label for="global-worklog-search">{{ t('stage2.task') }}</Label>
                         <div class="relative">
                             <Search
                                 class="absolute top-2.5 left-3 size-4 text-muted-foreground"
@@ -727,7 +717,7 @@ defineOptions({
                                 v-model="taskSearch"
                                 class="pl-9"
                                 maxlength="100"
-                                placeholder="Search by task title or number"
+                                :placeholder="t('stage2.search_by_task_title_or_number')"
                                 :disabled="!projectId || form.processing"
                             />
                         </div>
@@ -743,8 +733,8 @@ defineOptions({
                                 ><SelectValue
                                     :placeholder="
                                         taskLoading
-                                            ? 'Loading tasks…'
-                                            : 'Choose a task'
+                                            ? t('fix.load_tasks')
+                                            : t('fix.choose_task')
                                     "
                             /></SelectTrigger>
                             <SelectContent>
@@ -763,17 +753,17 @@ defineOptions({
                             v-else-if="!taskLoading && !taskOptions.length"
                             class="text-xs text-muted-foreground"
                         >
-                            No matching tasks. Try another search.
+                            {{ t('stage2.no_matching_tasks_try_another_search') }}
                         </p>
                         <p v-else class="text-xs text-muted-foreground">
-                            Showing up to 40 tasks. Search to find older tasks.
+                            {{ t('stage2.showing_up_to_40_tasks_search_to_find_older_tasks') }}
                         </p>
                         <InputError :message="form.errors.task_id" />
                     </div>
                 </template>
                 <div v-else class="rounded-md bg-muted/50 px-3 py-2 text-sm">
                     <span class="block text-xs text-muted-foreground"
-                        >Task</span
+                        >{{ t('stage2.task') }}</span
                     >
                     <span class="font-medium"
                         >{{ editingEntry?.task.reference }} ·
@@ -782,7 +772,7 @@ defineOptions({
                 </div>
                 <div class="grid gap-3 sm:grid-cols-[minmax(0,1fr)_6rem_6rem]">
                     <div class="grid gap-1.5">
-                        <Label for="global-worklog-date">Work date</Label>
+                        <Label for="global-worklog-date">{{ t('stage2.work_date') }}</Label>
                         <WorklogDatePicker
                             id="global-worklog-date"
                             v-model="form.work_date"
@@ -793,7 +783,7 @@ defineOptions({
                         <InputError :message="form.errors.work_date" />
                     </div>
                     <div class="grid gap-1.5">
-                        <Label for="global-worklog-hours">Hours</Label>
+                        <Label for="global-worklog-hours">{{ t('stage2.hours') }}</Label>
                         <Input
                             id="global-worklog-hours"
                             :model-value="form.hours"
@@ -810,7 +800,7 @@ defineOptions({
                         <InputError :message="form.errors.hours" />
                     </div>
                     <div class="grid gap-1.5">
-                        <Label for="global-worklog-minutes">Minutes</Label>
+                        <Label for="global-worklog-minutes">{{ t('stage2.minutes') }}</Label>
                         <Input
                             id="global-worklog-minutes"
                             :model-value="form.minutes"
@@ -829,9 +819,9 @@ defineOptions({
                 </div>
                 <div class="grid gap-1.5">
                     <Label for="global-worklog-description"
-                        >Work performed / outcome
+                        >{{ t('stage2.work_performed_outcome') }}
                         <span class="font-normal text-muted-foreground"
-                            >(optional)</span
+                            >{{ t('stage2.optional') }}</span
                         ></Label
                     >
                     <Textarea
@@ -840,7 +830,7 @@ defineOptions({
                         maxlength="4000"
                         rows="3"
                         :disabled="form.processing"
-                        placeholder="Describe what you completed during this time"
+                        :placeholder="t('stage2.describe_what_you_completed_during_this_time')"
                     />
                     <InputError :message="form.errors.description" />
                 </div>
@@ -854,9 +844,9 @@ defineOptions({
                         "
                     />
                     <Label for="global-worklog-creative" class="cursor-pointer"
-                        >Creative work
+                        >{{ t('stage2.creative_work') }}
                         <span class="font-normal text-muted-foreground"
-                            >(optional)</span
+                            >{{ t('stage2.optional') }}</span
                         ></Label
                     >
                 </div>
@@ -867,7 +857,7 @@ defineOptions({
                         variant="outline"
                         :disabled="form.processing"
                         @click="closeEditor"
-                        >Cancel</Button
+                        >{{ t('stage2.cancel') }}</Button
                     >
                     <Button
                         type="submit"
@@ -881,7 +871,7 @@ defineOptions({
                             v-if="form.processing"
                             class="size-4 animate-spin"
                         />
-                        {{ form.processing ? 'Saving…' : 'Save worklog' }}
+                        {{ form.processing ? t('audit.saving') : t('audit.save_worklog') }}
                     </Button>
                 </DialogFooter>
             </form>
@@ -898,12 +888,9 @@ defineOptions({
     >
         <DialogContent :show-close-button="!deleteForm.processing">
             <DialogHeader>
-                <DialogTitle>Delete worklog entry?</DialogTitle>
+                <DialogTitle>{{ t('stage2.delete_worklog_entry') }}</DialogTitle>
                 <DialogDescription
-                    >This removes
-                    {{ duration(deletingEntry?.duration_minutes ?? 0) }} logged
-                    on {{ deletingEntry?.task.reference }}. This action cannot
-                    be undone.</DialogDescription
+                    >{{ formatText('fix.worklog_remove', { duration: duration(deletingEntry?.duration_minutes ?? 0), reference: deletingEntry?.task.reference ?? '' }) }}</DialogDescription
                 >
             </DialogHeader>
             <DialogFooter>
@@ -911,7 +898,7 @@ defineOptions({
                     variant="outline"
                     :disabled="deleteForm.processing"
                     @click="deletingEntry = null"
-                    >Cancel</Button
+                    >{{ t('stage2.cancel') }}</Button
                 >
                 <Button
                     variant="destructive"
@@ -921,7 +908,7 @@ defineOptions({
                         v-if="deleteForm.processing"
                         class="size-4 animate-spin"
                     />
-                    Delete entry</Button
+                    {{ t('stage2.delete_entry') }}</Button
                 >
             </DialogFooter>
         </DialogContent>

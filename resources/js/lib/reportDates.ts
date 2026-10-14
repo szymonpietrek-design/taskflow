@@ -1,13 +1,13 @@
-const shortMonth = new Intl.DateTimeFormat('en-US', {
+const shortMonth = (locale: string) => new Intl.DateTimeFormat(locale, {
     month: 'short',
     timeZone: 'UTC',
 });
-const monthDay = new Intl.DateTimeFormat('en-US', {
+const monthDay = (locale: string) => new Intl.DateTimeFormat(locale, {
     month: 'short',
     day: 'numeric',
     timeZone: 'UTC',
 });
-const fullDate = new Intl.DateTimeFormat('en-US', {
+const fullDate = (locale: string) => new Intl.DateTimeFormat(locale, {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
@@ -19,25 +19,29 @@ function calendarDate(value: string): Date {
     return new Date(`${value}T12:00:00Z`);
 }
 
-export function formatReportPeriod(start: string, end: string): string {
-    if (start === end) return fullDate.format(calendarDate(start));
+export function formatReportPeriod(start: string, end: string, language: string = 'en'): string {
+    const locale = language === 'pl' ? 'pl-PL' : 'en-US';
+    if (start === end) return fullDate(locale).format(calendarDate(start));
 
     const startDate = calendarDate(start);
     const endDate = calendarDate(end);
     const startYear = startDate.getUTCFullYear();
     const endYear = endDate.getUTCFullYear();
 
+    if (language === 'pl') {
+        return `${fullDate(locale).format(startDate)} – ${fullDate(locale).format(endDate)}`;
+    }
     if (startYear !== endYear) {
-        return `${fullDate.format(startDate)} – ${fullDate.format(endDate)}`;
+        return `${fullDate(locale).format(startDate)} – ${fullDate(locale).format(endDate)}`;
     }
     if (startDate.getUTCMonth() !== endDate.getUTCMonth()) {
-        return `${monthDay.format(startDate)} – ${fullDate.format(endDate)}`;
+        return `${monthDay(locale).format(startDate)} – ${fullDate(locale).format(endDate)}`;
     }
-    return `${shortMonth.format(startDate)} ${startDate.getUTCDate()}–${endDate.getUTCDate()}, ${endYear}`;
+    return `${shortMonth(locale).format(startDate)} ${startDate.getUTCDate()}–${endDate.getUTCDate()}, ${endYear}`;
 }
 
-export function formatReportTimestamp(isoDate: string): string {
-    return new Intl.DateTimeFormat('en-US', {
+export function formatReportTimestamp(isoDate: string, language: string = 'en'): string {
+    return new Intl.DateTimeFormat(language === 'pl' ? 'pl-PL' : 'en-US', {
         dateStyle: 'medium',
         timeStyle: 'short',
     }).format(new Date(isoDate));

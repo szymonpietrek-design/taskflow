@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 import { toast } from 'vue-sonner';
@@ -188,7 +189,7 @@ function saveContent() {
             isEditing.value = false;
         },
         onError: (errors) =>
-            toast.error(errors.content || 'Could not save report.'),
+            toast.error(errors.content || t('audit.could_not_save_report')),
     });
 }
 const publicationForm = useForm({});
@@ -197,7 +198,7 @@ function changePublication(publish: boolean) {
     if (
         !publish &&
         !window.confirm(
-            'Move this report back to draft? It can then be edited or regenerated.',
+            t('audit.move_this_report_back_to_draft_it_can_then_be_edited_or_regenerated'),
         )
     )
         return;
@@ -207,7 +208,7 @@ function changePublication(publish: boolean) {
             preserveScroll: true,
             onError: (errors) =>
                 toast.error(
-                    errors.publication || 'Could not update report status.',
+                    errors.publication || t('audit.could_not_update_report_status'),
                 ),
         },
     );
@@ -220,34 +221,34 @@ function enableSharing() {
     if (sharingForm.processing || !props.report.published_at) return;
     if (
         !window.confirm(
-            'Anyone with this link will be able to read the published report. Enable sharing?',
+            t('audit.anyone_with_this_link_will_be_able_to_read_the_published_report_enable_sharing'),
         )
     )
         return;
     sharingForm.post(`${baseUrl}/${props.report.id}/share`, {
         preserveScroll: true,
         onError: (errors) =>
-            toast.error(errors.sharing || 'Could not enable sharing.'),
+            toast.error(errors.sharing || t('audit.could_not_enable_sharing')),
     });
 }
 function revokeSharing() {
     if (
         sharingForm.processing ||
-        !window.confirm('Revoke this link? Anyone using it will lose access.')
+        !window.confirm(t('audit.revoke_this_link_anyone_using_it_will_lose_access'))
     )
         return;
     sharingForm.delete(`${baseUrl}/${props.report.id}/share`, {
         preserveScroll: true,
-        onError: () => toast.error('Could not revoke the link.'),
+        onError: () => toast.error(t('audit.could_not_revoke_the_link')),
     });
 }
 async function copyShareLink() {
     if (!props.share_url) return;
     try {
         await navigator.clipboard.writeText(props.share_url);
-        toast.success('Link copied.');
+        toast.success(t('audit.link_copied'));
     } catch {
-        toast.error('Copy failed. Select the link and copy it manually.');
+        toast.error(t('audit.copy_failed_select_the_link_and_copy_it_manually'));
     }
 }
 const generationError = ref<string | undefined>();
@@ -261,7 +262,7 @@ function generateReport() {
         return;
     if (
         props.report.is_generated &&
-        !window.confirm('Replace the current report with a new version?')
+        !window.confirm(t('audit.replace_the_current_report_with_a_new_version'))
     )
         return;
     generationError.value = undefined;
@@ -273,7 +274,7 @@ function generateReport() {
             toast.error(
                 generationError.value ||
                     errors.language ||
-                    'Could not generate the report.',
+                    t('audit.could_not_generate_the_report'),
             );
         },
         onSuccess: () => {
@@ -283,7 +284,7 @@ function generateReport() {
 }
 const deleteForm = useForm({});
 function removeReport() {
-    if (!window.confirm('Delete this report?')) return;
+    if (!window.confirm(t('audit.delete_this_report'))) return;
     deleteForm.delete(`${baseUrl}/${props.report.id}`, {
         preserveScroll: true,
     });
@@ -310,6 +311,7 @@ function percentage(part: number, total: number): number {
 defineOptions({
     layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }] },
 });
+const { t, locale, formatText, translateLiteral, countLabel } = useI18n();
 </script>
 
 <template>
@@ -318,41 +320,41 @@ defineOptions({
         <div class="space-y-3">
             <Button variant="ghost" size="sm" as-child class="-ml-3 w-fit">
                 <Link :href="baseUrl"
-                    ><ArrowLeft class="size-4" /> All reports</Link
+                    ><ArrowLeft class="size-4" /> {{ t('stage3.all_reports') }}</Link
                 >
             </Button>
             <div class="flex flex-wrap items-center gap-2">
                 <Badge variant="secondary">{{ project.key }}</Badge>
                 <Badge variant="outline">{{
                     report.format === 'work_report'
-                        ? 'Detailed report'
-                        : 'Summary'
+                        ? t('audit.detailed_report')
+                        : t('audit.summary')
                 }}</Badge>
                 <Badge :variant="report.published_at ? 'default' : 'outline'">{{
-                    report.published_at ? 'Published' : 'Draft'
+                    report.published_at ? t('audit.published') : t('audit.draft')
                 }}</Badge>
                 <Badge
                     v-if="report.is_generated && !report.published_at"
                     variant="secondary"
-                    >Generated</Badge
+                    >{{ t('stage3.generated') }}</Badge
                 >
             </div>
             <h1 class="text-2xl font-semibold tracking-tight">
                 {{ report.title }}
             </h1>
             <p class="text-sm text-muted-foreground">
-                {{ formatReportPeriod(report.period_start, report.period_end)
+                {{ formatReportPeriod(report.period_start, report.period_end, locale)
                 }}<template v-if="report.created_by">
-                    · Created by {{ report.created_by }}</template
+                    · {{ formatText('audit.created_by', { name: report.created_by }) }}</template
                 >
             </p>
             <p class="text-xs text-muted-foreground">
-                People:
+                {{ t('stage3.people') }}:
                 {{
                     report.contributor_names === null
-                        ? 'All contributors'
+                        ? t('audit.report_all_contributors')
                         : report.contributor_names.join(', ') ||
-                          'Former contributors'
+                          t('audit.former_contributors')
                 }}
             </p>
         </div>
@@ -360,9 +362,9 @@ defineOptions({
             <CardHeader
                 class="flex flex-row items-center justify-between gap-3"
             >
-                <CardTitle class="text-base">Sources</CardTitle>
+                <CardTitle class="text-base">{{ t('stage3.sources') }}</CardTitle>
                 <span class="text-xs text-muted-foreground"
-                    >{{ selectedSourceCount }} selected</span
+                    >{{ formatText('audit.selected_count', { count: selectedSourceCount }) }}</span
                 >
             </CardHeader>
             <CardContent>
@@ -384,7 +386,7 @@ defineOptions({
                             class="flex items-center gap-2 text-sm text-muted-foreground"
                         >
                             <component :is="source.icon" class="size-4" />
-                            {{ source.title }}
+                            {{ translateLiteral(source.title) }}
                         </div>
                         <p class="mt-3 text-2xl font-semibold tabular-nums">
                             {{ source_counts[source.key] ?? 0 }}
@@ -397,7 +399,7 @@ defineOptions({
                         <div
                             class="flex items-center gap-2 text-sm text-muted-foreground"
                         >
-                            <Clock3 class="size-4" /> Worklogs
+                            <Clock3 class="size-4" /> {{ t('audit.worklogs') }}
                         </div>
                         <p class="mt-3 text-2xl font-semibold tabular-nums">
                             {{
@@ -407,22 +409,22 @@ defineOptions({
                             }}
                         </p>
                         <p class="mt-1 text-xs text-muted-foreground">
-                            {{ source_counts.worklogs?.entries ?? 0 }} entries
+                            {{ formatText('audit.entries_count', { count: source_counts.worklogs?.entries ?? 0 }) }}
                         </p>
                     </div>
                 </div>
                 <p class="mt-4 text-xs text-muted-foreground">
-                    Totals update as project data changes.
+                    {{ t('audit.totals_update_as_project_data_changes') }}
                 </p>
             </CardContent>
         </Card>
         <Card v-if="source_counts.worklogs" class="gap-4">
             <CardHeader>
                 <CardTitle class="flex items-center gap-2 text-base"
-                    ><Clock3 class="size-4" /> Worklog breakdown</CardTitle
+                    ><Clock3 class="size-4" /> {{ t('stage3.worklog_breakdown') }}</CardTitle
                 >
                 <p class="text-sm text-muted-foreground">
-                    Time recorded for this project during the selected period.
+                    {{ t('audit.time_recorded_for_this_project_during_the_selected_period') }}
                 </p>
             </CardHeader>
             <CardContent class="space-y-6">
@@ -431,45 +433,39 @@ defineOptions({
                         <p
                             class="flex items-center gap-2 text-xs text-muted-foreground"
                         >
-                            <Sparkles class="size-4" /> Creative work
+                            <Sparkles class="size-4" /> {{ t('audit.creative_work') }}
                         </p>
                         <p class="mt-2 text-xl font-semibold tabular-nums">
                             {{ durationLabel(worklogDetails.creative_minutes) }}
                         </p>
                         <p class="text-xs text-muted-foreground">
-                            {{
-                                percentage(
-                                    worklogDetails.creative_minutes,
-                                    worklogDetails.total_minutes,
-                                )
-                            }}% of logged time ·
-                            {{ worklogDetails.creative_entries }} entries
+                            {{ formatText('audit.worklog_creative_percent', { percent: percentage(worklogDetails.creative_minutes, worklogDetails.total_minutes), count: worklogDetails.creative_entries }) }}
                         </p>
                     </div>
                     <div class="rounded-lg border p-4">
                         <p
                             class="flex items-center gap-2 text-xs text-muted-foreground"
                         >
-                            <Users class="size-4" /> Contributors
+                            <Users class="size-4" /> {{ t('audit.contributors') }}
                         </p>
                         <p class="mt-2 text-xl font-semibold tabular-nums">
                             {{ worklogDetails.by_user.length }}
                         </p>
                         <p class="text-xs text-muted-foreground">
-                            People with logged time
+                            {{ t('audit.people_with_logged_time') }}
                         </p>
                     </div>
                     <div class="rounded-lg border p-4">
                         <p
                             class="flex items-center gap-2 text-xs text-muted-foreground"
                         >
-                            <ListTodo class="size-4" /> Tasks worked on
+                            <ListTodo class="size-4" /> {{ t('audit.tasks_worked_on') }}
                         </p>
                         <p class="mt-2 text-xl font-semibold tabular-nums">
                             {{ worklogDetails.by_task.length }}
                         </p>
                         <p class="text-xs text-muted-foreground">
-                            Tasks with entries in this period
+                            {{ t('audit.tasks_with_entries_in_this_period') }}
                         </p>
                     </div>
                 </div>
@@ -477,12 +473,12 @@ defineOptions({
                     v-if="worklogDetails.entries === 0"
                     class="rounded-lg border border-dashed px-4 py-8 text-center text-sm text-muted-foreground"
                 >
-                    No time entries for this project and reporting period.
+                    {{ t('audit.no_time_entries_for_this_project_and_reporting_period') }}
                 </div>
                 <div v-else class="grid items-start gap-6 lg:grid-cols-2">
                     <section class="min-w-0 space-y-3">
                         <h3 class="text-sm font-semibold">
-                            Time by contributor
+                            {{ t('audit.time_by_contributor') }}
                         </h3>
                         <div
                             class="max-h-[26rem] space-y-4 overflow-y-auto rounded-lg border p-4"
@@ -518,13 +514,13 @@ defineOptions({
                                     />
                                 </div>
                                 <p class="text-xs text-muted-foreground">
-                                    {{ person.entries }} entries ·
+                                    {{ countLabel('entry', person.entries) }} ·
                                     {{
                                         percentage(
                                             person.total_minutes,
                                             worklogDetails.total_minutes,
                                         )
-                                    }}% of total<span
+                                    }}% {{ t('fix.percent_total') }}<span
                                         v-if="person.creative_minutes"
                                     >
                                         ·
@@ -533,14 +529,14 @@ defineOptions({
                                                 person.creative_minutes,
                                             )
                                         }}
-                                        creative</span
+                                        {{ t('fix.worklog_creative') }}</span
                                     >
                                 </p>
                             </div>
                         </div>
                     </section>
                     <section class="min-w-0 space-y-3">
-                        <h3 class="text-sm font-semibold">Time by task</h3>
+                        <h3 class="text-sm font-semibold">{{ t('stage3.time_by_task') }}</h3>
                         <div
                             class="max-h-[26rem] space-y-4 overflow-y-auto rounded-lg border p-4"
                         >
@@ -581,20 +577,20 @@ defineOptions({
                                     />
                                 </div>
                                 <p class="text-xs text-muted-foreground">
-                                    {{ task.entries }} entries ·
+                                    {{ countLabel('entry', task.entries) }} ·
                                     {{
                                         percentage(
                                             task.total_minutes,
                                             worklogDetails.total_minutes,
                                         )
-                                    }}% of total<span
+                                    }}% {{ t('fix.percent_total') }}<span
                                         v-if="task.creative_minutes"
                                     >
                                         ·
                                         {{
                                             durationLabel(task.creative_minutes)
                                         }}
-                                        creative</span
+                                        {{ t('fix.worklog_creative') }}</span
                                     >
                                 </p>
                             </div>
@@ -602,7 +598,7 @@ defineOptions({
                     </section>
                 </div>
                 <p class="text-xs text-muted-foreground">
-                    Based on work dates. Totals update when entries change.
+                    {{ t('audit.based_on_work_dates_totals_update_when_entries_change') }}
                 </p>
             </CardContent>
         </Card>
@@ -619,22 +615,22 @@ defineOptions({
             <Card class="min-w-0">
                 <CardHeader class="gap-2">
                     <CardTitle class="flex items-center gap-2 text-base"
-                        ><FileText class="size-4" /> Report</CardTitle
+                        ><FileText class="size-4" /> {{ t('stage3.report') }}</CardTitle
                     >
                     <p
                         v-if="report.is_generated && report.generated_at"
                         class="text-xs text-muted-foreground"
                     >
-                        Generated {{ formatReportTimestamp(report.generated_at)
+                        {{ t('audit.generated') }} {{ formatReportTimestamp(report.generated_at, locale)
                         }}<template v-if="report.generated_locale">
                             ·
                             {{
                                 languageLabel(report.generated_locale)
                             }}</template
                         ><template v-if="report.edited_at">
-                            · Edited
+                            · {{ t('audit.edit') }}
                             {{
-                                formatReportTimestamp(report.edited_at)
+                                formatReportTimestamp(report.edited_at, locale)
                             }}</template
                         >
                     </p>
@@ -642,8 +638,8 @@ defineOptions({
                         v-if="report.published_at"
                         class="text-xs text-muted-foreground"
                     >
-                        Published
-                        {{ formatReportTimestamp(report.published_at) }}
+                        {{ t('fix.published') }}
+                        {{ formatReportTimestamp(report.published_at, locale) }}
                     </p>
                     <p
                         v-if="
@@ -653,8 +649,7 @@ defineOptions({
                         "
                         class="text-xs text-muted-foreground"
                     >
-                        This document has been edited. Source worklogs and the
-                        live statistics above are unchanged.
+                        {{ t('audit.this_document_has_been_edited_source_worklogs_and_the_live_statistics_above_are_unchanged') }}
                     </p>
                 </CardHeader>
                 <CardContent class="space-y-4">
@@ -678,7 +673,7 @@ defineOptions({
                                 variant="outline"
                                 @click="startEditing"
                             >
-                                <Pencil class="size-4" /> Edit
+                                <Pencil class="size-4" /> {{ t('audit.edit') }}
                             </Button>
                             <template v-if="isEditing">
                                 <Button
@@ -687,7 +682,7 @@ defineOptions({
                                     variant="outline"
                                     :disabled="contentForm.processing"
                                     @click="cancelEditing"
-                                    >Cancel</Button
+                                    >{{ t('stage3.cancel') }}</Button
                                 >
                                 <Button
                                     type="button"
@@ -701,28 +696,23 @@ defineOptions({
                                     <LoaderCircle
                                         v-if="contentForm.processing"
                                         class="size-4 animate-spin"
-                                    /><Save v-else class="size-4" /> Save
-                                    changes
+                                    /><Save v-else class="size-4" /> {{ t('audit.save_changes') }}
                                 </Button>
                             </template>
                         </div>
                     </div>
                     <div v-if="isEditing" class="space-y-3">
                         <p class="text-sm text-muted-foreground">
-                            Edit the full report as Markdown, including
-                            headings, table rows and totals. Changes affect this
-                            document only — source tasks and worklogs stay
-                            unchanged.
+                            {{ t('audit.edit_the_full_report_as_markdown_including_headings_table_rows_and_totals_changes_affect_t') }}
                         </p>
                         <Textarea
                             v-model="contentForm.content"
                             class="min-h-[26rem] resize-y font-mono text-sm leading-6"
                             :maxlength="50000"
-                            aria-label="Report content"
+                            :aria-label="t('stage3.report_content')"
                         />
                         <p class="text-xs text-muted-foreground">
-                            {{ contentForm.content.length.toLocaleString() }}
-                            characters · Markdown supported
+                            {{ formatText('audit.report_characters', { count: contentForm.content.length.toLocaleString(locale === 'pl' ? 'pl-PL' : 'en-US') }) }}
                         </p>
                         <InputError
                             :message="
@@ -743,9 +733,9 @@ defineOptions({
                         <FileText
                             class="mx-auto mb-3 size-7 text-muted-foreground"
                         />
-                        <p class="text-sm font-medium">No report content yet</p>
+                        <p class="text-sm font-medium">{{ t('stage3.no_report_content_yet') }}</p>
                         <p class="mt-1 text-sm text-muted-foreground">
-                            Generate a report from the selected sources.
+                            {{ t('audit.generate_a_report_from_the_selected_sources') }}
                         </p>
                     </div>
                 </CardContent>
@@ -761,13 +751,13 @@ defineOptions({
                 <Card v-if="can_generate" class="min-w-0">
                     <CardHeader class="gap-1">
                         <CardTitle class="flex items-center gap-2 text-base"
-                            ><Sparkles class="size-4" /> Generate</CardTitle
+                            ><Sparkles class="size-4" /> {{ t('stage3.generate') }}</CardTitle
                         >
                         <p class="text-sm text-muted-foreground">
                             {{
                                 report.format === 'work_report'
-                                    ? 'Generate a work summary and time register.'
-                                    : 'Summarize progress from the selected sources.'
+                                    ? t('audit.generate_a_work_summary_and_time_register')
+                                    : t('audit.summarize_progress_from_the_selected_sources')
                             }}
                         </p>
                     </CardHeader>
@@ -780,14 +770,14 @@ defineOptions({
                                 <label
                                     for="report-ai-language"
                                     class="text-sm font-medium"
-                                    >Language</label
+                                    >{{ t('stage3.language') }}</label
                                 >
                                 <Select v-model="selectedLanguage">
                                     <SelectTrigger
                                         id="report-ai-language"
                                         class="w-full"
                                         ><SelectValue
-                                            placeholder="Choose a language"
+                                            :placeholder="t('audit.choose_a_language')"
                                     /></SelectTrigger>
                                     <SelectContent>
                                         <SelectItem
@@ -797,7 +787,7 @@ defineOptions({
                                             >{{ language.label }}</SelectItem
                                         >
                                         <SelectItem value="__other"
-                                            >Other language…</SelectItem
+                                            >{{ t('stage3.other_language') }}</SelectItem
                                         >
                                     </SelectContent>
                                 </Select>
@@ -809,7 +799,7 @@ defineOptions({
                                 <label
                                     for="report-ai-custom-language"
                                     class="text-sm font-medium"
-                                    >Language code</label
+                                    >{{ t('stage3.language_code') }}</label
                                 >
                                 <Input
                                     id="report-ai-custom-language"
@@ -842,23 +832,23 @@ defineOptions({
                                 <Sparkles v-else class="size-4" />
                                 {{
                                     generateForm.processing
-                                        ? 'Generating…'
+                                        ? t('audit.generating')
                                         : report.is_generated
-                                          ? 'Regenerate report'
-                                          : 'Generate report'
+                                          ? t('audit.regenerate_report')
+                                          : t('audit.generate_report')
                                 }}
                             </Button>
                             <p
                                 v-if="!ai_configured"
                                 class="text-xs text-muted-foreground"
                             >
-                                Report generation is not configured.
+                                {{ t('audit.report_generation_is_not_configured') }}
                             </p>
                             <p v-else class="text-xs text-muted-foreground">
                                 {{
                                     report.published_at
-                                        ? 'Move this report to draft before regenerating it.'
-                                        : 'Selected project data is sent to your AI provider. Review the result before sharing.'
+                                        ? t('audit.move_this_report_to_draft_before_regenerating_it')
+                                        : t('audit.selected_project_data_is_sent_to_your_ai_provider_review_the_result_before_sharing')
                                 }}
                             </p>
                         </form>
@@ -867,10 +857,10 @@ defineOptions({
                 <Card v-if="can_share && report.published_at" class="min-w-0">
                     <CardHeader class="gap-1">
                         <CardTitle class="flex items-center gap-2 text-base"
-                            ><Share2 class="size-4" /> Share</CardTitle
+                            ><Share2 class="size-4" /> {{ t('stage3.share') }}</CardTitle
                         >
                         <p class="text-sm text-muted-foreground">
-                            Anyone with the link can view the published report.
+                            {{ t('audit.anyone_with_the_link_can_view_the_published_report') }}
                         </p>
                     </CardHeader>
                     <CardContent class="space-y-3">
@@ -878,7 +868,7 @@ defineOptions({
                             <Input
                                 :model-value="share_url"
                                 readonly
-                                aria-label="Public report link"
+                                :aria-label="t('audit.public_report_link')"
                                 class="w-full text-xs"
                                 @focus="selectLink"
                             />
@@ -887,7 +877,7 @@ defineOptions({
                                     size="sm"
                                     type="button"
                                     @click="copyShareLink"
-                                    ><Copy class="size-4" /> Copy link</Button
+                                    ><Copy class="size-4" /> {{ t('stage3.copy_link') }}</Button
                                 >
                                 <Button size="sm" variant="outline" as-child
                                     ><a
@@ -895,7 +885,7 @@ defineOptions({
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         ><ExternalLink class="size-4" />
-                                        Preview</a
+                                        {{ t('audit.preview') }}</a
                                     ></Button
                                 >
                             </div>
@@ -906,7 +896,7 @@ defineOptions({
                                 :disabled="sharingForm.processing"
                                 @click="revokeSharing"
                             >
-                                <Link2Off class="size-4" /> Revoke link
+                                <Link2Off class="size-4" /> {{ t('audit.revoke_link') }}
                             </Button>
                         </template>
                         <Button
@@ -919,18 +909,16 @@ defineOptions({
                             <LoaderCircle
                                 v-if="sharingForm.processing"
                                 class="size-4 animate-spin"
-                            /><Share2 v-else class="size-4" /> Enable public
-                            link
+                            /><Share2 v-else class="size-4" /> {{ t('audit.enable_public_link') }}
                         </Button>
                         <p class="text-xs text-muted-foreground">
-                            Moving the report to draft disables the link. Do not
-                            share it with unintended recipients.
+                            {{ t('audit.moving_the_report_to_draft_disables_the_link_do_not_share_it_with_unintended_recipients') }}
                         </p>
                     </CardContent>
                 </Card>
                 <Card v-if="report.is_generated" class="min-w-0">
                     <CardHeader>
-                        <CardTitle class="text-base">Actions</CardTitle>
+                        <CardTitle class="text-base">{{ t('stage3.actions') }}</CardTitle>
                     </CardHeader>
                     <CardContent class="flex flex-col gap-2">
                         <Button
@@ -941,7 +929,7 @@ defineOptions({
                             class="w-full justify-start"
                         >
                             <a :href="`${baseUrl}/${report.id}/pdf`"
-                                ><Download class="size-4" /> Download PDF</a
+                                ><Download class="size-4" /> {{ t('stage3.download_pdf') }}</a
                             >
                         </Button>
                         <Button
@@ -955,7 +943,7 @@ defineOptions({
                             <LoaderCircle
                                 v-if="publicationForm.processing"
                                 class="size-4 animate-spin"
-                            /><CheckCircle2 v-else class="size-4" /> Publish
+                            /><CheckCircle2 v-else class="size-4" /> {{ t('audit.publish') }}
                         </Button>
                         <Button
                             v-if="can_edit && !!report.published_at"
@@ -969,7 +957,7 @@ defineOptions({
                             <LoaderCircle
                                 v-if="publicationForm.processing"
                                 class="size-4 animate-spin"
-                            /><RotateCcw v-else class="size-4" /> Move to draft
+                            /><RotateCcw v-else class="size-4" /> {{ t('audit.move_to_draft') }}
                         </Button>
                     </CardContent>
                 </Card>
@@ -985,7 +973,7 @@ defineOptions({
                 <LoaderCircle
                     v-if="deleteForm.processing"
                     class="size-4 animate-spin"
-                /><Trash2 v-else class="size-4" /> Delete report
+                /><Trash2 v-else class="size-4" /> {{ t('audit.delete_report') }}
             </Button>
         </div>
     </div>

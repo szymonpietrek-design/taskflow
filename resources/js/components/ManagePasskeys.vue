@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n';
 import { router } from '@inertiajs/vue3';
 import { KeyRound } from '@lucide/vue';
 import type { Passkey } from '@/types/auth';
@@ -27,14 +28,15 @@ const handleDelete = (id: number, onError: () => void) => {
 const handleRegisterSuccess = () => {
     router.reload();
 };
+const { t } = useI18n();
 </script>
 
 <template>
     <div v-if="canManagePasskeys" class="space-y-6">
         <Heading
             variant="small"
-            title="Passkeys"
-            description="Manage your passkeys for passwordless sign-in"
+            :title="t('audit.passkeys')"
+            :description="t('audit.manage_your_passkeys_for_passwordless_sign_in')"
         />
 
         <div class="overflow-hidden rounded-lg border border-border">
@@ -53,9 +55,9 @@ const handleRegisterSuccess = () => {
                 >
                     <KeyRound class="h-7 w-7 text-muted-foreground" />
                 </div>
-                <p class="font-medium">No passkeys yet</p>
+                <p class="font-medium">{{ t('audit.no_passkeys_yet') }}</p>
                 <p class="mt-1 text-sm text-muted-foreground">
-                    Add a passkey to sign in without a password
+                    {{ t('audit.add_a_passkey_to_sign_in_without_a_password') }}
                 </p>
             </div>
         </div>

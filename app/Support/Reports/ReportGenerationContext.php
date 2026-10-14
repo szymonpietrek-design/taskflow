@@ -117,7 +117,7 @@ final class ReportGenerationContext
 
         $payload = json_encode($data, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         if (strlen($payload) > 90000) {
-            throw new InvalidArgumentException('Report source data is too large for one AI request. Choose a shorter period or fewer sources.');
+            throw new InvalidArgumentException(__('Report source data is too large for one AI request. Choose a shorter period or fewer sources.'));
         }
 
         return $payload;

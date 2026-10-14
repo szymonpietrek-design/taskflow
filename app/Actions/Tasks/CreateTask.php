@@ -38,25 +38,25 @@ final class CreateTask
         $description = $description !== null ? trim($description) : null;
 
         if ($title === '') {
-            throw new InvalidArgumentException('Task title cannot be empty.');
+            throw new InvalidArgumentException(__('Task title cannot be empty.'));
         }
 
         if ($status !== null && $status->project_id !== $project->id) {
-            throw new InvalidArgumentException('Task status must belong to the same project.');
+            throw new InvalidArgumentException(__('Task status must belong to the same project.'));
         }
 
         if ($parent !== null) {
             if ($parent->project_id !== $project->id) {
-                throw new InvalidArgumentException('Parent task must belong to the same project.');
+                throw new InvalidArgumentException(__('Parent task must belong to the same project.'));
             }
 
             if ($parent->parent_id !== null) {
-                throw new InvalidArgumentException('Tasks can only have one level of subtasks.');
+                throw new InvalidArgumentException(__('Tasks can only have one level of subtasks.'));
             }
         }
 
         if ($assignee !== null && Gate::forUser($assignee)->denies('create', [Task::class, $project])) {
-            throw new InvalidArgumentException('Assignee must be a project contributor.');
+            throw new InvalidArgumentException(__('Assignee must be a project contributor.'));
         }
 
         return DB::transaction(function () use (
@@ -84,7 +84,7 @@ final class CreateTask
             );
 
             if (! $taskStatus instanceof TaskStatus) {
-                throw new InvalidArgumentException('Project must have a Todo task status.');
+                throw new InvalidArgumentException(__('Project must have a Todo task status.'));
             }
 
             $number = $lockedProject->task_sequence + 1;

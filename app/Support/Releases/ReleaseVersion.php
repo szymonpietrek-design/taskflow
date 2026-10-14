@@ -19,14 +19,14 @@ final readonly class ReleaseVersion
     public static function parse(string $version): self
     {
         if (! preg_match('/\A(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\z/D', $version, $matches)) {
-            throw new InvalidArgumentException('Version must use MAJOR.MINOR.PATCH (for example 1.2.3), with no leading zeros.');
+            throw new InvalidArgumentException(__('Version must use MAJOR.MINOR.PATCH (for example 1.2.3), with no leading zeros.'));
         }
 
         $parts = array_slice($matches, 1, 3);
 
         foreach ($parts as $part) {
             if (strlen($part) > 10 || (strlen($part) === 10 && strcmp($part, '4294967295') > 0)) {
-                throw new InvalidArgumentException('Version components must be between 0 and 4294967295.');
+                throw new InvalidArgumentException(__('Version components must be between 0 and 4294967295.'));
             }
         }
 

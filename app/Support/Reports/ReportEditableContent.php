@@ -20,10 +20,10 @@ final class ReportEditableContent
     {
         $content = trim($content);
         if ($content === '') {
-            throw new InvalidArgumentException('Report content cannot be empty.');
+            throw new InvalidArgumentException(__('Report content cannot be empty.'));
         }
         if (mb_strlen($content) > 50000) {
-            throw new InvalidArgumentException('Report content is too long.');
+            throw new InvalidArgumentException(__('Report content is too long.'));
         }
 
         return $content;

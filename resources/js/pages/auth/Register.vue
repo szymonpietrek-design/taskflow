@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n';
 import { Form, Head } from '@inertiajs/vue3';
 import InputError from '@/components/InputError.vue';
 import PasswordInput from '@/components/PasswordInput.vue';
@@ -20,10 +21,11 @@ defineOptions({
         description: 'Enter your details below to create your account',
     },
 });
+const { t } = useI18n();
 </script>
 
 <template>
-    <Head title="Register" />
+    <Head :title="t('audit.register')" />
 
     <Form
         v-bind="store.form()"
@@ -33,7 +35,7 @@ defineOptions({
     >
         <div class="grid gap-6">
             <div class="grid gap-2">
-                <Label for="name">Name</Label>
+                <Label for="name">{{ t('audit.name') }}</Label>
                 <Input
                     id="name"
                     type="text"
@@ -42,13 +44,13 @@ defineOptions({
                     :tabindex="1"
                     autocomplete="name"
                     name="name"
-                    placeholder="Full name"
+                    :placeholder="t('audit.full_name')"
                 />
                 <InputError :message="errors.name" />
             </div>
 
             <div class="grid gap-2">
-                <Label for="email">Email address</Label>
+                <Label for="email">{{ t('audit.email_address') }}</Label>
                 <Input
                     id="email"
                     type="email"
@@ -62,28 +64,28 @@ defineOptions({
             </div>
 
             <div class="grid gap-2">
-                <Label for="password">Password</Label>
+                <Label for="password">{{ t('audit.password') }}</Label>
                 <PasswordInput
                     id="password"
                     required
                     :tabindex="3"
                     autocomplete="new-password"
                     name="password"
-                    placeholder="Password"
+                    :placeholder="t('audit.password')"
                     :passwordrules="passwordRules"
                 />
                 <InputError :message="errors.password" />
             </div>
 
             <div class="grid gap-2">
-                <Label for="password_confirmation">Confirm password</Label>
+                <Label for="password_confirmation">{{ t('audit.confirm_password') }}</Label>
                 <PasswordInput
                     id="password_confirmation"
                     required
                     :tabindex="4"
                     autocomplete="new-password"
                     name="password_confirmation"
-                    placeholder="Confirm password"
+                    :placeholder="t('audit.confirm_password')"
                     :passwordrules="passwordRules"
                 />
                 <InputError :message="errors.password_confirmation" />
@@ -97,17 +99,17 @@ defineOptions({
                 data-test="register-user-button"
             >
                 <Spinner v-if="processing" />
-                Create account
+                {{ t('audit.create_account') }}
             </Button>
         </div>
 
         <div class="text-center text-sm text-muted-foreground">
-            Already have an account?
+            {{ t('audit.already_have_an_account') }}
             <TextLink
                 :href="login()"
                 class="underline underline-offset-4"
                 :tabindex="6"
-                >Log in</TextLink
+                >{{ t('audit.log_in') }}</TextLink
             >
         </div>
     </Form>

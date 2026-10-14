@@ -27,15 +27,15 @@ final class ReportContentController extends Controller
             abort_unless(app(ReportAccess::class)->canEdit($request->user(), $locked), 403);
             abort_if($project->fresh()->archived_at !== null || $locked->published_at !== null, 403);
             if ($locked->body === null || $locked->generated_at === null) {
-                throw ValidationException::withMessages(['content' => 'Generate the report before editing it.']);
+                throw ValidationException::withMessages(['content' => __('Generate the report before editing it.')]);
             }
             if (app(ReportRevision::class)->token($locked) !== $input['version']) {
-                throw ValidationException::withMessages(['content' => 'This report was changed. Reload to see the latest version.']);
+                throw ValidationException::withMessages(['content' => __('This report was changed. Reload to see the latest version.')]);
             }
             try {
                 $body = $editor->replace($locked, $input['content']);
             } catch (InvalidArgumentException $exception) {
-                throw ValidationException::withMessages(['content' => $exception->getMessage()]);
+                throw ValidationException::withMessages(['content' => __($exception->getMessage())]);
             }
             if ($body !== $locked->body) {
                 $locked->forceFill(['body' => $body, 'edited_at' => now()])->save();

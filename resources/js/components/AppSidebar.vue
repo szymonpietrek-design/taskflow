@@ -7,6 +7,7 @@ import {
     LayoutGrid,
     PanelsTopLeft,
 } from '@lucide/vue';
+import { computed } from 'vue';
 import AppLogo from '@/components/AppLogo.vue';
 import NavFooter from '@/components/NavFooter.vue';
 import NavMain from '@/components/NavMain.vue';
@@ -22,39 +23,42 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
+import { useI18n } from '@/composables/useI18n';
 import { dashboard } from '@/routes';
 import type { NavItem } from '@/types';
 
-const mainNavItems: NavItem[] = [
+const { t } = useI18n();
+
+const mainNavItems = computed<NavItem[]>(() => [
     {
-        title: 'Dashboard',
+        title: t('nav.dashboard'),
         href: dashboard(),
         icon: LayoutGrid,
     },
     {
-        title: 'My Worklog',
+        title: t('nav.worklog'),
         href: '/worklogs',
         icon: Clock3,
     },
     {
-        title: 'Workspaces',
+        title: t('nav.workspaces'),
         href: '/workspaces',
         icon: PanelsTopLeft,
     },
-];
+]);
 
-const footerNavItems: NavItem[] = [
+const footerNavItems = computed<NavItem[]>(() => [
     {
-        title: 'Repository',
+        title: t('nav.repository'),
         href: 'https://github.com/laravel/vue-starter-kit',
         icon: FolderGit2,
     },
     {
-        title: 'Documentation',
+        title: t('nav.documentation'),
         href: 'https://laravel.com/docs/starter-kits#vue',
         icon: BookOpen,
     },
-];
+]);
 </script>
 
 <template>

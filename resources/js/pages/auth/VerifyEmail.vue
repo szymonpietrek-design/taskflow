@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n';
 import { Form, Head } from '@inertiajs/vue3';
 import TextLink from '@/components/TextLink.vue';
 import { Button } from '@/components/ui/button';
@@ -17,17 +18,17 @@ defineOptions({
 defineProps<{
     status?: string;
 }>();
+const { t } = useI18n();
 </script>
 
 <template>
-    <Head title="Email verification" />
+    <Head :title="t('audit.email_verification')" />
 
     <div
         v-if="status === 'verification-link-sent'"
         class="mb-4 text-center text-sm font-medium text-green-600"
     >
-        A new verification link has been sent to the email address you provided
-        during registration.
+        {{ t('audit.a_new_verification_link_has_been_sent_to_the_email_address_you_provided_during_registratio') }}
     </div>
 
     <Form
@@ -37,11 +38,11 @@ defineProps<{
     >
         <Button :disabled="processing" variant="secondary">
             <Spinner v-if="processing" />
-            Resend verification email
+            {{ t('audit.resend_verification_email') }}
         </Button>
 
         <TextLink :href="logout()" as="button" class="mx-auto block text-sm">
-            Log out
+            {{ t('audit.log_out') }}
         </TextLink>
     </Form>
 </template>

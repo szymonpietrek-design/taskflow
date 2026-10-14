@@ -22,9 +22,19 @@ use App\Http\Controllers\Worklogs\WorklogController;
 use App\Http\Controllers\Workspaces\CurrentWorkspaceController;
 use App\Http\Controllers\Workspaces\WorkspaceController;
 use App\Http\Controllers\Workspaces\WorkspaceMemberController;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Validation\Rule;
 
 Route::inertia('/', 'Welcome')->name('home');
+
+// Guests can choose their UI language before logging in; authenticated users keep their account preference.
+Route::post('ui-locale', function (Request $request): RedirectResponse {
+    $validated = $request->validate(['locale' => ['required', 'string', Rule::in(['en', 'pl'])]]);
+
+    return back()->withCookie(cookie('locale', $validated['locale'], 60 * 24 * 365));
+})->name('ui-locale.update');
 
 // A public report requires a published document and an unguessable share token.
 Route::get('r/{report}/{token}', PublicReportController::class)

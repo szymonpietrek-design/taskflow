@@ -31,7 +31,7 @@ final class GenerateReleaseChangelogController extends Controller
             $language = $request->validated('language', str_replace('_', '-', app()->getLocale()));
             $generate->handle($request->user(), $release, $language);
         } catch (InvalidArgumentException $exception) {
-            throw ValidationException::withMessages(['ai_generation' => $exception->getMessage()]);
+            throw ValidationException::withMessages(['ai_generation' => __($exception->getMessage())]);
         } catch (Throwable $exception) {
             // Never return raw provider errors, credentials or task data to the browser.
             report($exception);

@@ -19,11 +19,11 @@ final class SetTaskRelease
         Gate::forUser($actor)->authorize('update', $task);
 
         if ($task->project->type !== ProjectType::APPLICATION || $task->project->archived_at !== null) {
-            throw new InvalidArgumentException('Releases can only be edited in active application projects.');
+            throw new InvalidArgumentException(__('Releases can only be edited in active application projects.'));
         }
 
         if ($release !== null && $release->project_id !== $task->project_id) {
-            throw new InvalidArgumentException('Release belongs to a different project.');
+            throw new InvalidArgumentException(__('Release belongs to a different project.'));
         }
 
         return DB::transaction(function () use ($actor, $task, $release): Task {
@@ -40,15 +40,15 @@ final class SetTaskRelease
             $target = $targetId === null ? null : Release::query()->lockForUpdate()->findOrFail($targetId);
 
             if (($previous !== null && ! $this->editable($previous)) || ($target !== null && ! $this->editable($target))) {
-                throw new InvalidArgumentException('Tasks in released or canceled versions cannot be changed.');
+                throw new InvalidArgumentException(__('Tasks in released or canceled versions cannot be changed.'));
             }
 
             if ($previous !== null && $target !== null) {
-                throw new InvalidArgumentException('Remove the task from its current release before adding it to another.');
+                throw new InvalidArgumentException(__('Remove the task from its current release before adding it to another.'));
             }
 
             if ($target !== null && $target->project_id !== $lockedTask->project_id) {
-                throw new InvalidArgumentException('Release belongs to a different project.');
+                throw new InvalidArgumentException(__('Release belongs to a different project.'));
             }
 
             $lockedTask->forceFill(['release_id' => $targetId])->save();

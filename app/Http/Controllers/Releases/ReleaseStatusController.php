@@ -35,7 +35,7 @@ final class ReleaseStatusController extends Controller
         try {
             $changeReleaseStatus->handle($request->user(), $release, $target, $plannedFor);
         } catch (InvalidArgumentException $exception) {
-            throw ValidationException::withMessages(['status' => $exception->getMessage()]);
+            throw ValidationException::withMessages(['status' => __($exception->getMessage())]);
         }
 
         $request->session()->put('current_workspace_id', $project->workspace_id);

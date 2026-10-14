@@ -25,10 +25,10 @@ final class ReleaseChangelogContext
             ->get();
 
         if ($tasks->isEmpty()) {
-            throw new InvalidArgumentException('Complete at least one task assigned to this release before generating a changelog.');
+            throw new InvalidArgumentException(__('Complete at least one task assigned to this release before generating a changelog.'));
         }
         if ($tasks->count() > 40) {
-            throw new InvalidArgumentException('This release has too many completed tasks for one AI request (maximum 40).');
+            throw new InvalidArgumentException(__('This release has too many completed tasks for one AI request (maximum 40).'));
         }
 
         $items = $tasks->map(function (Task $task) use ($release): array {
@@ -69,7 +69,7 @@ final class ReleaseChangelogContext
 
         // Refuse oversized payloads rather than submitting a partial, misleading release summary.
         if (strlen($payload) > 90000) {
-            throw new InvalidArgumentException('Release source data is too large for one AI request.');
+            throw new InvalidArgumentException(__('Release source data is too large for one AI request.'));
         }
 
         return $payload;

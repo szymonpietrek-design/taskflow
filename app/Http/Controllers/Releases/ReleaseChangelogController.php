@@ -29,7 +29,7 @@ final class ReleaseChangelogController extends Controller
         try {
             $save->handle($request->user(), $release, ($request->validated('draft_body') ?? ''));
         } catch (InvalidArgumentException $exception) {
-            throw ValidationException::withMessages(['draft_body' => $exception->getMessage()]);
+            throw ValidationException::withMessages(['draft_body' => __($exception->getMessage())]);
         }
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Changelog draft saved.')]);
@@ -48,7 +48,7 @@ final class ReleaseChangelogController extends Controller
         try {
             $publish->handle($request->user(), $release);
         } catch (InvalidArgumentException $exception) {
-            throw ValidationException::withMessages(['changelog' => $exception->getMessage()]);
+            throw ValidationException::withMessages(['changelog' => __($exception->getMessage())]);
         }
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Changelog published.')]);

@@ -14,28 +14,28 @@ final class PrismChangelogGenerator implements ChangelogTextGenerator
     public function generate(string $context, string $language): string
     {
         if (! preg_match('/\A[a-z]{2,3}(?:-[a-z0-9]{2,8})*\z/i', $language) || strlen($language) > 35) {
-            throw new InvalidArgumentException('Invalid output language code.');
+            throw new InvalidArgumentException(__('Invalid output language code.'));
         }
 
         $settings = config('services.ai_chat', []);
 
         if (($settings['provider'] ?? null) !== 'deepseek') {
-            throw new InvalidArgumentException('Configure AI_CHAT_PROVIDER=deepseek first.');
+            throw new InvalidArgumentException(__('Configure AI_CHAT_PROVIDER=deepseek first.'));
         }
 
         $apiKey = trim((string) ($settings['api_key'] ?? ''));
         if ($apiKey === '') {
-            throw new InvalidArgumentException('Set DEEPSEEK_API_KEY in the local .env file.');
+            throw new InvalidArgumentException(__('Set DEEPSEEK_API_KEY in the local .env file.'));
         }
 
         $baseUrl = rtrim((string) ($settings['base_url'] ?? 'https://api.deepseek.com/v1'), '/');
         if (! str_starts_with($baseUrl, 'https://')) {
-            throw new InvalidArgumentException('DEEPSEEK_BASE_URL must use HTTPS.');
+            throw new InvalidArgumentException(__('DEEPSEEK_BASE_URL must use HTTPS.'));
         }
 
         $model = trim((string) ($settings['model'] ?? 'deepseek-chat'));
         if ($model === '') {
-            throw new InvalidArgumentException('Choose a DeepSeek model in .env.');
+            throw new InvalidArgumentException(__('Choose a DeepSeek model in .env.'));
         }
 
         $maxTokens = max(200, min(8000, (int) ($settings['max_tokens'] ?? 2000)));
@@ -93,12 +93,12 @@ PROMPT;
             ->asText();
 
         if ($response->finishReason === FinishReason::Length) {
-            throw new RuntimeException('Generated changelog was truncated. Increase the token limit.');
+            throw new RuntimeException(__('Generated changelog was truncated. Increase the token limit.'));
         }
 
         $markdown = $this->cleanReleaseNotes(trim($response->text), $context);
         if ($markdown === '' || mb_strlen($markdown) > 50000) {
-            throw new RuntimeException('AI returned an empty or overly long changelog draft.');
+            throw new RuntimeException(__('AI returned an empty or overly long changelog draft.'));
         }
 
         return $markdown;

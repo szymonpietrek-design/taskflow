@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n';
 import { Link, useForm } from '@inertiajs/vue3';
 import {
     DateFormatter,
@@ -57,7 +58,7 @@ const form = useForm({
     description: '',
     is_creative: false,
 });
-const dateFormatter = new DateFormatter('en-US', { dateStyle: 'medium' });
+const dateFormatter = computed(() => new DateFormatter(locale.value === 'pl' ? 'pl-PL' : 'en-US', { dateStyle: 'medium' }));
 watch(
     () => props.taskId,
     () => {
@@ -76,7 +77,7 @@ function durationLabel(minutes: number): string {
     );
 }
 function dateLabel(isoDate: string): string {
-    return dateFormatter.format(parseDate(isoDate).toDate(getLocalTimeZone()));
+    return dateFormatter.value.format(parseDate(isoDate).toDate(getLocalTimeZone()));
 }
 function closeEditor(): void {
     editorOpen.value = false;
@@ -104,7 +105,7 @@ function saveEntry(): void {
         onSuccess: () => closeEditor(),
         onError: () =>
             toast.error(
-                'Could not save worklog. Check the form and try again.',
+                t('audit.could_not_save_worklog_check_the_form_and_try_again'),
             ),
     };
     if (editingId.value !== null) {
@@ -119,9 +120,10 @@ function removeEntry(entry: TaskWorklogSummary): void {
         onSuccess: () => {
             deletingId.value = null;
         },
-        onError: () => toast.error('Could not delete worklog entry.'),
+        onError: () => toast.error(t('audit.could_not_delete_worklog_entry')),
     });
 }
+const { t, locale, countLabel, formatText } = useI18n();
 </script>
 
 <template>
@@ -130,12 +132,12 @@ function removeEntry(entry: TaskWorklogSummary): void {
             <div class="flex flex-wrap items-start justify-between gap-3">
                 <div class="space-y-1">
                     <CardTitle class="flex items-center gap-2"
-                        ><Clock3 class="size-4" /> Worklog</CardTitle
+                        ><Clock3 class="size-4" /> {{ t('stage2.worklog') }}</CardTitle
                     >
                     <CardDescription
-                        >{{ entries.total }} entries ·
+                        >{{ countLabel('entry', entries.total) }} ·
                         {{ durationLabel(totalMinutes) }}
-                        logged</CardDescription
+                        {{ t('followup.logged') }}</CardDescription
                     >
                 </div>
                 <Button
@@ -145,7 +147,7 @@ function removeEntry(entry: TaskWorklogSummary): void {
                     variant="outline"
                     @click="addEntry"
                 >
-                    <Plus class="size-4" /> Log work
+                    <Plus class="size-4" /> {{ t('stage2.log_work') }}
                 </Button>
             </div>
         </CardHeader>
@@ -156,11 +158,11 @@ function removeEntry(entry: TaskWorklogSummary): void {
                 @submit.prevent="saveEntry"
             >
                 <h3 class="text-sm font-semibold">
-                    {{ editingId === null ? 'Log time' : 'Edit worklog entry' }}
+                    {{ editingId === null ? t('fix.worklog_add') : t('fix.worklog_edit') }}
                 </h3>
                 <div class="grid gap-4 sm:grid-cols-[minmax(0,1fr)_6rem_6rem]">
                     <div class="grid gap-1.5">
-                        <Label>Work date</Label>
+                        <Label>{{ t('stage2.work_date') }}</Label>
                         <WorklogDatePicker
                             id="worklog-date"
                             v-model="form.work_date"
@@ -171,7 +173,7 @@ function removeEntry(entry: TaskWorklogSummary): void {
                         <InputError :message="form.errors.work_date" />
                     </div>
                     <div class="grid gap-1.5">
-                        <Label for="worklog-hours">Hours</Label>
+                        <Label for="worklog-hours">{{ t('stage2.hours') }}</Label>
                         <Input
                             id="worklog-hours"
                             :model-value="form.hours"
@@ -188,7 +190,7 @@ function removeEntry(entry: TaskWorklogSummary): void {
                         <InputError :message="form.errors.hours" />
                     </div>
                     <div class="grid gap-1.5">
-                        <Label for="worklog-minutes">Minutes</Label>
+                        <Label for="worklog-minutes">{{ t('stage2.minutes') }}</Label>
                         <Input
                             id="worklog-minutes"
                             :model-value="form.minutes"
@@ -206,15 +208,13 @@ function removeEntry(entry: TaskWorklogSummary): void {
                     </div>
                 </div>
                 <p class="text-xs text-muted-foreground">
-                    Daily limit: 8h per person across all tasks and projects.
-                    Existing entries for the selected date count toward the
-                    limit.
+                    {{ t('stage2.daily_limit_8h_per_person_across_all_tasks_and_projects_existing_entries_fo') }}
                 </p>
                 <div class="grid gap-1.5">
                     <Label for="worklog-description"
-                        >Work performed / outcome
+                        >{{ t('stage2.work_performed_outcome') }}
                         <span class="font-normal text-muted-foreground"
-                            >(optional)</span
+                            >{{ t('stage2.optional') }}</span
                         ></Label
                     >
                     <Textarea
@@ -223,7 +223,7 @@ function removeEntry(entry: TaskWorklogSummary): void {
                         maxlength="4000"
                         rows="3"
                         :disabled="form.processing"
-                        placeholder="Describe what you completed during this time"
+                        :placeholder="t('stage2.describe_what_you_completed_during_this_time')"
                     />
                     <InputError :message="form.errors.description" />
                 </div>
@@ -237,9 +237,9 @@ function removeEntry(entry: TaskWorklogSummary): void {
                         "
                     />
                     <Label for="worklog-creative" class="cursor-pointer"
-                        >Creative work
+                        >{{ t('stage2.creative_work') }}
                         <span class="font-normal text-muted-foreground"
-                            >(optional)</span
+                            >{{ t('stage2.optional') }}</span
                         ></Label
                     >
                 </div>
@@ -250,7 +250,7 @@ function removeEntry(entry: TaskWorklogSummary): void {
                             v-if="form.processing"
                             class="size-4 animate-spin"
                         />
-                        {{ form.processing ? 'Saving…' : 'Save worklog' }}
+                        {{ form.processing ? t('audit.saving') : t('audit.save_worklog') }}
                     </Button>
                     <Button
                         type="button"
@@ -258,7 +258,7 @@ function removeEntry(entry: TaskWorklogSummary): void {
                         size="sm"
                         :disabled="form.processing"
                         @click="closeEditor"
-                        >Cancel</Button
+                        >{{ t('stage2.cancel') }}</Button
                     >
                 </div>
             </form>
@@ -277,9 +277,9 @@ function removeEntry(entry: TaskWorklogSummary): void {
                                 {{ durationLabel(entry.duration_minutes) }}
                             </p>
                             <p class="text-xs text-muted-foreground">
-                                {{ entry.author?.name ?? 'Deleted user'
+                                {{ entry.author?.name ?? t('fix.deleted_user')
                                 }}<span v-if="entry.is_creative">
-                                    · Creative work</span
+                                    {{ t('stage2.creative_work') }}</span
                                 >
                             </p>
                         </div>
@@ -295,7 +295,7 @@ function removeEntry(entry: TaskWorklogSummary): void {
                                 :disabled="form.processing"
                                 @click="editEntry(entry)"
                             >
-                                <Pencil class="size-3.5" /> Edit
+                                <Pencil class="size-3.5" /> {{ t('stage2.edit') }}
                             </Button>
                             <Dialog
                                 v-if="entry.can_delete"
@@ -311,16 +311,15 @@ function removeEntry(entry: TaskWorklogSummary): void {
                                         variant="ghost"
                                         size="sm"
                                         ><Trash2 class="size-3.5" />
-                                        Delete</Button
+                                        {{ t('stage2.delete') }}</Button
                                     ></DialogTrigger
                                 >
                                 <DialogContent>
                                     <DialogHeader
                                         ><DialogTitle
-                                            >Delete worklog entry?</DialogTitle
+                                            >{{ t('stage2.delete_worklog_entry') }}</DialogTitle
                                         ><DialogDescription
-                                            >This will permanently remove the
-                                            logged time.</DialogDescription
+                                            >{{ t('audit.this_will_permanently_remove_the_logged_time') }}</DialogDescription
                                         ></DialogHeader
                                     >
                                     <DialogFooter
@@ -334,7 +333,7 @@ function removeEntry(entry: TaskWorklogSummary): void {
                                                 v-if="deleteForm.processing"
                                                 class="size-4 animate-spin"
                                             />
-                                            Delete entry
+                                            {{ t('stage2.delete_entry') }}
                                         </Button></DialogFooter
                                     >
                                 </DialogContent>
@@ -352,8 +351,8 @@ function removeEntry(entry: TaskWorklogSummary): void {
             <p v-else class="text-sm text-muted-foreground">
                 {{
                     canLog
-                        ? 'No time logged yet. Add an entry whenever you work on this task.'
-                        : 'No time logged for this task.'
+                        ? t('followup.no_time_add')
+                        : t('followup.no_time')
                 }}
             </p>
             <div
@@ -361,8 +360,7 @@ function removeEntry(entry: TaskWorklogSummary): void {
                 class="flex items-center justify-between gap-3 border-t pt-4 text-sm"
             >
                 <span class="text-muted-foreground"
-                    >Page {{ entries.current_page }} of
-                    {{ entries.last_page }}</span
+                    >{{ formatText('fix.page_of', { page: entries.current_page, pages: entries.last_page }) }}</span
                 >
                 <div class="flex gap-2">
                     <Button
@@ -370,11 +368,11 @@ function removeEntry(entry: TaskWorklogSummary): void {
                         size="sm"
                         variant="outline"
                         disabled
-                        >Previous</Button
+                        >{{ t('stage2.previous') }}</Button
                     >
                     <Button v-else as-child size="sm" variant="outline">
                         <Link :href="entries.previous_page_url" preserve-scroll
-                            >Previous</Link
+                            >{{ t('stage2.previous') }}</Link
                         >
                     </Button>
                     <Button
@@ -382,11 +380,11 @@ function removeEntry(entry: TaskWorklogSummary): void {
                         size="sm"
                         variant="outline"
                         disabled
-                        >Next</Button
+                        >{{ t('stage2.next') }}</Button
                     >
                     <Button v-else as-child size="sm" variant="outline">
                         <Link :href="entries.next_page_url" preserve-scroll
-                            >Next</Link
+                            >{{ t('stage2.next') }}</Link
                         >
                     </Button>
                 </div>

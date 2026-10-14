@@ -18,7 +18,7 @@ final class ChangeTaskStatus
         Gate::forUser($actor)->authorize('update', $task);
 
         if ($status->project_id !== $task->project_id) {
-            throw new InvalidArgumentException('Task status must belong to the same project.');
+            throw new InvalidArgumentException(__('Task status must belong to the same project.'));
         }
 
         return DB::transaction(function () use ($actor, $task, $status): Task {

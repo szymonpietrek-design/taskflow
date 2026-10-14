@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n';
 import { Form, Head, Link } from '@inertiajs/vue3';
 import { ArrowLeft, MessageSquare, Plus } from '@lucide/vue';
 import InputError from '@/components/InputError.vue';
@@ -37,10 +38,11 @@ const selectClass =
 defineOptions({
     layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }] },
 });
+const { t, formatText } = useI18n();
 </script>
 
 <template>
-    <Head title="Create task from message" />
+    <Head :title="t('stage2.create_task_from_message')" />
 
     <div class="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 p-4 md:p-6">
         <div class="space-y-3">
@@ -48,23 +50,23 @@ defineOptions({
                 :href="`${sourceUrl}#message-${message.id}`"
                 class="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
             >
-                <ArrowLeft class="size-4" /> Back to {{ source_task.reference }}
+                <ArrowLeft class="size-4" /> {{ formatText('fix.back_to_reference', { reference: source_task.reference }) }}
             </Link>
             <h1 class="text-2xl font-semibold tracking-tight">
-                Create task from message
+                {{ t('stage2.create_task_from_message') }}
             </h1>
             <p class="text-sm text-muted-foreground">
-                Creates a separate task in {{ project.name }}, not a subtask.
+                {{ formatText('fix.separate_task', { project: project.name }) }}
             </p>
         </div>
 
         <Card>
             <CardHeader>
                 <CardTitle class="flex items-center gap-2 text-base"
-                    ><MessageSquare class="size-4" /> Source message</CardTitle
+                    ><MessageSquare class="size-4" /> {{ t('stage2.source_message') }}</CardTitle
                 >
                 <CardDescription
-                    >From {{ source_task.reference }} ·
+                    >{{ formatText('fix.from_reference', { reference: source_task.reference }) }} ·
                     {{ message.author }}</CardDescription
                 >
             </CardHeader>
@@ -78,12 +80,11 @@ defineOptions({
         <Card>
             <CardHeader>
                 <CardTitle
-                    >New task
-                    <Badge variant="outline">Independent</Badge></CardTitle
+                    >{{ t('stage2.new_task') }}
+                    <Badge variant="outline">{{ t('stage2.independent') }}</Badge></CardTitle
                 >
                 <CardDescription
-                    >The title and description are suggestions. Edit them before
-                    saving.</CardDescription
+                    >{{ t('audit.the_title_and_description_are_suggestions_edit_them_before_saving') }}</CardDescription
                 >
             </CardHeader>
             <CardContent>
@@ -94,7 +95,7 @@ defineOptions({
                     v-slot="{ errors, processing }"
                 >
                     <div class="space-y-1.5">
-                        <Label for="message-task-title">Title</Label>
+                        <Label for="message-task-title">{{ t('stage2.title') }}</Label>
                         <Input
                             id="message-task-title"
                             name="title"
@@ -106,9 +107,9 @@ defineOptions({
                     </div>
                     <div class="space-y-1.5">
                         <Label for="message-task-description"
-                            >Description
+                            >{{ t('stage2.description') }}
                             <span class="font-normal text-muted-foreground"
-                                >(optional)</span
+                                >{{ t('stage2.optional') }}</span
                             ></Label
                         >
                         <textarea
@@ -123,38 +124,38 @@ defineOptions({
                     </div>
                     <div class="grid gap-4 sm:grid-cols-2">
                         <div class="space-y-1.5">
-                            <Label for="message-task-type">Type</Label>
+                            <Label for="message-task-type">{{ t('stage2.type') }}</Label>
                             <select
                                 id="message-task-type"
                                 name="type"
                                 :class="selectClass"
                             >
-                                <option value="1">Task</option>
-                                <option value="2">Feature</option>
-                                <option value="3">Improvement</option>
-                                <option value="4">Bug</option>
+                                <option value="1">{{ t('stage2.task') }}</option>
+                                <option value="2">{{ t('stage2.feature') }}</option>
+                                <option value="3">{{ t('stage2.improvement') }}</option>
+                                <option value="4">{{ t('stage2.bug') }}</option>
                             </select>
                             <InputError :message="errors.type" />
                         </div>
                         <div class="space-y-1.5">
-                            <Label for="message-task-priority">Priority</Label>
+                            <Label for="message-task-priority">{{ t('stage2.priority') }}</Label>
                             <select
                                 id="message-task-priority"
                                 name="priority"
                                 :class="selectClass"
                             >
-                                <option value="2">Normal</option>
-                                <option value="1">Low</option>
-                                <option value="3">High</option>
-                                <option value="4">Urgent</option>
+                                <option value="2">{{ t('stage2.normal') }}</option>
+                                <option value="1">{{ t('stage2.low') }}</option>
+                                <option value="3">{{ t('stage2.high') }}</option>
+                                <option value="4">{{ t('stage2.urgent') }}</option>
                             </select>
                             <InputError :message="errors.priority" />
                         </div>
                         <div class="space-y-1.5">
                             <Label for="message-task-status"
-                                >Status
+                                >{{ t('stage2.status') }}
                                 <span class="font-normal text-muted-foreground"
-                                    >(optional)</span
+                                    >{{ t('stage2.optional') }}</span
                                 ></Label
                             >
                             <select
@@ -162,7 +163,7 @@ defineOptions({
                                 name="status_id"
                                 :class="selectClass"
                             >
-                                <option value="">Default (Todo)</option>
+                                <option value="">{{ t('stage2.default_todo') }}</option>
                                 <option
                                     v-for="status in statuses"
                                     :key="status.id"
@@ -175,9 +176,9 @@ defineOptions({
                         </div>
                         <div class="space-y-1.5">
                             <Label for="message-task-assignee"
-                                >Assign to
+                                >{{ t('stage2.assign_to') }}
                                 <span class="font-normal text-muted-foreground"
-                                    >(optional)</span
+                                    >{{ t('stage2.optional') }}</span
                                 ></Label
                             >
                             <select
@@ -185,7 +186,7 @@ defineOptions({
                                 name="assignee_id"
                                 :class="selectClass"
                             >
-                                <option value="">Unassigned</option>
+                                <option value="">{{ t('stage2.unassigned') }}</option>
                                 <option
                                     v-for="user in assignees"
                                     :key="user.id"
@@ -198,9 +199,9 @@ defineOptions({
                         </div>
                         <div class="space-y-1.5 sm:col-span-2">
                             <Label for="message-task-due"
-                                >Due date
+                                >{{ t('stage2.due_date') }}
                                 <span class="font-normal text-muted-foreground"
-                                    >(optional)</span
+                                    >{{ t('stage2.optional') }}</span
                                 ></Label
                             >
                             <Input
@@ -215,11 +216,11 @@ defineOptions({
                     <div class="flex justify-end gap-2">
                         <Button as-child type="button" variant="outline"
                             ><Link :href="`${sourceUrl}#message-${message.id}`"
-                                >Cancel</Link
+                                >{{ t('stage2.cancel') }}</Link
                             ></Button
                         >
                         <Button type="submit" :disabled="processing"
-                            ><Plus class="size-4" /> Create task</Button
+                            ><Plus class="size-4" /> {{ t('stage2.create_task') }}</Button
                         >
                     </div>
                 </Form>

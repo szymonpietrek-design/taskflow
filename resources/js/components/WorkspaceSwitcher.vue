@@ -22,9 +22,11 @@ import {
     SidebarMenuItem,
     useSidebar,
 } from '@/components/ui/sidebar';
+import { useI18n } from '@/composables/useI18n';
 
 const page = usePage();
 const { isMobile, state } = useSidebar();
+const { t } = useI18n();
 
 const workspace = computed(() => page.props.workspace);
 const currentWorkspace = computed(() => workspace.value.current);
@@ -56,7 +58,7 @@ function switchWorkspace(workspaceId: number): void {
                     <SidebarMenuButton
                         size="lg"
                         class="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
-                        :tooltip="currentWorkspace?.name ?? 'Choose workspace'"
+                        :tooltip="currentWorkspace?.name ?? t('workspace.choose')"
                     >
                         <div
                             class="flex aspect-square size-8 items-center justify-center rounded-lg border bg-sidebar-accent text-sidebar-accent-foreground"
@@ -68,15 +70,15 @@ function switchWorkspace(workspaceId: number): void {
                             class="grid flex-1 text-left text-sm leading-tight"
                         >
                             <span class="truncate font-medium">
-                                {{ currentWorkspace?.name ?? 'No workspace' }}
+                                {{ currentWorkspace?.name ?? t('workspace.none') }}
                             </span>
                             <span
                                 class="truncate text-xs text-muted-foreground"
                             >
                                 {{
                                     currentWorkspace
-                                        ? 'Workspace'
-                                        : 'Create your first workspace'
+                                        ? t('workspace.label')
+                                        : t('workspace.createFirst')
                                 }}
                             </span>
                         </div>
@@ -98,7 +100,7 @@ function switchWorkspace(workspaceId: number): void {
                     :side-offset="4"
                 >
                     <DropdownMenuLabel class="text-xs text-muted-foreground">
-                        Workspaces
+                        {{ t('workspace.list') }}
                     </DropdownMenuLabel>
 
                     <template v-if="workspace.items.length">
@@ -121,7 +123,7 @@ function switchWorkspace(workspaceId: number): void {
                     </template>
 
                     <DropdownMenuItem v-else disabled>
-                        No workspaces yet
+                        {{ t('workspace.noneYet') }}
                     </DropdownMenuItem>
 
                     <DropdownMenuSeparator />
@@ -139,14 +141,14 @@ function switchWorkspace(workspaceId: number): void {
                             class="cursor-pointer"
                         >
                             <Users class="size-4" />
-                            Members
+                            {{ t('workspace.members') }}
                         </Link>
                     </DropdownMenuItem>
 
                     <DropdownMenuItem as-child>
                         <Link href="/workspaces" class="cursor-pointer">
                             <Settings2 class="size-4" />
-                            Manage workspaces
+                            {{ t('workspace.manage') }}
                         </Link>
                     </DropdownMenuItem>
                 </DropdownMenuContent>

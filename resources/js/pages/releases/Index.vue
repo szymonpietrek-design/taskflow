@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n';
 import { Form, Head, Link } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import { ArrowLeft, CalendarDays, Package, Plus } from '@lucide/vue';
@@ -47,6 +48,7 @@ const includeCompleted = ref(true);
 defineOptions({
     layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }] },
 });
+const { t, locale, formatText, translateLiteral, countLabel } = useI18n();
 </script>
 
 <template>
@@ -56,18 +58,17 @@ defineOptions({
         <div class="space-y-3">
             <Button variant="ghost" size="sm" as-child class="-ml-3 w-fit">
                 <Link :href="`/projects/${project.id}`"
-                    ><ArrowLeft class="size-4" /> Back to project</Link
+                    ><ArrowLeft class="size-4" /> {{ t('stage3.back_to_project') }}</Link
                 >
             </Button>
             <div class="flex flex-wrap items-center gap-2">
                 <Badge variant="secondary">{{ project.key }}</Badge>
-                <Badge variant="outline">Application</Badge>
+                <Badge variant="outline">{{ t('stage3.application') }}</Badge>
             </div>
             <div>
-                <h1 class="text-2xl font-semibold tracking-tight">Releases</h1>
+                <h1 class="text-2xl font-semibold tracking-tight">{{ t('stage3.releases') }}</h1>
                 <p class="mt-1 text-sm text-muted-foreground">
-                    Track application versions for {{ project.name }}. New
-                    releases start as drafts.
+                    {{ formatText('audit.releases_track_for', { project: project.name }) }}
                 </p>
             </div>
         </div>
@@ -78,10 +79,9 @@ defineOptions({
         >
             <section class="space-y-3">
                 <div>
-                    <h2 class="font-medium">Version history</h2>
+                    <h2 class="font-medium">{{ t('stage3.version_history') }}</h2>
                     <p class="text-sm text-muted-foreground">
-                        {{ releases.total }}
-                        {{ releases.total === 1 ? 'release' : 'releases' }}
+                        {{ formatText('audit.count_releases', { count: releases.total }) }}
                     </p>
                 </div>
                 <Card v-if="releases.data.length === 0" class="border-dashed">
@@ -89,9 +89,9 @@ defineOptions({
                         class="flex flex-col items-center gap-2 py-10 text-center"
                     >
                         <Package class="size-9 text-muted-foreground" />
-                        <p class="font-medium">No releases yet</p>
+                        <p class="font-medium">{{ t('stage3.no_releases_yet') }}</p>
                         <p class="text-sm text-muted-foreground">
-                            Create the first application version to get started.
+                            {{ t('audit.create_the_first_application_version_to_get_started') }}
                         </p>
                     </CardContent>
                 </Card>
@@ -116,7 +116,7 @@ defineOptions({
                                                 ? 'default'
                                                 : 'secondary'
                                         "
-                                        >{{ release.status_label }}</Badge
+                                        >{{ translateLiteral(release.status_label) }}</Badge
                                     >
                                 </div>
                                 <p
@@ -135,8 +135,7 @@ defineOptions({
                                     v-if="release.planned_for"
                                     class="flex items-center gap-1 text-xs text-muted-foreground"
                                 >
-                                    <CalendarDays class="size-3.5" /> Planned
-                                    for {{ release.planned_for }}
+                                    <CalendarDays class="size-3.5" /> {{ formatText('audit.day_planned', { date: release.planned_for }) }}
                                 </div>
                             </CardContent>
                         </Card>
@@ -152,14 +151,13 @@ defineOptions({
                         size="sm"
                         variant="outline"
                     >
-                        <Link :href="releases.prev_page_url">Previous</Link>
+                        <Link :href="releases.prev_page_url">{{ t('stage3.previous') }}</Link>
                     </Button>
                     <Button v-else size="sm" variant="outline" disabled
-                        >Previous</Button
+                        >{{ t('stage3.previous') }}</Button
                     >
                     <span class="text-xs text-muted-foreground"
-                        >Page {{ releases.current_page }} of
-                        {{ releases.last_page }}</span
+                        >{{ formatText('audit.count_pages', { page: releases.current_page, pages: releases.last_page }) }}</span
                     >
                     <Button
                         v-if="releases.next_page_url"
@@ -167,10 +165,10 @@ defineOptions({
                         size="sm"
                         variant="outline"
                     >
-                        <Link :href="releases.next_page_url">Next</Link>
+                        <Link :href="releases.next_page_url">{{ t('stage3.next') }}</Link>
                     </Button>
                     <Button v-else size="sm" variant="outline" disabled
-                        >Next</Button
+                        >{{ t('stage3.next') }}</Button
                     >
                 </div>
             </section>
@@ -178,11 +176,10 @@ defineOptions({
             <Card v-if="can_create" class="h-fit">
                 <CardHeader>
                     <CardTitle class="flex items-center gap-2"
-                        ><Plus class="size-4" /> New release</CardTitle
+                        ><Plus class="size-4" /> {{ t('stage3.new_release') }}</CardTitle
                     >
                     <CardDescription
-                        >Use MAJOR.MINOR.PATCH, for example 1.0.0 or
-                        1.2.3.</CardDescription
+                        >{{ t('audit.use_major_minor_patch_for_example_1_0_0_or_1_2_3') }}</CardDescription
                     >
                 </CardHeader>
                 <CardContent>
@@ -194,7 +191,7 @@ defineOptions({
                         v-slot="{ errors, processing }"
                     >
                         <div class="grid gap-2">
-                            <Label for="release-version">Version</Label>
+                            <Label for="release-version">{{ t('stage3.version') }}</Label>
                             <Input
                                 id="release-version"
                                 name="version"
@@ -206,24 +203,24 @@ defineOptions({
                         </div>
                         <div class="grid gap-2">
                             <Label for="release-name"
-                                >Name
+                                >{{ t('audit.name') }}
                                 <span class="font-normal text-muted-foreground"
-                                    >(optional)</span
+                                    >{{ t('stage3.optional') }}</span
                                 ></Label
                             >
                             <Input
                                 id="release-name"
                                 name="name"
                                 maxlength="160"
-                                placeholder="Initial release"
+                                :placeholder="t('audit.initial_release')"
                             />
                             <InputError :message="errors.name" />
                         </div>
                         <div class="grid gap-2">
                             <Label for="release-description"
-                                >Description
+                                >{{ t('audit.description') }}
                                 <span class="font-normal text-muted-foreground"
-                                    >(optional)</span
+                                    >{{ t('stage3.optional') }}</span
                                 ></Label
                             >
                             <textarea
@@ -231,16 +228,16 @@ defineOptions({
                                 name="description"
                                 rows="4"
                                 maxlength="10000"
-                                placeholder="Optional internal notes about this version"
+                                :placeholder="t('audit.optional_internal_notes_about_this_version')"
                                 class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-xs outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
                             />
                             <InputError :message="errors.description" />
                         </div>
                         <div class="grid gap-2">
                             <Label for="release-date"
-                                >Planned date
+                                >{{ t('audit.planned_date') }}
                                 <span class="font-normal text-muted-foreground"
-                                    >(optional)</span
+                                    >{{ t('stage3.optional') }}</span
                                 ></Label
                             >
                             <Input
@@ -268,23 +265,14 @@ defineOptions({
                                 class="cursor-pointer space-y-1 text-sm"
                             >
                                 <span class="block font-medium"
-                                    >Include completed tasks
+                                    >{{ t('audit.include_completed_tasks') }}
                                     <span
                                         class="font-normal text-muted-foreground"
-                                        >(optional)</span
+                                        >{{ t('stage3.optional') }}</span
                                     ></span
                                 >
                                 <span class="block text-muted-foreground"
-                                    >Attach
-                                    {{ completed_available_count }} unassigned,
-                                    completed
-                                    {{
-                                        completed_available_count === 1
-                                            ? 'task'
-                                            : 'tasks'
-                                    }}
-                                    to this release. You can remove them
-                                    later.</span
+                                    >{{ formatText('fix.release_attach_count', { count: completed_available_count, tasks: countLabel('task', completed_available_count) }) }}</span
                                 >
                             </label>
                         </div>
@@ -294,8 +282,7 @@ defineOptions({
                             type="submit"
                             class="w-full"
                             :disabled="processing"
-                            ><Plus class="size-4" /> Create draft
-                            release</Button
+                            ><Plus class="size-4" /> {{ t('audit.create_draft_release') }}</Button
                         >
                     </Form>
                 </CardContent>

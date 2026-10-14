@@ -41,7 +41,7 @@ final class ReportSharingController extends Controller
 
             if ($enable) {
                 if ($locked->published_at === null || blank($locked->body)) {
-                    throw ValidationException::withMessages(['sharing' => 'Publish the report before sharing it.']);
+                    throw ValidationException::withMessages(['sharing' => __('Publish the report before sharing it.')]);
                 }
                 if ($locked->share_token === null) {
                     $locked->forceFill(['share_token' => Str::random(48), 'shared_at' => now()])->save();

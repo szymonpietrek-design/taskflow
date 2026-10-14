@@ -87,7 +87,7 @@ class TaskStatusController extends Controller
         try {
             $action();
         } catch (InvalidArgumentException $exception) {
-            throw ValidationException::withMessages(['status' => $exception->getMessage()]);
+            throw ValidationException::withMessages(['status' => __($exception->getMessage())]);
         }
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Project statuses updated.')]);

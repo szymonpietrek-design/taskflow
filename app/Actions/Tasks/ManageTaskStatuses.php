@@ -19,14 +19,14 @@ final class ManageTaskStatuses
         $name = trim($name);
 
         if ($name === '') {
-            throw new InvalidArgumentException('Status name is required.');
+            throw new InvalidArgumentException(__('Status name is required.'));
         }
 
         return DB::transaction(function () use ($project, $name, $category): TaskStatus {
             $this->lockProject($project);
 
             if (! $project->taskStatuses()->exists() && $category !== TaskStatusCategory::TODO) {
-                throw new InvalidArgumentException('The first project status must belong to Todo.');
+                throw new InvalidArgumentException(__('The first project status must belong to Todo.'));
             }
 
             $base = Str::slug($name) ?: 'status';
@@ -54,7 +54,7 @@ final class ManageTaskStatuses
         $name = trim($name);
 
         if ($name === '') {
-            throw new InvalidArgumentException('Status name is required.');
+            throw new InvalidArgumentException(__('Status name is required.'));
         }
 
         return DB::transaction(function () use ($project, $status, $name, $category): TaskStatus {
@@ -63,7 +63,7 @@ final class ManageTaskStatuses
 
             if ($current->category !== $category) {
                 if ($current->tasks()->exists()) {
-                    throw new InvalidArgumentException('Cannot change the category of a status used by tasks.');
+                    throw new InvalidArgumentException(__('Cannot change the category of a status used by tasks.'));
                 }
                 $this->guardLastTodo($project, $current);
             }
@@ -80,7 +80,7 @@ final class ManageTaskStatuses
         Gate::forUser($actor)->authorize('update', $project);
 
         if (! in_array($direction, ['up', 'down'], true)) {
-            throw new InvalidArgumentException('Invalid direction.');
+            throw new InvalidArgumentException(__('Invalid direction.'));
         }
 
         DB::transaction(function () use ($project, $status, $direction): void {
@@ -113,7 +113,7 @@ final class ManageTaskStatuses
             $current = $this->lockStatus($project, $status);
 
             if ($current->tasks()->exists()) {
-                throw new InvalidArgumentException('Cannot delete a status used by tasks.');
+                throw new InvalidArgumentException(__('Cannot delete a status used by tasks.'));
             }
 
             $this->guardLastTodo($project, $current);
@@ -127,7 +127,7 @@ final class ManageTaskStatuses
             ->where('category', TaskStatusCategory::TODO->value)
             ->where('id', '!=', $status->id)
             ->exists()) {
-            throw new InvalidArgumentException('A project must keep at least one Todo status.');
+            throw new InvalidArgumentException(__('A project must keep at least one Todo status.'));
         }
     }
 

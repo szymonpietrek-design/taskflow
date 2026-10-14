@@ -8,6 +8,7 @@ import {
 } from '@internationalized/date';
 import { CalendarDays } from '@lucide/vue';
 import { computed } from 'vue';
+import { useI18n } from '@/composables/useI18n';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import {
@@ -30,11 +31,12 @@ const props = withDefaults(
     {
         disabled: false,
         invalid: false,
-        placeholder: 'Choose date',
+        placeholder: '',
     },
 );
 const emit = defineEmits<{ 'update:modelValue': [date: string] }>();
-const formatter = new DateFormatter('en-US', { dateStyle: 'medium' });
+const { t, locale } = useI18n();
+const formatter = computed(() => new DateFormatter(locale.value === 'pl' ? 'pl-PL' : 'en-US', { dateStyle: 'medium' }));
 const selectedDate = computed<DateValue | undefined>({
     get: () => (props.modelValue ? parseDate(props.modelValue) : undefined),
     set: (value) => emit('update:modelValue', value?.toString() ?? ''),
@@ -47,8 +49,8 @@ const placeholderDate = computed<DateValue>(
 );
 const formattedValue = computed(() =>
     selectedDate.value
-        ? formatter.format(selectedDate.value.toDate(getLocalTimeZone()))
-        : props.placeholder,
+        ? formatter.value.format(selectedDate.value.toDate(getLocalTimeZone()))
+        : (props.placeholder || t('audit.no_date')),
 );
 </script>
 
@@ -61,7 +63,7 @@ const formattedValue = computed(() =>
                 variant="outline"
                 class="w-full min-w-0 justify-between gap-2 font-normal"
                 :disabled="disabled"
-                :aria-label="ariaLabel ?? 'Choose work date'"
+                :aria-label="ariaLabel ?? t('audit.choose_work_date')"
                 :aria-invalid="invalid || undefined"
             >
                 <span class="truncate">{{ formattedValue }}</span>

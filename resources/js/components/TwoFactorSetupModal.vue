@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n';
 import { Form } from '@inertiajs/vue3';
 import { useClipboard } from '@vueuse/core';
 import { Check, Copy, ScanLine } from '@lucide/vue';
@@ -46,25 +47,25 @@ const pinInputContainerRef = useTemplateRef('pinInputContainerRef');
 const modalConfig = computed<TwoFactorConfigContent>(() => {
     if (props.twoFactorEnabled) {
         return {
-            title: 'Two-factor authentication enabled',
+            title: t('fix.2fa_enabled_title'),
             description:
-                'Two-factor authentication is now enabled. Scan the QR code or enter the setup key in your authenticator app.',
+                t('fix.2fa_enabled_help'),
             buttonText: 'Close',
         };
     }
 
     if (showVerificationStep.value) {
         return {
-            title: 'Verify authentication code',
-            description: 'Enter the 6-digit code from your authenticator app',
+            title: t('fix.2fa_verify_title'),
+            description: t('fix.2fa_verify_help'),
             buttonText: 'Continue',
         };
     }
 
     return {
-        title: 'Enable two-factor authentication',
+        title: t('fix.2fa_enable_title'),
         description:
-            'To finish enabling two-factor authentication, scan the QR code or enter the setup key in your authenticator app',
+            t('fix.2fa_enable_help'),
         buttonText: 'Continue',
     };
 });
@@ -107,6 +108,7 @@ watch(
         }
     },
 );
+const { t, translateLiteral } = useI18n();
 </script>
 
 <template>
@@ -142,9 +144,9 @@ watch(
                         />
                     </div>
                 </div>
-                <DialogTitle>{{ modalConfig.title }}</DialogTitle>
+                <DialogTitle>{{ translateLiteral(modalConfig.title) }}</DialogTitle>
                 <DialogDescription class="text-center">
-                    {{ modalConfig.description }}
+                    {{ translateLiteral(modalConfig.description) }}
                 </DialogDescription>
             </DialogHeader>
 
@@ -186,7 +188,7 @@ watch(
 
                         <div class="flex w-full items-center space-x-5">
                             <Button class="w-full" @click="handleModalNextStep">
-                                {{ modalConfig.buttonText }}
+                                {{ translateLiteral(modalConfig.buttonText) }}
                             </Button>
                         </div>
 
@@ -197,7 +199,7 @@ watch(
                                 class="absolute inset-0 top-1/2 h-px w-full bg-border"
                             />
                             <span class="relative bg-card px-2 py-1"
-                                >or, enter the code manually</span
+                                >{{ t('audit.or_enter_the_code_manually') }}</span
                             >
                         </div>
 
@@ -279,14 +281,14 @@ watch(
                                     @click="showVerificationStep = false"
                                     :disabled="processing"
                                 >
-                                    Back
+                                    {{ t('audit.back') }}
                                 </Button>
                                 <Button
                                     type="submit"
                                     class="w-auto flex-1"
                                     :disabled="processing || code.length < 6"
                                 >
-                                    Confirm
+                                    {{ t('audit.confirm') }}
                                 </Button>
                             </div>
                         </div>

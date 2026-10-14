@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n';
 import { Form, Head, Link, usePage } from '@inertiajs/vue3';
 import { AppWindow, FolderKanban, LockKeyhole, Plus } from '@lucide/vue';
 import { computed } from 'vue';
@@ -34,24 +35,37 @@ defineOptions({
 });
 
 function typeLabel(type: ProjectSummary['type']): string {
-    return type === 'application' ? 'Application' : 'Standard';
+    return type === 'application' ? t('stage2.application') : t('stage2.standard');
 }
 
 function visibilityLabel(visibility: ProjectSummary['visibility']): string {
-    return visibility === 'private' ? 'Private' : 'Workspace';
+    return visibility === 'private' ? t('stage2.private') : t('stage2.workspace');
 }
+const { t, formatText, locale } = useI18n();
+
+const projectCount = computed(() => {
+    const count = projects.value.length;
+    const plural = new Intl.PluralRules(locale.value).select(count);
+    const key = plural === 'one'
+        ? 'projects.countOne'
+        : plural === 'few'
+          ? 'projects.countFew'
+          : 'projects.countMany';
+
+    return formatText(key, { count });
+});
 </script>
 
 <template>
-    <Head title="Projects" />
+    <Head :title="t('stage2.projects')" />
 
     <div class="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-8 p-4 md:p-6">
         <Heading
-            title="Projects"
+            :title="t('stage2.projects')"
             :description="
                 workspace
-                    ? `Projects in ${workspace.name}.`
-                    : 'Choose a workspace to manage projects.'
+                    ? formatText('projects.inWorkspace', { workspace: workspace.name })
+                    : t('projects.chooseWorkspace')
             "
         />
 
@@ -62,10 +76,9 @@ function visibilityLabel(visibility: ProjectSummary['visibility']): string {
         >
             <section class="space-y-3">
                 <div>
-                    <h2 class="text-base font-medium">Workspace projects</h2>
+                    <h2 class="text-base font-medium">{{ t('stage2.workspace_projects') }}</h2>
                     <p class="text-sm text-muted-foreground">
-                        {{ projects.length }}
-                        {{ projects.length === 1 ? 'project' : 'projects' }}
+                        {{ projectCount }}
                     </p>
                 </div>
 
@@ -145,9 +158,9 @@ function visibilityLabel(visibility: ProjectSummary['visibility']): string {
                                 class="size-5 text-muted-foreground"
                             />
                         </div>
-                        <p class="font-medium">No projects yet</p>
+                        <p class="font-medium">{{ t('stage2.no_projects_yet') }}</p>
                         <p class="mt-1 max-w-sm text-sm text-muted-foreground">
-                            Create the first project for this workspace.
+                            {{ t('stage2.create_the_first_project_for_this_workspace') }}
                         </p>
                     </CardContent>
                 </Card>
@@ -157,11 +170,10 @@ function visibilityLabel(visibility: ProjectSummary['visibility']): string {
                 <CardHeader>
                     <CardTitle class="flex items-center gap-2">
                         <Plus class="size-4" />
-                        New project
+                        {{ t('stage2.new_project') }}
                     </CardTitle>
                     <CardDescription>
-                        Use Application for software projects that will use
-                        releases, changelogs, and GitHub integration.
+                        {{ t('stage2.use_application_for_software_projects_that_will_use_releases_changelogs_and') }}
                     </CardDescription>
                 </CardHeader>
 
@@ -174,19 +186,19 @@ function visibilityLabel(visibility: ProjectSummary['visibility']): string {
                         v-slot="{ errors, processing }"
                     >
                         <div class="grid gap-2">
-                            <Label for="project-name">Name</Label>
+                            <Label for="project-name">{{ t('stage2.name') }}</Label>
                             <Input
                                 id="project-name"
                                 name="name"
                                 maxlength="120"
                                 required
-                                placeholder="Customer Portal"
+                                :placeholder="t('audit.customer_portal')"
                             />
                             <InputError :message="errors.name" />
                         </div>
 
                         <div class="grid gap-2">
-                            <Label for="project-key">Key</Label>
+                            <Label for="project-key">{{ t('stage2.key') }}</Label>
                             <Input
                                 id="project-key"
                                 name="key"
@@ -196,16 +208,16 @@ function visibilityLabel(visibility: ProjectSummary['visibility']): string {
                                 class="uppercase"
                             />
                             <p class="text-xs text-muted-foreground">
-                                Used for task identifiers such as APP-142.
+                                {{ t('stage2.used_for_task_identifiers_such_as_app_142') }}
                             </p>
                             <InputError :message="errors.key" />
                         </div>
 
                         <div class="grid gap-2">
                             <Label for="project-description"
-                                >Description
+                                >{{ t('stage2.description') }}
                                 <span class="font-normal text-muted-foreground"
-                                    >(optional)</span
+                                    >{{ t('stage2.optional') }}</span
                                 ></Label
                             >
                             <textarea
@@ -213,41 +225,41 @@ function visibilityLabel(visibility: ProjectSummary['visibility']): string {
                                 name="description"
                                 rows="3"
                                 maxlength="5000"
-                                placeholder="What is this project for?"
+                                :placeholder="t('stage2.what_is_this_project_for')"
                                 class="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
                             />
                             <InputError :message="errors.description" />
                         </div>
 
                         <div class="grid gap-2">
-                            <Label for="project-type">Type</Label>
+                            <Label for="project-type">{{ t('stage2.type') }}</Label>
                             <select
                                 id="project-type"
                                 name="type"
                                 class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
                             >
-                                <option value="1">Standard</option>
-                                <option value="2">Application</option>
+                                <option value="1">{{ t('stage2.standard') }}</option>
+                                <option value="2">{{ t('stage2.application') }}</option>
                             </select>
                             <InputError :message="errors.type" />
                         </div>
 
                         <div class="grid gap-2">
-                            <Label for="project-visibility">Visibility</Label>
+                            <Label for="project-visibility">{{ t('stage2.visibility') }}</Label>
                             <select
                                 id="project-visibility"
                                 name="visibility"
                                 class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
                             >
-                                <option value="1">Workspace</option>
-                                <option value="2">Private</option>
+                                <option value="1">{{ t('stage2.workspace') }}</option>
+                                <option value="2">{{ t('stage2.private') }}</option>
                             </select>
                             <InputError :message="errors.visibility" />
                         </div>
 
                         <Button class="w-full" :disabled="processing">
                             <Plus class="size-4" />
-                            Create project
+                            {{ t('stage2.create_project') }}
                         </Button>
                     </Form>
                 </CardContent>

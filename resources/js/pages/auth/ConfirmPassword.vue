@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n';
 import { Form, Head } from '@inertiajs/vue3';
 import InputError from '@/components/InputError.vue';
 import PasswordInput from '@/components/PasswordInput.vue';
@@ -19,10 +20,11 @@ defineOptions({
             'This is a secure area of the application. Please confirm your password before continuing.',
     },
 });
+const { t } = useI18n();
 </script>
 
 <template>
-    <Head title="Confirm password" />
+    <Head :title="t('audit.confirm_password')" />
 
     <PasskeyVerify
         :routes="{
@@ -41,7 +43,7 @@ defineOptions({
     >
         <div class="space-y-6">
             <div class="grid gap-2">
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="password">{{ t('audit.password') }}</Label>
                 <PasswordInput
                     id="password"
                     name="password"
@@ -61,7 +63,7 @@ defineOptions({
                     data-test="confirm-password-button"
                 >
                     <Spinner v-if="processing" />
-                    Confirm password
+                    {{ t('audit.confirm_password') }}
                 </Button>
             </div>
         </div>

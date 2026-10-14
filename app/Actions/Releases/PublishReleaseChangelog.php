@@ -22,16 +22,16 @@ final class PublishReleaseChangelog
             if ($locked->project->type !== ProjectType::APPLICATION
                 || $locked->project->archived_at !== null
                 || $locked->status !== ReleaseStatus::RELEASED) {
-                throw new InvalidArgumentException('Publish the release before publishing its changelog.');
+                throw new InvalidArgumentException(__('Publish the release before publishing its changelog.'));
             }
 
             $changelog = $locked->changelog()->lockForUpdate()->first();
             if ($changelog === null || trim($changelog->draft_body ?? '') === '') {
-                throw new InvalidArgumentException('Save a non-empty changelog draft before publishing.');
+                throw new InvalidArgumentException(__('Save a non-empty changelog draft before publishing.'));
             }
             if ($changelog->published_body === $changelog->draft_body
                 && $changelog->published_locale === $changelog->draft_locale) {
-                throw new InvalidArgumentException('The published changelog is already up to date.');
+                throw new InvalidArgumentException(__('The published changelog is already up to date.'));
             }
 
             $changelog->fill([

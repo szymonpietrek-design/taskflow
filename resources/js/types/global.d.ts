@@ -21,6 +21,8 @@ declare module '@inertiajs/core' {
         sharedPageProps: {
             name: string;
             auth: Auth;
+            locale: string;
+            locales: Array<{ value: string; label: string }>;
             workspace: WorkspaceContext;
             projects: ProjectContext;
             sidebarOpen: boolean;

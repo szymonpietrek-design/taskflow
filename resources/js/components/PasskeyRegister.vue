@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n';
 import { usePasskeyRegister } from '@laravel/passkeys/vue';
 import { ref } from 'vue';
 import InputError from '@/components/InputError.vue';
@@ -29,7 +30,7 @@ const getDefaultPasskeyName = () => {
         { pattern: /Windows/, name: 'Windows' },
     ].find(({ pattern }) => pattern.test(ua))?.name;
 
-    return [browser, os].filter(Boolean).join(' on ') || '';
+    return [browser, os].filter(Boolean).join(' · ') || '';
 };
 
 const name = ref(getDefaultPasskeyName());
@@ -57,15 +58,16 @@ const handleCancel = () => {
     showForm.value = false;
     name.value = '';
 };
+const { t } = useI18n();
 </script>
 
 <template>
     <div v-if="!isSupported" class="text-sm text-muted-foreground">
-        Passkeys are not supported in this browser.
+        {{ t('audit.passkeys_are_not_supported_in_this_browser') }}
     </div>
 
     <Button v-else-if="!showForm" variant="outline" @click="showForm = true">
-        Add passkey
+        {{ t('audit.add_passkey') }}
     </Button>
 
     <form
@@ -74,17 +76,17 @@ const handleCancel = () => {
         class="space-y-4 rounded-lg border border-border bg-muted/50 p-4"
     >
         <div class="grid gap-2">
-            <Label for="passkey-name">Passkey name</Label>
+            <Label for="passkey-name">{{ t('audit.passkey_name') }}</Label>
             <Input
                 id="passkey-name"
                 type="text"
                 v-model="name"
-                placeholder="e.g., MacBook Pro, iPhone"
+                :placeholder="t('fix.passkey_placeholder')"
                 class="mt-1 block w-full border-foreground/20"
                 v-focus
             />
             <p class="text-xs text-muted-foreground">
-                A name helps you identify this passkey later.
+                {{ t('audit.a_name_helps_you_identify_this_passkey_later') }}
             </p>
         </div>
 
@@ -92,10 +94,10 @@ const handleCancel = () => {
 
         <div class="flex gap-2">
             <Button type="submit" :disabled="isLoading || !name.trim()">
-                {{ isLoading ? 'Registering...' : 'Register passkey' }}
+                {{ isLoading ? t('fix.passkey_registering') : t('fix.passkey_register') }}
             </Button>
             <Button type="button" variant="ghost" @click="handleCancel">
-                Cancel
+                {{ t('audit.cancel') }}
             </Button>
         </div>
     </form>

@@ -25,7 +25,7 @@ final class GenerateReleaseChangelog
         Gate::forUser($actor)->authorize('update', $release->project);
         $this->assertEditable($release);
         if (! preg_match('/\A[a-z]{2,3}(?:-[a-z0-9]{2,8})*\z/i', $language) || strlen($language) > 35) {
-            throw new InvalidArgumentException('Select a valid language code, such as en, pl, de or pt-BR.');
+            throw new InvalidArgumentException(__('Select a valid language code, such as en, pl, de or pt-BR.'));
         }
 
         $originalDraft = $release->changelog?->draft_body ?? '';
@@ -33,7 +33,7 @@ final class GenerateReleaseChangelog
         // External AI call is made outside any DB transaction.
         $markdown = trim($this->generator->generate($source, $language));
         if ($markdown === '' || mb_strlen($markdown) > 50000) {
-            throw new InvalidArgumentException('AI returned an invalid changelog draft.');
+            throw new InvalidArgumentException(__('AI returned an invalid changelog draft.'));
         }
 
         return DB::transaction(function () use ($actor, $release, $originalDraft, $markdown, $language): ReleaseChangelog {
@@ -42,7 +42,7 @@ final class GenerateReleaseChangelog
 
             $changelog = $locked->changelog()->lockForUpdate()->firstOrNew();
             if (($changelog->draft_body ?? '') !== $originalDraft) {
-                throw new InvalidArgumentException('Changelog draft changed while AI was generating. Reload and try again.');
+                throw new InvalidArgumentException(__('Changelog draft changed while AI was generating. Reload and try again.'));
             }
 
             $changelog->release_id = $locked->id;
@@ -60,7 +60,7 @@ final class GenerateReleaseChangelog
         if ($release->project->type !== ProjectType::APPLICATION
             || $release->project->archived_at !== null
             || $release->status === ReleaseStatus::CANCELED) {
-            throw new InvalidArgumentException('Cannot generate a changelog for this release.');
+            throw new InvalidArgumentException(__('Cannot generate a changelog for this release.'));
         }
     }
 }

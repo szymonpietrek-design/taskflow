@@ -31,7 +31,7 @@ class ReleaseTaskController extends Controller
         try {
             $setTaskRelease->handle($request->user(), $task, $release);
         } catch (InvalidArgumentException $exception) {
-            throw ValidationException::withMessages(['task_id' => $exception->getMessage()]);
+            throw ValidationException::withMessages(['task_id' => __($exception->getMessage())]);
         }
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Task added to release.')]);
@@ -50,7 +50,7 @@ class ReleaseTaskController extends Controller
         try {
             $count = $attachCompletedTasks->handle($request->user(), $release);
         } catch (InvalidArgumentException $exception) {
-            throw ValidationException::withMessages(['release' => $exception->getMessage()]);
+            throw ValidationException::withMessages(['release' => __($exception->getMessage())]);
         }
 
         Inertia::flash('toast', [
@@ -75,7 +75,7 @@ class ReleaseTaskController extends Controller
         try {
             $setTaskRelease->handle($request->user(), $task, null);
         } catch (InvalidArgumentException $exception) {
-            throw ValidationException::withMessages(['release' => $exception->getMessage()]);
+            throw ValidationException::withMessages(['release' => __($exception->getMessage())]);
         }
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Task removed from release.')]);

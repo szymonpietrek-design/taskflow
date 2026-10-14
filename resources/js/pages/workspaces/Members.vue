@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import {
     ArrowLeft,
@@ -80,10 +81,10 @@ const actionBusy = ref(false);
 const addForm = useForm({ email: '', role: 'member' });
 const baseUrl = `/workspaces/${props.workspaceItem.id}/members`;
 
-const labels: Record<WorkspaceRole, string> = {
-    owner: 'Owner',
-    admin: 'Admin',
-    member: 'Member',
+const roleLabelKeys: Record<WorkspaceRole, string> = {
+    owner: 'audit.owner',
+    admin: 'stage2.admin',
+    member: 'stage2.member',
 };
 
 // Low-saturation tones, consistently derived from the *user* ID rather than membership ID.
@@ -172,7 +173,7 @@ function formattedJoinDate(value: string): string {
     const parsed = new Date(`${date}T00:00:00Z`);
     if (Number.isNaN(parsed.getTime())) return value;
 
-    return new Intl.DateTimeFormat('en', {
+    return new Intl.DateTimeFormat(locale.value === 'pl' ? 'pl-PL' : 'en-US', {
         day: 'numeric',
         month: 'short',
         year: 'numeric',
@@ -191,22 +192,23 @@ function submitSearch(): void {
 defineOptions({
     layout: { breadcrumbs: [{ title: 'Workspaces', href: '/workspaces' }] },
 });
+const { t, locale, formatText } = useI18n();
 </script>
 
 <template>
-    <Head :title="`Members · ${workspaceItem.name}`" />
+    <Head :title="formatText('audit.members_of', { workspace: workspaceItem.name })" />
 
     <div class="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-4 md:p-6">
         <div class="space-y-3">
             <Button variant="ghost" size="sm" as-child class="-ml-3 w-fit">
                 <Link href="/workspaces">
-                    <ArrowLeft class="size-4" /> Back to workspaces
+                    <ArrowLeft class="size-4" /> {{ t('stage2.back_to_workspaces') }}
                 </Link>
             </Button>
             <div>
-                <h1 class="text-2xl font-semibold tracking-tight">Members</h1>
+                <h1 class="text-2xl font-semibold tracking-tight">{{ t('stage2.members') }}</h1>
                 <p class="mt-1 text-sm text-muted-foreground">
-                    People with access to {{ workspaceItem.name }}.
+                    {{ formatText('audit.workspace_people', { workspace: workspaceItem.name }) }}
                 </p>
             </div>
         </div>
@@ -217,12 +219,10 @@ defineOptions({
             >
                 <div class="space-y-1">
                     <CardTitle class="flex items-center gap-2 text-base">
-                        <Users class="size-4" /> Workspace members
+                        <Users class="size-4" /> {{ t('stage2.workspace_members') }}
                     </CardTitle>
                     <p class="text-sm text-muted-foreground">
-                        {{ members.total }}
-                        {{ members.total === 1 ? 'person' : 'people' }}
-                        {{ filters.q ? 'found' : 'in this workspace' }}
+                        {{ formatText(filters.q ? 'audit.members_found' : 'audit.members_total', { count: members.total }) }}
                     </p>
                 </div>
                 <div
@@ -237,14 +237,14 @@ defineOptions({
                             v-model="search"
                             name="q"
                             type="search"
-                            aria-label="Search members by name or email"
-                            placeholder="Search name or email"
+                            :aria-label="t('stage2.search_members_by_name_or_email')"
+                            :placeholder="t('stage2.search_name_or_email')"
                             maxlength="120"
                         />
                         <Button
                             type="submit"
                             variant="outline"
-                            aria-label="Search members"
+                            :aria-label="t('stage2.search_members')"
                         >
                             <Search class="size-4" />
                         </Button>
@@ -254,7 +254,7 @@ defineOptions({
                         class="shrink-0"
                         @click="openAddMember"
                     >
-                        <Plus class="size-4" /> Add member
+                        <Plus class="size-4" /> {{ t('stage2.add_member') }}
                     </Button>
                 </div>
             </CardHeader>
@@ -293,14 +293,14 @@ defineOptions({
                                     variant="secondary"
                                     class="px-2 py-0 text-[11px]"
                                 >
-                                    You
+                                    {{ t('stage2.you') }}
                                 </Badge>
                                 <Badge
                                     v-if="member.is_suspended"
                                     variant="outline"
                                     class="px-2 py-0 text-[11px] text-muted-foreground"
                                 >
-                                    Suspended
+                                    {{ t('stage2.suspended') }}
                                 </Badge>
                             </div>
                             <p
@@ -313,7 +313,7 @@ defineOptions({
                                 v-if="member.joined_at"
                                 class="mt-1 text-xs text-muted-foreground sm:hidden"
                             >
-                                Joined {{ formattedJoinDate(member.joined_at) }}
+                                {{ t('audit.joined') }} {{ formattedJoinDate(member.joined_at) }}
                             </p>
                         </div>
 
@@ -322,7 +322,7 @@ defineOptions({
                                 v-if="member.joined_at"
                                 class="hidden text-xs text-muted-foreground sm:inline"
                             >
-                                Joined {{ formattedJoinDate(member.joined_at) }}
+                                {{ t('audit.joined') }} {{ formattedJoinDate(member.joined_at) }}
                             </span>
                             <Badge
                                 :variant="
@@ -334,7 +334,7 @@ defineOptions({
                                 "
                                 class="min-w-17 justify-center"
                             >
-                                {{ labels[member.role] }}
+                                {{ t(roleLabelKeys[member.role]) }}
                             </Badge>
                             <DropdownMenu v-if="member.can_manage">
                                 <DropdownMenuTrigger as-child>
@@ -342,7 +342,7 @@ defineOptions({
                                         variant="ghost"
                                         size="icon"
                                         class="size-8 shrink-0"
-                                        :aria-label="`Manage ${member.name}`"
+                                        :aria-label="formatText('audit.manage_member', { name: member.name })"
                                     >
                                         <MoreHorizontal class="size-4" />
                                     </Button>
@@ -354,8 +354,7 @@ defineOptions({
                                             openMemberAction(member, 'restore')
                                         "
                                     >
-                                        <CheckCircle2 class="size-4" /> Restore
-                                        access
+                                        <CheckCircle2 class="size-4" /> {{ t('audit.restore_access') }}
                                     </DropdownMenuItem>
                                     <DropdownMenuItem
                                         v-else
@@ -363,7 +362,7 @@ defineOptions({
                                             openMemberAction(member, 'suspend')
                                         "
                                     >
-                                        <Ban class="size-4" /> Suspend access
+                                        <Ban class="size-4" /> {{ t('stage2.suspend_access') }}
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator />
                                     <DropdownMenuItem
@@ -372,8 +371,7 @@ defineOptions({
                                             openMemberAction(member, 'remove')
                                         "
                                     >
-                                        <UserMinus class="size-4" /> Remove from
-                                        workspace
+                                        <UserMinus class="size-4" /> {{ t('audit.remove_from_workspace') }}
                                     </DropdownMenuItem>
                                 </DropdownMenuContent>
                             </DropdownMenu>
@@ -385,12 +383,12 @@ defineOptions({
                     class="flex flex-col items-center gap-2 px-5 py-12 text-center"
                 >
                     <Users class="size-8 text-muted-foreground" />
-                    <p class="text-sm font-medium">No members found</p>
+                    <p class="text-sm font-medium">{{ t('stage2.no_members_found') }}</p>
                     <p class="text-sm text-muted-foreground">
                         {{
                             filters.q
-                                ? 'Try another name or email.'
-                                : 'This workspace has no members yet.'
+                                ? t('audit.try_another_name_or_email')
+                                : t('audit.this_workspace_has_no_members_yet')
                         }}
                     </p>
                     <Button
@@ -399,7 +397,7 @@ defineOptions({
                         variant="outline"
                         as-child
                     >
-                        <Link :href="baseUrl">Clear search</Link>
+                        <Link :href="baseUrl">{{ t('stage2.clear_search') }}</Link>
                     </Button>
                 </div>
             </CardContent>
@@ -415,14 +413,13 @@ defineOptions({
                 size="sm"
                 as-child
             >
-                <Link :href="members.prev_page_url">Previous</Link>
+                <Link :href="members.prev_page_url">{{ t('stage2.previous') }}</Link>
             </Button>
             <Button v-else variant="outline" size="sm" disabled
-                >Previous</Button
+                >{{ t('stage2.previous') }}</Button
             >
             <span class="text-xs text-muted-foreground"
-                >Page {{ members.current_page }} of
-                {{ members.last_page }}</span
+                >{{ formatText('audit.count_pages', { page: members.current_page, pages: members.last_page }) }}</span
             >
             <Button
                 v-if="members.next_page_url"
@@ -430,9 +427,9 @@ defineOptions({
                 size="sm"
                 as-child
             >
-                <Link :href="members.next_page_url">Next</Link>
+                <Link :href="members.next_page_url">{{ t('stage2.next') }}</Link>
             </Button>
-            <Button v-else variant="outline" size="sm" disabled>Next</Button>
+            <Button v-else variant="outline" size="sm" disabled>{{ t('stage2.next') }}</Button>
         </div>
         <Dialog
             :open="actionTarget !== null"
@@ -447,29 +444,26 @@ defineOptions({
                     <DialogTitle>
                         {{
                             memberAction === 'remove'
-                                ? 'Remove member?'
+                                ? t('audit.remove_member')
                                 : memberAction === 'suspend'
-                                  ? 'Suspend access?'
-                                  : 'Restore access?'
+                                  ? t('audit.suspend_access')
+                                  : t('audit.restore_access_196')
                         }}
                     </DialogTitle>
                     <DialogDescription>
-                        <template v-if="memberAction === 'remove'">
-                            Remove {{ actionTarget?.name }} from
-                            {{ workspaceItem.name }}? This revokes workspace and
-                            project access, but preserves their tasks, comments
-                            and worklog history. They can be added again later.
-                        </template>
-                        <template v-else-if="memberAction === 'suspend'">
-                            Suspend {{ actionTarget?.name }}'s access to
-                            {{ workspaceItem.name }}? Their account and project
-                            assignments will be preserved until access is
-                            restored.
-                        </template>
-                        <template v-else>
-                            Restore {{ actionTarget?.name }}'s previous access
-                            and role in {{ workspaceItem.name }}?
-                        </template>
+                        {{
+                            formatText(
+                                memberAction === 'remove'
+                                    ? 'audit.workspace_remove_confirm'
+                                    : memberAction === 'suspend'
+                                      ? 'audit.workspace_suspend_confirm'
+                                      : 'audit.workspace_restore_confirm',
+                                {
+                                    name: actionTarget?.name ?? '',
+                                    workspace: workspaceItem.name,
+                                },
+                            )
+                        }}
                     </DialogDescription>
                 </DialogHeader>
                 <DialogFooter class="gap-3">
@@ -478,7 +472,7 @@ defineOptions({
                         variant="outline"
                         :disabled="actionBusy"
                         @click="closeMemberAction"
-                        >Cancel</Button
+                        >{{ t('stage2.cancel') }}</Button
                     >
                     <Button
                         type="button"
@@ -496,10 +490,10 @@ defineOptions({
                         />
                         {{
                             memberAction === 'remove'
-                                ? 'Remove member'
+                                ? t('audit.remove_member_197')
                                 : memberAction === 'suspend'
-                                  ? 'Suspend access'
-                                  : 'Restore access'
+                                  ? t('audit.suspend_access_198')
+                                  : t('audit.restore_access')
                         }}
                     </Button>
                 </DialogFooter>
@@ -518,17 +512,15 @@ defineOptions({
                 class="sm:max-w-md"
             >
                 <DialogHeader>
-                    <DialogTitle>Add member</DialogTitle>
+                    <DialogTitle>{{ t('stage2.add_member') }}</DialogTitle>
                     <DialogDescription>
-                        Add someone who already has a TaskFlow account to
-                        {{ workspaceItem.name }}. Enter their exact email
-                        address.
+                        {{ formatText('audit.workspace_invitation', { workspace: workspaceItem.name }) }}
                     </DialogDescription>
                 </DialogHeader>
 
                 <form class="space-y-5" @submit.prevent="saveMember">
                     <div class="space-y-2">
-                        <Label for="new-member-email">Email address</Label>
+                        <Label for="new-member-email">{{ t('stage2.email_address') }}</Label>
                         <Input
                             id="new-member-email"
                             v-model="addForm.email"
@@ -544,7 +536,7 @@ defineOptions({
                     </div>
 
                     <div class="space-y-2">
-                        <Label for="new-member-role">Workspace role</Label>
+                        <Label for="new-member-role">{{ t('stage2.workspace_role') }}</Label>
                         <Select
                             v-model="addForm.role"
                             :disabled="addForm.processing"
@@ -554,22 +546,22 @@ defineOptions({
                                 class="w-full"
                                 :aria-invalid="Boolean(addForm.errors.role)"
                             >
-                                <SelectValue placeholder="Choose role" />
+                                <SelectValue :placeholder="t('stage2.choose_role')" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="member">Member</SelectItem>
+                                <SelectItem value="member">{{ t('stage2.member') }}</SelectItem>
                                 <SelectItem
                                     v-if="can_assign_admin"
                                     value="admin"
-                                    >Admin</SelectItem
+                                    >{{ t('stage2.admin') }}</SelectItem
                                 >
                             </SelectContent>
                         </Select>
                         <p class="text-xs text-muted-foreground">
                             {{
                                 can_assign_admin
-                                    ? 'Members can collaborate; admins can also manage workspace members.'
-                                    : 'You can add regular members. Only the owner can appoint admins.'
+                                    ? t('audit.members_can_collaborate_admins_can_also_manage_workspace_members')
+                                    : t('audit.you_can_add_regular_members_only_the_owner_can_appoint_admins')
                             }}
                         </p>
                         <InputError :message="addForm.errors.role" />
@@ -582,7 +574,7 @@ defineOptions({
                             :disabled="addForm.processing"
                             @click="closeAddMember"
                         >
-                            Cancel
+                            {{ t('stage2.cancel') }}
                         </Button>
                         <Button
                             type="submit"
@@ -594,7 +586,7 @@ defineOptions({
                                 v-if="addForm.processing"
                                 class="size-4 animate-spin"
                             />
-                            Add member
+                            {{ t('stage2.add_member') }}
                         </Button>
                     </DialogFooter>
                 </form>

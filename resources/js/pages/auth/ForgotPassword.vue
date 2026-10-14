@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n';
 import { Form, Head } from '@inertiajs/vue3';
 import InputError from '@/components/InputError.vue';
 import TextLink from '@/components/TextLink.vue';
@@ -19,10 +20,11 @@ defineOptions({
 defineProps<{
     status?: string;
 }>();
+const { t } = useI18n();
 </script>
 
 <template>
-    <Head title="Forgot password" />
+    <Head :title="t('audit.forgot_password')" />
 
     <div
         v-if="status"
@@ -34,7 +36,7 @@ defineProps<{
     <div class="space-y-6">
         <Form v-bind="email.form()" v-slot="{ errors, processing }">
             <div class="grid gap-2">
-                <Label for="email">Email address</Label>
+                <Label for="email">{{ t('audit.email_address') }}</Label>
                 <Input
                     id="email"
                     type="email"
@@ -53,14 +55,14 @@ defineProps<{
                     data-test="email-password-reset-link-button"
                 >
                     <Spinner v-if="processing" />
-                    Email password reset link
+                    {{ t('audit.email_password_reset_link') }}
                 </Button>
             </div>
         </Form>
 
         <div class="space-x-1 text-center text-sm text-muted-foreground">
-            <span>Or, return to</span>
-            <TextLink :href="login()">log in</TextLink>
+            <span>{{ t('audit.or_return_to') }}</span>
+            <TextLink :href="login()">{{ t('audit.log_in_31') }}</TextLink>
         </div>
     </div>
 </template>

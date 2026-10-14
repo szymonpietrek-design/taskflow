@@ -68,7 +68,7 @@ class ReleaseController extends Controller
                 $request->boolean('include_completed_tasks'),
             );
         } catch (InvalidArgumentException $exception) {
-            throw ValidationException::withMessages(['release' => $exception->getMessage()]);
+            throw ValidationException::withMessages(['release' => __($exception->getMessage())]);
         }
 
         $request->session()->put('current_workspace_id', $project->workspace_id);

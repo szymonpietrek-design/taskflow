@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n';
 import { Form, Head, Link, router } from '@inertiajs/vue3';
 import { computed, reactive, ref, shallowRef, watch } from 'vue';
 import {
@@ -179,7 +180,7 @@ const newTaskStatus = ref('default');
 const newTaskAssignee = ref('unassigned');
 const newTaskParent = ref('none');
 const newTaskDueDate = shallowRef<DateValue | undefined>();
-const dueDateFormatter = new DateFormatter('en-US', { dateStyle: 'medium' });
+const dueDateFormatter = computed(() => new DateFormatter(locale.value === 'pl' ? 'pl-PL' : 'en-US', { dateStyle: 'medium' }));
 
 function resetNewTaskFields() {
     newTaskType.value = '1';
@@ -213,6 +214,7 @@ defineOptions({
         breadcrumbs: [{ title: 'Projects', href: '/projects' }],
     },
 });
+const { t, locale, displayLabel, formatText } = useI18n();
 </script>
 
 <template>
@@ -226,9 +228,9 @@ defineOptions({
             >
                 <ArrowLeft class="size-4" /> {{ project.name }}
             </Link>
-            <h1 class="text-2xl font-semibold tracking-tight">Tasks</h1>
+            <h1 class="text-2xl font-semibold tracking-tight">{{ t('stage2.tasks') }}</h1>
             <p class="mt-1 text-sm text-muted-foreground">
-                Track work in {{ project.name }} ({{ project.key }}).
+                {{ formatText('followup.track_work', { project: project.name, key: project.key }) }}
             </p>
         </div>
 
@@ -238,10 +240,10 @@ defineOptions({
         >
             <section class="min-w-0 space-y-3">
                 <div class="flex items-center justify-between gap-3">
-                    <h2 class="text-sm font-medium">Project tasks</h2>
+                    <h2 class="text-sm font-medium">{{ t('stage2.project_tasks') }}</h2>
                     <span class="text-xs text-muted-foreground"
                         >{{ pagination.total }}
-                        {{ pagination.total === 1 ? 'task' : 'tasks' }}</span
+                        {{ pagination.total === 1 ? t('followup.task_count_one') : t('followup.task_count_many') }}</span
                     >
                 </div>
 
@@ -250,21 +252,21 @@ defineOptions({
                         <div
                             class="flex items-center gap-2 text-sm font-medium"
                         >
-                            <SlidersHorizontal class="size-4" /> Filters
+                            <SlidersHorizontal class="size-4" /> {{ t('stage2.filters') }}
                         </div>
                         <div class="grid gap-3 sm:grid-cols-2 2xl:grid-cols-4">
                             <div class="grid min-w-0 gap-1.5">
-                                <Label for="task-search">Search</Label>
+                                <Label for="task-search">{{ t('stage2.search') }}</Label>
                                 <Input
                                     id="task-search"
                                     v-model="filterForm.q"
                                     maxlength="100"
-                                    :placeholder="`Title, description, ${project.key}-1`"
+                                    :placeholder="`${t('stage2.title')}, ${t('stage2.description')}, ${project.key}-1`"
                                     :disabled="filterProcessing"
                                 />
                             </div>
                             <div class="grid min-w-0 gap-1.5">
-                                <Label for="task-filter-status">Status</Label>
+                                <Label for="task-filter-status">{{ t('stage2.status') }}</Label>
                                 <Select
                                     v-model="filterStatus"
                                     :disabled="filterProcessing"
@@ -273,11 +275,11 @@ defineOptions({
                                         id="task-filter-status"
                                         class="w-full"
                                         ><SelectValue
-                                            placeholder="All statuses"
+                                            :placeholder="t('stage2.all_statuses')"
                                     /></SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="all"
-                                            >All statuses</SelectItem
+                                            >{{ t('stage2.all_statuses') }}</SelectItem
                                         >
                                         <SelectItem
                                             v-for="status in statuses"
@@ -290,7 +292,7 @@ defineOptions({
                             </div>
                             <div class="grid min-w-0 gap-1.5">
                                 <Label for="task-filter-priority"
-                                    >Priority</Label
+                                    >{{ t('stage2.priority') }}</Label
                                 >
                                 <Select
                                     v-model="filterPriority"
@@ -300,26 +302,26 @@ defineOptions({
                                         id="task-filter-priority"
                                         class="w-full"
                                         ><SelectValue
-                                            placeholder="All priorities"
+                                            :placeholder="t('stage2.all_priorities')"
                                     /></SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="all"
-                                            >All priorities</SelectItem
+                                            >{{ t('stage2.all_priorities') }}</SelectItem
                                         >
-                                        <SelectItem value="1">Low</SelectItem>
+                                        <SelectItem value="1">{{ t('stage2.low') }}</SelectItem>
                                         <SelectItem value="2"
-                                            >Normal</SelectItem
+                                            >{{ t('stage2.normal') }}</SelectItem
                                         >
-                                        <SelectItem value="3">High</SelectItem>
+                                        <SelectItem value="3">{{ t('stage2.high') }}</SelectItem>
                                         <SelectItem value="4"
-                                            >Urgent</SelectItem
+                                            >{{ t('stage2.urgent') }}</SelectItem
                                         >
                                     </SelectContent>
                                 </Select>
                             </div>
                             <div class="grid min-w-0 gap-1.5">
                                 <Label for="task-filter-assignee"
-                                    >Assignee</Label
+                                    >{{ t('stage2.assignee') }}</Label
                                 >
                                 <Select
                                     v-model="filterAssignee"
@@ -328,14 +330,14 @@ defineOptions({
                                     <SelectTrigger
                                         id="task-filter-assignee"
                                         class="w-full"
-                                        ><SelectValue placeholder="Anyone"
+                                        ><SelectValue :placeholder="t('stage2.anyone')"
                                     /></SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="anyone"
-                                            >Anyone</SelectItem
+                                            >{{ t('stage2.anyone') }}</SelectItem
                                         >
                                         <SelectItem value="unassigned"
-                                            >Unassigned</SelectItem
+                                            >{{ t('stage2.unassigned') }}</SelectItem
                                         >
                                         <SelectItem
                                             v-for="person in filter_assignees"
@@ -351,7 +353,7 @@ defineOptions({
                             class="flex flex-wrap items-end justify-between gap-3"
                         >
                             <div class="grid w-full min-w-0 gap-1.5 sm:w-48">
-                                <Label for="task-filter-sort">Sort by</Label>
+                                <Label for="task-filter-sort">{{ t('stage2.sort_by') }}</Label>
                                 <Select
                                     v-model="filterSort"
                                     :disabled="filterProcessing"
@@ -359,23 +361,23 @@ defineOptions({
                                     <SelectTrigger
                                         id="task-filter-sort"
                                         class="w-full"
-                                        ><SelectValue placeholder="Sort by"
+                                        ><SelectValue :placeholder="t('stage2.sort_by')"
                                     /></SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="newest"
-                                            >Newest first</SelectItem
+                                            >{{ t('stage2.newest_first') }}</SelectItem
                                         >
                                         <SelectItem value="oldest"
-                                            >Oldest first</SelectItem
+                                            >{{ t('stage2.oldest_first') }}</SelectItem
                                         >
                                         <SelectItem value="priority"
-                                            >Highest priority</SelectItem
+                                            >{{ t('stage2.highest_priority') }}</SelectItem
                                         >
                                         <SelectItem value="due_date"
-                                            >Due date</SelectItem
+                                            >{{ t('stage2.due_date') }}</SelectItem
                                         >
                                         <SelectItem value="title"
-                                            >Title A–Z</SelectItem
+                                            >{{ t('stage2.title_a_z') }}</SelectItem
                                         >
                                     </SelectContent>
                                 </Select>
@@ -388,7 +390,7 @@ defineOptions({
                                         filterProcessing || !hasActiveFilters
                                     "
                                     @click="clearFilters"
-                                    >Clear filters</Button
+                                    >{{ t('stage2.clear_filters') }}</Button
                                 >
                                 <Button
                                     type="submit"
@@ -400,7 +402,7 @@ defineOptions({
                                     />
                                     <Search v-else class="size-4" />
                                     {{
-                                        filterProcessing ? 'Applying…' : 'Apply'
+                                        filterProcessing ? t('followup.applying') : t('followup.apply')
                                     }}
                                 </Button>
                             </div>
@@ -419,16 +421,16 @@ defineOptions({
                                 >
                                     <tr>
                                         <th class="px-4 py-3 font-medium">
-                                            Task
+                                            {{ t('stage2.task') }}
                                         </th>
                                         <th class="px-4 py-3 font-medium">
-                                            Status
+                                            {{ t('stage2.status') }}
                                         </th>
                                         <th class="px-4 py-3 font-medium">
-                                            Priority
+                                            {{ t('stage2.priority') }}
                                         </th>
                                         <th class="px-4 py-3 font-medium">
-                                            Assignee
+                                            {{ t('stage2.assignee') }}
                                         </th>
                                     </tr>
                                 </thead>
@@ -442,7 +444,7 @@ defineOptions({
                                             <div class="flex items-start gap-2">
                                                 <Link
                                                     :href="taskUrl(task.id)"
-                                                    :aria-label="`View ${task.reference}`"
+                                                    :aria-label="formatText('audit.view_task', { reference: task.reference })"
                                                     class="mt-0.5 shrink-0 text-muted-foreground"
                                                 >
                                                     <CheckCircle2
@@ -476,18 +478,14 @@ defineOptions({
                                                             {{ task.reference }}
                                                             ·
                                                             {{
-                                                                task.type_label
+                                                                displayLabel(task.type_label)
                                                             }}
                                                             <template
                                                                 v-if="
                                                                     task.parent
                                                                 "
                                                             >
-                                                                · Subtask of
-                                                                {{
-                                                                    task.parent
-                                                                        .reference
-                                                                }}</template
+                                                                · {{ formatText('fix.subtask_of', { reference: task.parent.reference }) }}</template
                                                             >
                                                         </Link>
                                                         <Tooltip
@@ -502,7 +500,7 @@ defineOptions({
                                                                 <span
                                                                     tabindex="0"
                                                                     class="inline-flex cursor-help items-center gap-1 rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                                                                    :aria-label="`Worklog: ${formatWorklogTime(task.worklog_total_minutes)}, ${task.worklog_entries_count} ${task.worklog_entries_count === 1 ? 'entry' : 'entries'}`"
+                                                                    :aria-label="formatText('audit.worklog_label', { duration: formatWorklogTime(task.worklog_total_minutes), count: task.worklog_entries_count })"
                                                                 >
                                                                     <Clock3
                                                                         class="size-3.5"
@@ -522,11 +520,10 @@ defineOptions({
                                                                     <p
                                                                         class="font-medium"
                                                                     >
-                                                                        Worklog
+                                                                        {{ t('stage2.worklog') }}
                                                                     </p>
                                                                     <p>
-                                                                        Total
-                                                                        time:
+                                                                        {{ t('fix.total_time') }}
                                                                         {{
                                                                             formatWorklogTime(
                                                                                 task.worklog_total_minutes,
@@ -534,7 +531,7 @@ defineOptions({
                                                                         }}
                                                                     </p>
                                                                     <p>
-                                                                        Entries:
+                                                                        {{ t('audit.task_entries_label') }}
                                                                         {{
                                                                             task.worklog_entries_count
                                                                         }}
@@ -559,14 +556,14 @@ defineOptions({
                                         <td
                                             class="px-4 py-3 text-muted-foreground"
                                         >
-                                            {{ task.priority_label }}
+                                            {{ displayLabel(task.priority_label) }}
                                         </td>
                                         <td
                                             class="px-4 py-3 text-muted-foreground"
                                         >
                                             {{
                                                 task.assignee?.name ??
-                                                'Unassigned'
+                                                t('fix.no_assignee')
                                             }}
                                         </td>
                                     </tr>
@@ -587,8 +584,8 @@ defineOptions({
                                     filters.status_id ||
                                     filters.priority ||
                                     filters.assignee_id)
-                                    ? 'No matching tasks'
-                                    : 'No tasks yet'
+                                    ? t('fix.no_matches')
+                                    : t('fix.no_tasks')
                             }}
                         </p>
                         <p class="max-w-sm text-sm text-muted-foreground">
@@ -597,10 +594,10 @@ defineOptions({
                                 filters.status_id ||
                                 filters.priority ||
                                 filters.assignee_id
-                                    ? 'Try changing or clearing your filters.'
+                                    ? t('fix.clear_search')
                                     : can_create
-                                      ? 'Create the first task to start tracking work.'
-                                      : 'Tasks will appear here when project members add them.'
+                                      ? t('fix.create_first_task')
+                                      : t('fix.tasks_appear')
                             }}
                         </p>
                         <Link
@@ -612,7 +609,7 @@ defineOptions({
                             "
                             :href="indexUrl"
                             class="text-sm underline"
-                            >Clear filters</Link
+                            >{{ t('stage2.clear_filters') }}</Link
                         >
                     </CardContent>
                 </Card>
@@ -621,43 +618,41 @@ defineOptions({
                     class="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground"
                 >
                     <span
-                        >Showing {{ pagination.from }}–{{ pagination.to }} of
-                        {{ pagination.total }}</span
+                        >{{ formatText('followup.showing', { from: pagination.from ?? 0, to: pagination.to ?? 0, total: pagination.total }) }}</span
                     >
                     <nav
                         v-if="pagination.last_page > 1"
                         class="flex items-center gap-3"
-                        aria-label="Task pages"
+                        :aria-label="t('stage2.task_pages')"
                     >
                         <Link
                             v-if="pagination.previous_page_url"
                             :href="pagination.previous_page_url"
                             preserve-scroll
                             class="rounded-md border px-3 py-1.5 text-foreground hover:bg-muted"
-                            >Previous</Link
+                            >{{ t('stage2.previous') }}</Link
                         >
                         <span
                             v-else
                             aria-disabled="true"
                             class="rounded-md border px-3 py-1.5 opacity-40"
-                            >Previous</span
+                            >{{ t('stage2.previous') }}</span
                         >
                         <span
-                            >Page {{ pagination.current_page }} of
-                            {{ pagination.last_page }}</span
+                            >{{ formatText('audit.count_pages', { page: pagination.current_page, pages: pagination.last_page }) }}</span
                         >
                         <Link
                             v-if="pagination.next_page_url"
                             :href="pagination.next_page_url"
                             preserve-scroll
                             class="rounded-md border px-3 py-1.5 text-foreground hover:bg-muted"
-                            >Next</Link
+                            >{{ t('stage2.next') }}</Link
                         >
                         <span
                             v-else
                             aria-disabled="true"
                             class="rounded-md border px-3 py-1.5 opacity-40"
-                            >Next</span
+                            >{{ t('stage2.next') }}</span
                         >
                     </nav>
                 </div>
@@ -666,11 +661,10 @@ defineOptions({
             <Card v-if="can_create" class="h-fit">
                 <CardHeader>
                     <CardTitle class="flex items-center gap-2"
-                        ><Plus class="size-4" /> New task</CardTitle
+                        ><Plus class="size-4" /> {{ t('stage2.new_task') }}</CardTitle
                     >
                     <CardDescription
-                        >Task numbers are assigned
-                        automatically.</CardDescription
+                        >{{ t('followup.task_numbers') }}</CardDescription
                     >
                 </CardHeader>
                 <CardContent>
@@ -683,21 +677,21 @@ defineOptions({
                         v-slot="{ errors, processing }"
                     >
                         <div class="grid gap-2">
-                            <Label for="task-title">Title</Label>
+                            <Label for="task-title">{{ t('stage2.title') }}</Label>
                             <Input
                                 id="task-title"
                                 name="title"
                                 maxlength="200"
                                 required
-                                placeholder="Implement dashboard"
+                                :placeholder="t('stage2.implement_dashboard')"
                             />
                             <InputError :message="errors.title" />
                         </div>
                         <div class="grid gap-2">
                             <Label for="task-description"
-                                >Description
+                                >{{ t('stage2.description') }}
                                 <span class="font-normal text-muted-foreground"
-                                    >(optional)</span
+                                    >{{ t('stage2.optional') }}</span
                                 ></Label
                             >
                             <textarea
@@ -705,14 +699,14 @@ defineOptions({
                                 name="description"
                                 rows="3"
                                 maxlength="10000"
-                                placeholder="Optional details"
+                                :placeholder="t('stage2.optional_details')"
                                 class="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
                             />
                             <InputError :message="errors.description" />
                         </div>
                         <div class="grid gap-3 sm:grid-cols-2">
                             <div class="grid min-w-0 gap-2">
-                                <Label for="task-type">Type</Label>
+                                <Label for="task-type">{{ t('stage2.type') }}</Label>
                                 <input
                                     type="hidden"
                                     name="type"
@@ -723,23 +717,23 @@ defineOptions({
                                     :disabled="processing"
                                 >
                                     <SelectTrigger id="task-type" class="w-full"
-                                        ><SelectValue placeholder="Select type"
+                                        ><SelectValue :placeholder="t('stage2.select_type')"
                                     /></SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="1">Task</SelectItem>
+                                        <SelectItem value="1">{{ t('stage2.task') }}</SelectItem>
                                         <SelectItem value="2"
-                                            >Feature</SelectItem
+                                            >{{ t('stage2.feature') }}</SelectItem
                                         >
                                         <SelectItem value="3"
-                                            >Improvement</SelectItem
+                                            >{{ t('stage2.improvement') }}</SelectItem
                                         >
-                                        <SelectItem value="4">Bug</SelectItem>
+                                        <SelectItem value="4">{{ t('stage2.bug') }}</SelectItem>
                                     </SelectContent>
                                 </Select>
                                 <InputError :message="errors.type" />
                             </div>
                             <div class="grid min-w-0 gap-2">
-                                <Label for="task-priority">Priority</Label>
+                                <Label for="task-priority">{{ t('stage2.priority') }}</Label>
                                 <input
                                     type="hidden"
                                     name="priority"
@@ -753,16 +747,16 @@ defineOptions({
                                         id="task-priority"
                                         class="w-full"
                                         ><SelectValue
-                                            placeholder="Select priority"
+                                            :placeholder="t('stage2.select_priority')"
                                     /></SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="1">Low</SelectItem>
+                                        <SelectItem value="1">{{ t('stage2.low') }}</SelectItem>
                                         <SelectItem value="2"
-                                            >Normal</SelectItem
+                                            >{{ t('stage2.normal') }}</SelectItem
                                         >
-                                        <SelectItem value="3">High</SelectItem>
+                                        <SelectItem value="3">{{ t('stage2.high') }}</SelectItem>
                                         <SelectItem value="4"
-                                            >Urgent</SelectItem
+                                            >{{ t('stage2.urgent') }}</SelectItem
                                         >
                                     </SelectContent>
                                 </Select>
@@ -771,9 +765,9 @@ defineOptions({
                         </div>
                         <div class="grid gap-2">
                             <Label for="task-status"
-                                >Status
+                                >{{ t('stage2.status') }}
                                 <span class="font-normal text-muted-foreground"
-                                    >(optional)</span
+                                    >{{ t('stage2.optional') }}</span
                                 ></Label
                             >
                             <input
@@ -790,11 +784,11 @@ defineOptions({
                                 :disabled="processing"
                             >
                                 <SelectTrigger id="task-status" class="w-full"
-                                    ><SelectValue placeholder="Select status"
+                                    ><SelectValue :placeholder="t('stage2.select_status')"
                                 /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="default"
-                                        >Default (Todo)</SelectItem
+                                        >{{ t('stage2.default_todo') }}</SelectItem
                                     >
                                     <SelectItem
                                         v-for="status in statuses"
@@ -808,9 +802,9 @@ defineOptions({
                         </div>
                         <div class="grid gap-2">
                             <Label for="task-assignee"
-                                >Assignee
+                                >{{ t('stage2.assignee') }}
                                 <span class="font-normal text-muted-foreground"
-                                    >(optional)</span
+                                    >{{ t('stage2.optional') }}</span
                                 ></Label
                             >
                             <input
@@ -827,11 +821,11 @@ defineOptions({
                                 :disabled="processing"
                             >
                                 <SelectTrigger id="task-assignee" class="w-full"
-                                    ><SelectValue placeholder="Select assignee"
+                                    ><SelectValue :placeholder="t('stage2.select_assignee')"
                                 /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="unassigned"
-                                        >Unassigned</SelectItem
+                                        >{{ t('stage2.unassigned') }}</SelectItem
                                     >
                                     <SelectItem
                                         v-for="person in assignees"
@@ -845,9 +839,9 @@ defineOptions({
                         </div>
                         <div class="grid gap-2">
                             <Label for="task-parent"
-                                >Parent task
+                                >{{ t('stage2.parent_task') }}
                                 <span class="font-normal text-muted-foreground"
-                                    >(optional)</span
+                                    >{{ t('stage2.optional') }}</span
                                 ></Label
                             >
                             <input
@@ -865,11 +859,11 @@ defineOptions({
                             >
                                 <SelectTrigger id="task-parent" class="w-full"
                                     ><SelectValue
-                                        placeholder="Select parent task"
+                                        :placeholder="t('stage2.select_parent_task')"
                                 /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="none"
-                                        >None (regular task)</SelectItem
+                                        >{{ t('stage2.none_regular_task') }}</SelectItem
                                     >
                                     <SelectItem
                                         v-for="task in parent_tasks"
@@ -884,9 +878,9 @@ defineOptions({
                         </div>
                         <div class="grid gap-2">
                             <Label for="task-due-date"
-                                >Due date
+                                >{{ t('stage2.due_date') }}
                                 <span class="font-normal text-muted-foreground"
-                                    >(optional)</span
+                                    >{{ t('stage2.optional') }}</span
                                 ></Label
                             >
                             <input
@@ -914,7 +908,7 @@ defineOptions({
                                                           getLocalTimeZone(),
                                                       ),
                                                   )
-                                                : 'Select a date'
+                                                : t('followup.date')
                                         }}</span>
                                         <CalendarDays
                                             class="size-4 shrink-0 opacity-70"
@@ -946,7 +940,7 @@ defineOptions({
                                                 close();
                                             "
                                         >
-                                            Clear date
+                                            {{ t('stage2.clear_date') }}
                                         </Button>
                                     </div>
                                 </PopoverContent>
@@ -962,7 +956,7 @@ defineOptions({
                                 class="size-4 animate-spin"
                             /><Plus v-else class="size-4" />
                             {{
-                                processing ? 'Creating task…' : 'Create task'
+                                processing ? t('followup.creating') : t('stage2.create_task')
                             }}</Button
                         >
                     </Form>

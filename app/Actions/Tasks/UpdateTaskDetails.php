@@ -29,7 +29,7 @@ final class UpdateTaskDetails
         $description = $description === '' ? null : $description;
 
         if ($title === '') {
-            throw new InvalidArgumentException('Task title cannot be empty.');
+            throw new InvalidArgumentException(__('Task title cannot be empty.'));
         }
 
         return DB::transaction(function () use ($actor, $task, $title, $description, $priority, $assignee, $dueDate): Task {
@@ -44,7 +44,7 @@ final class UpdateTaskDetails
             if ($assignee?->id !== $lockedTask->assignee_id
                 && $assignee !== null
                 && Gate::forUser($assignee)->denies('create', [Task::class, $lockedTask->project])) {
-                throw new InvalidArgumentException('Assignee must be a project contributor.');
+                throw new InvalidArgumentException(__('Assignee must be a project contributor.'));
             }
 
             $changes = [];

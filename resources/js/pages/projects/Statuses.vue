@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n';
 import { Form, Head, Link, router } from '@inertiajs/vue3';
 import {
     ArrowDown,
@@ -37,10 +38,10 @@ const props = defineProps<{
 }>();
 
 const categories = [
-    { value: 1, label: 'Todo' },
-    { value: 2, label: 'In progress' },
-    { value: 3, label: 'Done' },
-    { value: 4, label: 'Canceled' },
+    { value: 1, label: 'fix.category_todo' },
+    { value: 2, label: 'fix.category_progress' },
+    { value: 3, label: 'fix.category_done' },
+    { value: 4, label: 'fix.category_canceled' },
 ];
 
 const editingId = ref<number | null>(null);
@@ -75,7 +76,7 @@ function move(status: Status, direction: 'up' | 'down'): void {
 function remove(status: Status): void {
     if (
         !window.confirm(
-            `Delete status "${status.name}"? This cannot be undone.`,
+            formatText('fix.delete_status', { status: status.name }),
         )
     )
         return;
@@ -95,29 +96,29 @@ defineOptions({
         breadcrumbs: [{ title: 'Projects', href: '/projects' }],
     },
 });
+const { t, formatText, countLabel, displayLabel } = useI18n();
 </script>
 
 <template>
-    <Head :title="`Statuses · ${project.name}`" />
+    <Head :title="`${t('fix.statuses')} · ${project.name}`" />
 
     <div class="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 p-4 md:p-6">
         <div class="space-y-3">
             <Button variant="ghost" size="sm" as-child class="-ml-3 w-fit">
                 <Link :href="`/projects/${project.id}`"
-                    ><ArrowLeft class="size-4" /> Back to project</Link
+                    ><ArrowLeft class="size-4" /> {{ t('stage2.back_to_project') }}</Link
                 >
             </Button>
             <div>
                 <div class="mb-2 flex flex-wrap items-center gap-2">
                     <Badge variant="secondary">{{ project.key }}</Badge>
-                    <Badge variant="outline">Workflow</Badge>
+                    <Badge variant="outline">{{ t('stage2.workflow') }}</Badge>
                 </div>
                 <h1 class="text-2xl font-semibold tracking-tight">
-                    Task statuses
+                    {{ t('stage2.task_statuses') }}
                 </h1>
                 <p class="mt-1 text-sm text-muted-foreground">
-                    Configure the workflow for {{ project.name }}. Categories
-                    are fixed; status names and ordering are project-specific.
+                    {{ formatText('fix.statuses_help', { project: project.name }) }}
                 </p>
             </div>
         </div>
@@ -128,10 +129,9 @@ defineOptions({
         >
             <Card>
                 <CardHeader>
-                    <CardTitle>Workflow</CardTitle>
+                    <CardTitle>{{ t('stage2.workflow') }}</CardTitle>
                     <CardDescription
-                        >Use the arrows to change the order of the
-                        statuses.</CardDescription
+                        >{{ t('audit.use_the_arrows_to_change_the_order_of_the_statuses') }}</CardDescription
                     >
                 </CardHeader>
                 <CardContent class="space-y-3">
@@ -139,7 +139,7 @@ defineOptions({
                         v-if="!statuses.length"
                         class="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground"
                     >
-                        No statuses configured for this project.
+                        {{ t('stage2.no_statuses_configured_for_this_project') }}
                     </p>
                     <div
                         v-for="(status, index) in statuses"
@@ -158,16 +158,11 @@ defineOptions({
                                         status.name
                                     }}</span>
                                     <Badge variant="secondary">{{
-                                        status.category_label
+                                        displayLabel(status.category_label)
                                     }}</Badge>
                                 </div>
                                 <p class="mt-1 text-xs text-muted-foreground">
-                                    {{ status.task_count }}
-                                    {{
-                                        status.task_count === 1
-                                            ? 'task'
-                                            : 'tasks'
-                                    }}
+                                    {{ countLabel('task', status.task_count) }}
                                 </p>
                             </div>
                             <div
@@ -178,7 +173,7 @@ defineOptions({
                                     variant="ghost"
                                     size="icon-sm"
                                     :disabled="index === 0 || busy"
-                                    aria-label="Move up"
+                                    :aria-label="t('stage2.move_up')"
                                     @click="move(status, 'up')"
                                 >
                                     <ArrowUp class="size-4" />
@@ -189,7 +184,7 @@ defineOptions({
                                     :disabled="
                                         index === statuses.length - 1 || busy
                                     "
-                                    aria-label="Move down"
+                                    :aria-label="t('stage2.move_down')"
                                     @click="move(status, 'down')"
                                 >
                                     <ArrowDown class="size-4" />
@@ -198,7 +193,7 @@ defineOptions({
                                     variant="ghost"
                                     size="icon-sm"
                                     :disabled="busy"
-                                    aria-label="Edit status"
+                                    :aria-label="t('stage2.edit_status')"
                                     @click="startEdit(status)"
                                 >
                                     <Pencil class="size-4" />
@@ -207,7 +202,7 @@ defineOptions({
                                     variant="ghost"
                                     size="icon-sm"
                                     :disabled="busy || status.task_count > 0"
-                                    aria-label="Delete status"
+                                    :aria-label="t('stage2.delete_status')"
                                     @click="remove(status)"
                                 >
                                     <Trash2 class="size-4" />
@@ -225,7 +220,7 @@ defineOptions({
                         >
                             <div class="grid gap-1.5">
                                 <Label :for="`status-name-${status.id}`"
-                                    >Status name</Label
+                                    >{{ t('stage2.status_name') }}</Label
                                 >
                                 <Input
                                     :id="`status-name-${status.id}`"
@@ -238,7 +233,7 @@ defineOptions({
                             </div>
                             <div class="grid gap-1.5">
                                 <Label :for="`status-category-${status.id}`"
-                                    >Category</Label
+                                    >{{ t('stage2.category') }}</Label
                                 >
                                 <select
                                     :id="`status-category-${status.id}`"
@@ -252,7 +247,7 @@ defineOptions({
                                         :key="category.value"
                                         :value="category.value"
                                     >
-                                        {{ category.label }}
+                                        {{ t(category.label) }}
                                     </option>
                                 </select>
                                 <input
@@ -265,29 +260,27 @@ defineOptions({
                                     v-if="status.task_count > 0"
                                     class="text-xs text-muted-foreground"
                                 >
-                                    Category is locked while this status has
-                                    tasks.
+                                    {{ t('stage2.category_is_locked_while_this_status_has_tasks') }}
                                 </p>
                                 <InputError :message="errors.category" />
                                 <InputError :message="errors.status" />
                             </div>
                             <div class="flex items-center gap-2">
                                 <Button size="sm" :disabled="processing"
-                                    >Save changes</Button
+                                    >{{ t('stage2.save_changes') }}</Button
                                 >
                                 <Button
                                     size="sm"
                                     variant="outline"
                                     type="button"
                                     @click="editingId = null"
-                                    >Cancel</Button
+                                    >{{ t('stage2.cancel') }}</Button
                                 >
                             </div>
                         </Form>
                     </div>
                     <p class="text-xs text-muted-foreground">
-                        Statuses containing tasks cannot be deleted or moved to
-                        another category. At least one Todo status must remain.
+                        {{ t('stage2.statuses_containing_tasks_cannot_be_deleted_or_moved_to_another_category_at') }}
                     </p>
                 </CardContent>
             </Card>
@@ -295,11 +288,10 @@ defineOptions({
             <Card v-if="can_manage">
                 <CardHeader>
                     <CardTitle class="flex items-center gap-2"
-                        ><Plus class="size-4" /> New status</CardTitle
+                        ><Plus class="size-4" /> {{ t('stage2.new_status') }}</CardTitle
                     >
                     <CardDescription
-                        >For example: Backlog, Development, Review,
-                        Testing.</CardDescription
+                        >{{ t('audit.for_example_backlog_development_review_testing') }}</CardDescription
                     >
                 </CardHeader>
                 <CardContent>
@@ -311,18 +303,18 @@ defineOptions({
                         v-slot="{ errors, processing }"
                     >
                         <div class="grid gap-2">
-                            <Label for="new-status-name">Name</Label>
+                            <Label for="new-status-name">{{ t('stage2.name') }}</Label>
                             <Input
                                 id="new-status-name"
                                 name="name"
                                 maxlength="80"
                                 required
-                                placeholder="Code Review"
+                                :placeholder="t('audit.code_review')"
                             />
                             <InputError :message="errors.name" />
                         </div>
                         <div class="grid gap-2">
-                            <Label for="new-status-category">Category</Label>
+                            <Label for="new-status-category">{{ t('stage2.category') }}</Label>
                             <select
                                 id="new-status-category"
                                 name="category"
@@ -333,14 +325,14 @@ defineOptions({
                                     :key="category.value"
                                     :value="category.value"
                                 >
-                                    {{ category.label }}
+                                    {{ t(category.label) }}
                                 </option>
                             </select>
                             <InputError :message="errors.category" />
                             <InputError :message="errors.status" />
                         </div>
                         <Button class="w-full" :disabled="processing"
-                            ><Plus class="size-4" /> Add status</Button
+                            ><Plus class="size-4" /> {{ t('stage2.add_status') }}</Button
                         >
                     </Form>
                 </CardContent>

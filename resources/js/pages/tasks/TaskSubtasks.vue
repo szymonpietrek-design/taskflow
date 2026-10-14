@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n';
 import { Form, Link } from '@inertiajs/vue3';
 import {
     CalendarDays,
@@ -61,9 +62,9 @@ const subtaskPriority = ref('2');
 const subtaskStatus = ref('default');
 const subtaskAssignee = ref('unassigned');
 const subtaskDueDate = shallowRef<DateValue | undefined>();
-const dateFormatter = new DateFormatter('en-US', { dateStyle: 'medium' });
+const dateFormatter = computed(() => new DateFormatter(locale.value === 'pl' ? 'pl-PL' : 'en-US', { dateStyle: 'medium' }));
 const notifyError = () =>
-    toast.error('Could not create the subtask. Check the form and try again.');
+    toast.error(t('audit.could_not_create_the_subtask_check_the_form_and_try_again'));
 const stayOnTask = { preserveScroll: true, preserveState: true };
 const percentage = computed(() =>
     props.progress.total === 0
@@ -74,6 +75,7 @@ const percentage = computed(() =>
 function taskUrl(id: number): string {
     return `/projects/${props.projectId}/tasks/${id}`;
 }
+const { t, locale, formatText, translateLiteral } = useI18n();
 </script>
 
 <template>
@@ -81,13 +83,12 @@ function taskUrl(id: number): string {
         <CardHeader>
             <div class="flex flex-wrap items-start justify-between gap-3">
                 <div class="space-y-1">
-                    <CardTitle>Subtasks</CardTitle>
+                    <CardTitle>{{ t('stage2.subtasks') }}</CardTitle>
                     <CardDescription v-if="progress.total">
-                        {{ progress.done }} of {{ progress.total }} completed
-                        ({{ percentage }}%)
+                        {{ formatText('audit.count_completed', { completed: progress.done, total: progress.total }) }} ({{ percentage }}%)
                     </CardDescription>
                     <CardDescription v-else
-                        >Split this task into smaller steps.</CardDescription
+                        >{{ t('stage2.split_this_task_into_smaller_steps') }}</CardDescription
                     >
                 </div>
                 <Button
@@ -97,7 +98,7 @@ function taskUrl(id: number): string {
                     variant="outline"
                     @click="creating = true"
                 >
-                    <Plus class="size-4" /> Add subtask
+                    <Plus class="size-4" /> {{ t('stage2.add_subtask') }}
                 </Button>
             </div>
             <div
@@ -107,7 +108,7 @@ function taskUrl(id: number): string {
                 :aria-valuenow="percentage"
                 aria-valuemin="0"
                 aria-valuemax="100"
-                aria-label="Subtask completion"
+                :aria-label="t('stage2.subtask_completion')"
             >
                 <div
                     class="h-full rounded-full bg-primary transition-all"
@@ -144,7 +145,7 @@ function taskUrl(id: number): string {
                                     · {{ child.assignee.name }}</template
                                 >
                                 <template v-if="child.due_date">
-                                    · Due {{ child.due_date }}</template
+                                    · {{ t('stage2.due_date') }} {{ child.due_date }}</template
                                 >
                             </span>
                         </span>
@@ -155,12 +156,12 @@ function taskUrl(id: number): string {
                                 ? 'default'
                                 : 'secondary'
                         "
-                        >{{ child.status.name }}</Badge
+                        >{{ translateLiteral(child.status.name) }}</Badge
                     >
                 </li>
             </ul>
             <p v-else-if="!creating" class="text-sm text-muted-foreground">
-                No subtasks yet.
+                {{ t('stage2.no_subtasks_yet') }}
             </p>
 
             <Form
@@ -176,19 +177,19 @@ function taskUrl(id: number): string {
                 <input type="hidden" name="parent_id" :value="parentTaskId" />
                 <input type="hidden" name="type" value="1" />
                 <div class="grid gap-1.5">
-                    <Label for="subtask-title">Subtask title</Label>
+                    <Label for="subtask-title">{{ t('stage2.subtask_title') }}</Label>
                     <Input
                         id="subtask-title"
                         name="title"
                         maxlength="200"
                         required
-                        placeholder="Write tests"
+                        :placeholder="t('stage2.write_tests')"
                     />
                     <InputError :message="errors.title || errors.parent_id" />
                 </div>
                 <div class="grid gap-3 sm:grid-cols-2">
                     <div class="grid gap-1.5">
-                        <Label for="subtask-priority">Priority</Label>
+                        <Label for="subtask-priority">{{ t('stage2.priority') }}</Label>
                         <input
                             type="hidden"
                             name="priority"
@@ -199,22 +200,22 @@ function taskUrl(id: number): string {
                             :disabled="processing"
                         >
                             <SelectTrigger id="subtask-priority" class="w-full"
-                                ><SelectValue placeholder="Select priority"
+                                ><SelectValue :placeholder="t('stage2.select_priority')"
                             /></SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="2">Normal</SelectItem>
-                                <SelectItem value="1">Low</SelectItem>
-                                <SelectItem value="3">High</SelectItem>
-                                <SelectItem value="4">Urgent</SelectItem>
+                                <SelectItem value="2">{{ t('stage2.normal') }}</SelectItem>
+                                <SelectItem value="1">{{ t('stage2.low') }}</SelectItem>
+                                <SelectItem value="3">{{ t('stage2.high') }}</SelectItem>
+                                <SelectItem value="4">{{ t('stage2.urgent') }}</SelectItem>
                             </SelectContent>
                         </Select>
                         <InputError :message="errors.priority" />
                     </div>
                     <div class="grid gap-1.5">
                         <Label for="subtask-status"
-                            >Status
+                            >{{ t('stage2.status') }}
                             <span class="font-normal text-muted-foreground"
-                                >(optional)</span
+                                >{{ t('stage2.optional') }}</span
                             ></Label
                         >
                         <input
@@ -226,11 +227,11 @@ function taskUrl(id: number): string {
                         />
                         <Select v-model="subtaskStatus" :disabled="processing">
                             <SelectTrigger id="subtask-status" class="w-full"
-                                ><SelectValue placeholder="Select status"
+                                ><SelectValue :placeholder="t('stage2.select_status')"
                             /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="default"
-                                    >Default (Todo)</SelectItem
+                                    >{{ t('stage2.default_todo') }}</SelectItem
                                 >
                                 <SelectItem
                                     v-for="status in statuses"
@@ -244,9 +245,9 @@ function taskUrl(id: number): string {
                     </div>
                     <div class="grid gap-1.5">
                         <Label for="subtask-assignee"
-                            >Assignee
+                            >{{ t('stage2.assignee') }}
                             <span class="font-normal text-muted-foreground"
-                                >(optional)</span
+                                >{{ t('stage2.optional') }}</span
                             ></Label
                         >
                         <input
@@ -263,11 +264,11 @@ function taskUrl(id: number): string {
                             :disabled="processing"
                         >
                             <SelectTrigger id="subtask-assignee" class="w-full"
-                                ><SelectValue placeholder="Select assignee"
+                                ><SelectValue :placeholder="t('stage2.select_assignee')"
                             /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="unassigned"
-                                    >Unassigned</SelectItem
+                                    >{{ t('stage2.unassigned') }}</SelectItem
                                 >
                                 <SelectItem
                                     v-for="person in assignees"
@@ -281,9 +282,9 @@ function taskUrl(id: number): string {
                     </div>
                     <div class="grid gap-1.5">
                         <Label for="subtask-due-date"
-                            >Due date
+                            >{{ t('stage2.due_date') }}
                             <span class="font-normal text-muted-foreground"
-                                >(optional)</span
+                                >{{ t('stage2.optional') }}</span
                             ></Label
                         >
                         <input
@@ -311,7 +312,7 @@ function taskUrl(id: number): string {
                                                       getLocalTimeZone(),
                                                   ),
                                               )
-                                            : 'Select a date'
+                                            : t('audit.no_date')
                                     }}</span>
                                     <CalendarDays
                                         class="size-4 shrink-0 opacity-70"
@@ -339,7 +340,7 @@ function taskUrl(id: number): string {
                                             subtaskDueDate = undefined;
                                             close();
                                         "
-                                        >Clear date</Button
+                                        >{{ t('stage2.clear_date') }}</Button
                                     >
                                 </div>
                             </PopoverContent>
@@ -353,7 +354,7 @@ function taskUrl(id: number): string {
                             v-if="processing"
                             class="size-4 animate-spin"
                         /><Plus v-else class="size-4" />{{
-                            processing ? 'Creating…' : 'Create subtask'
+                            processing ? t('audit.creating') : t('fix.create_subtask')
                         }}</Button
                     >
                     <Button
@@ -362,7 +363,7 @@ function taskUrl(id: number): string {
                         variant="outline"
                         :disabled="processing"
                         @click="creating = false"
-                        >Cancel</Button
+                        >{{ t('stage2.cancel') }}</Button
                     >
                 </div>
             </Form>

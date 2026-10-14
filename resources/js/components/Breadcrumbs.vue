@@ -8,6 +8,7 @@ import {
     BreadcrumbPage,
     BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb';
+import { useI18n } from '@/composables/useI18n';
 import type { BreadcrumbItem as BreadcrumbItemType } from '@/types';
 
 type Props = {
@@ -15,6 +16,21 @@ type Props = {
 };
 
 defineProps<Props>();
+
+const { t, translateLiteral } = useI18n();
+
+const translatedBreadcrumbs: Record<string, string> = {
+    'Profile settings': 'profile.pageTitle',
+    'Security settings': 'security.pageTitle',
+    'Appearance settings': 'appearance.pageTitle',
+    'Language settings': 'language.pageTitle',
+};
+
+function title(value: string): string {
+    const key = translatedBreadcrumbs[value];
+
+    return key ? t(key) : translateLiteral(value);
+}
 </script>
 
 <template>
@@ -23,11 +39,11 @@ defineProps<Props>();
             <template v-for="(item, index) in breadcrumbs" :key="index">
                 <BreadcrumbItem>
                     <template v-if="index === breadcrumbs.length - 1">
-                        <BreadcrumbPage>{{ item.title }}</BreadcrumbPage>
+                        <BreadcrumbPage>{{ title(item.title) }}</BreadcrumbPage>
                     </template>
                     <template v-else>
                         <BreadcrumbLink as-child>
-                            <Link :href="item.href">{{ item.title }}</Link>
+                            <Link :href="item.href">{{ title(item.title) }}</Link>
                         </BreadcrumbLink>
                     </template>
                 </BreadcrumbItem>

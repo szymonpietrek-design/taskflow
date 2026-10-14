@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n';
 import { Form, Head, Link, usePage } from '@inertiajs/vue3';
 import { Check, Plus, Users } from '@lucide/vue';
 import { computed } from 'vue';
@@ -46,31 +47,27 @@ defineOptions({
 });
 
 function roleLabel(role: WorkspaceSummary['role']): string {
-    return role.charAt(0).toUpperCase() + role.slice(1);
+    return t(role === 'owner' ? 'fix.owners' : role === 'admin' ? 'fix.admin' : 'fix.member');
 }
+const { t, formatText, countLabel } = useI18n();
 </script>
 
 <template>
-    <Head title="Workspaces" />
+    <Head :title="t('stage2.workspaces')" />
 
     <div class="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 p-4 md:p-6">
         <Heading
-            title="Workspaces"
-            description="Create a workspace or choose where you want to work."
+            :title="t('stage2.workspaces')"
+            :description="t('stage2.create_a_workspace_or_choose_where_you_want_to_work')"
         />
 
         <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
             <section class="space-y-3">
                 <div class="flex items-center justify-between gap-4">
                     <div>
-                        <h2 class="text-base font-medium">Your workspaces</h2>
+                        <h2 class="text-base font-medium">{{ t('stage2.your_workspaces') }}</h2>
                         <p class="text-sm text-muted-foreground">
-                            {{ workspaces.length }}
-                            {{
-                                workspaces.length === 1
-                                    ? 'workspace'
-                                    : 'workspaces'
-                            }}
+                            {{ countLabel('workspace', workspaces.length) }}
                         </p>
                     </div>
                 </div>
@@ -100,7 +97,7 @@ function roleLabel(role: WorkspaceSummary['role']): string {
                                         variant="secondary"
                                     >
                                         <Check class="size-3" />
-                                        Current
+                                        {{ t('stage2.current') }}
                                     </Badge>
                                 </div>
                                 <p class="text-sm text-muted-foreground">
@@ -120,7 +117,7 @@ function roleLabel(role: WorkspaceSummary['role']): string {
                                             ]?.members.length
                                         "
                                         class="flex shrink-0 items-center -space-x-2"
-                                        :aria-label="`Members of ${workspaceItem.name}`"
+                                        :aria-label="formatText('fix.members_of', { workspace: workspaceItem.name })"
                                     >
                                         <Tooltip
                                             v-for="member in props
@@ -158,7 +155,7 @@ function roleLabel(role: WorkspaceSummary['role']): string {
                                                 <span
                                                     class="relative z-10 flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground ring-2 ring-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                                                     tabindex="0"
-                                                    :aria-label="`${props.memberPreviews[workspaceItem.id]?.remaining ?? 0} more members`"
+                                                    :aria-label="formatText('fix.more_members', { count: props.memberPreviews[workspaceItem.id]?.remaining ?? 0 })"
                                                 >
                                                     +{{
                                                         props.memberPreviews[
@@ -168,12 +165,7 @@ function roleLabel(role: WorkspaceSummary['role']): string {
                                                 </span>
                                             </TooltipTrigger>
                                             <TooltipContent>
-                                                {{
-                                                    props.memberPreviews[
-                                                        workspaceItem.id
-                                                    ]?.remaining ?? 0
-                                                }}
-                                                more members
+                                                {{ formatText('fix.more_members', { count: props.memberPreviews[workspaceItem.id]?.remaining ?? 0 }) }}
                                             </TooltipContent>
                                         </Tooltip>
                                     </div>
@@ -190,7 +182,7 @@ function roleLabel(role: WorkspaceSummary['role']): string {
                                     <Link
                                         :href="`/workspaces/${workspaceItem.id}/members`"
                                     >
-                                        <Users class="size-4" /> Members
+                                        <Users class="size-4" /> {{ t('stage2.members') }}
                                     </Link>
                                 </Button>
 
@@ -204,12 +196,12 @@ function roleLabel(role: WorkspaceSummary['role']): string {
                                         variant="outline"
                                         :disabled="processing"
                                     >
-                                        Use workspace
+                                        {{ t('stage2.use_workspace') }}
                                     </Button>
                                 </Form>
 
                                 <Button v-else variant="ghost" disabled>
-                                    Selected
+                                    {{ t('stage2.selected') }}
                                 </Button>
                             </div>
                         </CardContent>
@@ -225,10 +217,9 @@ function roleLabel(role: WorkspaceSummary['role']): string {
                         >
                             <Users class="size-5 text-muted-foreground" />
                         </div>
-                        <p class="font-medium">No workspaces yet</p>
+                        <p class="font-medium">{{ t('stage2.no_workspaces_yet') }}</p>
                         <p class="mt-1 max-w-sm text-sm text-muted-foreground">
-                            Create your first workspace to start organizing
-                            projects and tasks.
+                            {{ t('stage2.create_your_first_workspace_to_start_organizing_projects_and_tasks') }}
                         </p>
                     </CardContent>
                 </Card>
@@ -238,10 +229,10 @@ function roleLabel(role: WorkspaceSummary['role']): string {
                 <CardHeader>
                     <CardTitle class="flex items-center gap-2">
                         <Plus class="size-4" />
-                        New workspace
+                        {{ t('stage2.new_workspace') }}
                     </CardTitle>
                     <CardDescription>
-                        Workspaces group projects, members, and integrations.
+                        {{ t('stage2.workspaces_group_projects_members_and_integrations') }}
                     </CardDescription>
                 </CardHeader>
 
@@ -254,21 +245,21 @@ function roleLabel(role: WorkspaceSummary['role']): string {
                         v-slot="{ errors, processing }"
                     >
                         <div class="grid gap-2">
-                            <Label for="workspace-name">Name</Label>
+                            <Label for="workspace-name">{{ t('stage2.name') }}</Label>
                             <Input
                                 id="workspace-name"
                                 name="name"
                                 maxlength="120"
                                 required
                                 autocomplete="organization"
-                                placeholder="Acme Team"
+                                :placeholder="t('audit.acme_team')"
                             />
                             <InputError :message="errors.name" />
                         </div>
 
                         <Button class="w-full" :disabled="processing">
                             <Plus class="size-4" />
-                            Create workspace
+                            {{ t('stage2.create_workspace') }}
                         </Button>
                     </Form>
                 </CardContent>

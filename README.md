@@ -40,6 +40,7 @@ Poniżej opisano moduły zaimplementowane podczas rozwoju aplikacji. Poszczegól
 - Zarządzanie członkami przestrzeni roboczej.
 - Role oraz ograniczanie dostępu do wybranych działań i zasobów.
 - Organizowanie projektów w obrębie przestrzeni roboczych.
+- Wybór języka interfejsu użytkownika (obecnie English / Polski) zapisywany na koncie użytkownika.
 
 ### Projekty i zadania
 

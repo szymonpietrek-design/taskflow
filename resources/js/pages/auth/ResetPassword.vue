@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n';
 import { Form, Head } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import InputError from '@/components/InputError.vue';
@@ -23,10 +24,11 @@ const props = defineProps<{
 }>();
 
 const inputEmail = ref(props.email);
+const { t } = useI18n();
 </script>
 
 <template>
-    <Head title="Reset password" />
+    <Head :title="t('audit.reset_password')" />
 
     <Form
         v-bind="update.form()"
@@ -36,7 +38,7 @@ const inputEmail = ref(props.email);
     >
         <div class="grid gap-6">
             <div class="grid gap-2">
-                <Label for="email">Email</Label>
+                <Label for="email">{{ t('audit.email') }}</Label>
                 <Input
                     id="email"
                     type="email"
@@ -50,27 +52,27 @@ const inputEmail = ref(props.email);
             </div>
 
             <div class="grid gap-2">
-                <Label for="password">Password</Label>
+                <Label for="password">{{ t('audit.password') }}</Label>
                 <PasswordInput
                     id="password"
                     name="password"
                     autocomplete="new-password"
                     class="mt-1 block w-full"
                     autofocus
-                    placeholder="Password"
+                    :placeholder="t('audit.password')"
                     :passwordrules="passwordRules"
                 />
                 <InputError :message="errors.password" />
             </div>
 
             <div class="grid gap-2">
-                <Label for="password_confirmation"> Confirm password </Label>
+                <Label for="password_confirmation"> {{ t('audit.confirm_password') }} </Label>
                 <PasswordInput
                     id="password_confirmation"
                     name="password_confirmation"
                     autocomplete="new-password"
                     class="mt-1 block w-full"
-                    placeholder="Confirm password"
+                    :placeholder="t('audit.confirm_password')"
                     :passwordrules="passwordRules"
                 />
                 <InputError :message="errors.password_confirmation" />
@@ -83,7 +85,7 @@ const inputEmail = ref(props.email);
                 data-test="reset-password-button"
             >
                 <Spinner v-if="processing" />
-                Reset password
+                {{ t('audit.reset_password') }}
             </Button>
         </div>
     </Form>

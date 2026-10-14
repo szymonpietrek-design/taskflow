@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n';
 import { Head, Link } from '@inertiajs/vue3';
 import {
     AppWindow,
@@ -29,6 +30,15 @@ defineOptions({
         ],
     },
 });
+const { t } = useI18n();
+
+function typeLabel(type: ProjectDetail['type']): string {
+    return type === 'application' ? t('stage2.application') : t('stage2.standard');
+}
+
+function visibilityLabel(visibility: ProjectDetail['visibility']): string {
+    return visibility === 'private' ? t('stage2.private') : t('stage2.workspace');
+}
 </script>
 
 <template>
@@ -39,22 +49,14 @@ defineOptions({
             <div class="mb-2 flex flex-wrap items-center gap-2">
                 <Badge variant="secondary">{{ project.key }}</Badge>
                 <Badge variant="outline">
-                    {{
-                        project.type === 'application'
-                            ? 'Application'
-                            : 'Standard'
-                    }}
+                    {{ typeLabel(project.type) }}
                 </Badge>
                 <Badge variant="outline" class="gap-1">
                     <LockKeyhole
                         v-if="project.visibility === 'private'"
                         class="size-3"
                     />
-                    {{
-                        project.visibility === 'private'
-                            ? 'Private'
-                            : 'Workspace'
-                    }}
+                    {{ visibilityLabel(project.visibility) }}
                 </Badge>
             </div>
 
@@ -68,7 +70,7 @@ defineOptions({
                 {{ project.description }}
             </p>
             <p v-else class="mt-2 text-sm text-muted-foreground">
-                No project description yet.
+                {{ t('stage2.no_project_description_yet') }}
             </p>
         </div>
 
@@ -76,7 +78,7 @@ defineOptions({
             <Button as-child>
                 <Link :href="`/projects/${project.id}/tasks`">
                     <ListTodo class="size-4" />
-                    View tasks
+                    {{ t('stage2.view_tasks') }}
                 </Link>
             </Button>
             <Button
@@ -86,19 +88,19 @@ defineOptions({
             >
                 <Link :href="`/projects/${project.id}/releases`">
                     <Package class="size-4" />
-                    Releases
+                    {{ t('stage2.releases') }}
                 </Link>
             </Button>
             <Button as-child variant="outline">
                 <Link :href="`/projects/${project.id}/reports`">
                     <FileText class="size-4" />
-                    Reports
+                    {{ t('stage2.reports') }}
                 </Link>
             </Button>
             <Button v-if="project.can_manage" as-child variant="outline">
                 <Link :href="`/projects/${project.id}/statuses`">
                     <Settings2 class="size-4" />
-                    Manage statuses
+                    {{ t('stage2.manage_statuses') }}
                 </Link>
             </Button>
         </div>
@@ -110,7 +112,7 @@ defineOptions({
                         class="flex items-center gap-2 text-sm font-medium"
                     >
                         <FolderKanban class="size-4" />
-                        Project key
+                        {{ t('stage2.project_key') }}
                     </CardTitle>
                 </CardHeader>
                 <CardContent class="text-2xl font-semibold">{{
@@ -124,15 +126,11 @@ defineOptions({
                         class="flex items-center gap-2 text-sm font-medium"
                     >
                         <AppWindow class="size-4" />
-                        Type
+                        {{ t('stage2.type') }}
                     </CardTitle>
                 </CardHeader>
                 <CardContent class="text-lg font-medium">
-                    {{
-                        project.type === 'application'
-                            ? 'Application'
-                            : 'Standard'
-                    }}
+                    {{ typeLabel(project.type) }}
                 </CardContent>
             </Card>
 
@@ -142,15 +140,11 @@ defineOptions({
                         class="flex items-center gap-2 text-sm font-medium"
                     >
                         <Users class="size-4" />
-                        Access
+                        {{ t('stage2.access') }}
                     </CardTitle>
                 </CardHeader>
                 <CardContent class="text-lg font-medium">
-                    {{
-                        project.visibility === 'private'
-                            ? 'Private'
-                            : 'Workspace'
-                    }}
+                    {{ visibilityLabel(project.visibility) }}
                 </CardContent>
             </Card>
         </div>
