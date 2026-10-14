@@ -121,6 +121,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('workspaces/{workspace}/members/{member}', [WorkspaceMemberController::class, 'destroy'])
         ->middleware('throttle:20,1')->name('workspaces.members.destroy');
     Route::post('workspaces', [WorkspaceController::class, 'store'])->name('workspaces.store');
+    Route::patch('workspaces/{workspace}', [WorkspaceController::class, 'update'])->name('workspaces.update');
     Route::put('workspaces/{workspace}/current', [CurrentWorkspaceController::class, 'update'])
         ->name('workspaces.current.update');
 });

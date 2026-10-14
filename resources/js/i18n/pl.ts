@@ -1,4 +1,12 @@
 export default {
+    'workspaces.rename_aria': "Zmień nazwę przestrzeni „{workspace}”",
+    'workspaces.edit_name': "Zmień nazwę",
+    'workspaces.edit_name_title': "Zmień nazwę przestrzeni",
+    'workspaces.edit_name_description': "Zmień nazwę wyświetlaną. Projekty, członkowie i odnośniki do przestrzeni pozostaną bez zmian.",
+    'workspaces.create_description': "Nadaj nazwę przestrzeni, aby uporządkować projekty i współpracę zespołu.",
+    'workspaces.workspace_name': "Nazwa przestrzeni",
+    'workspaces.name_updated': "Zmieniono nazwę przestrzeni.",
+
     'projects.inWorkspace': 'Projekty w przestrzeni „{workspace}”.',
     'projects.chooseWorkspace': 'Wybierz przestrzeń, aby zarządzać projektami.',
     'projects.countOne': '{count} projekt',

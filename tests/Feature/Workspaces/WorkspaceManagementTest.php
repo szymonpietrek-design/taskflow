@@ -98,6 +98,87 @@ class WorkspaceManagementTest extends TestCase
         $this->assertSame('product-team', $workspace->slug);
     }
 
+    public function test_workspace_owner_can_rename_without_changing_slug_or_current_selection(): void
+    {
+        $owner = User::factory()->create();
+        $workspace = app(CreateWorkspace::class)->handle($owner, 'Old Name');
+        $originalSlug = $workspace->slug;
+
+        $response = $this->actingAs($owner)
+            ->withSession(['current_workspace_id' => $workspace->id])
+            ->patch(route('workspaces.update', $workspace), ['name' => 'New Name']);
+
+        $response->assertSessionHasNoErrors()
+            ->assertSessionHas('current_workspace_id', $workspace->id)
+            ->assertRedirect(route('workspaces.index'));
+
+        $workspace->refresh();
+        $this->assertSame('New Name', $workspace->name);
+        $this->assertSame($originalSlug, $workspace->slug);
+    }
+
+    public function test_workspace_admin_can_rename_the_workspace(): void
+    {
+        $owner = User::factory()->create();
+        $admin = User::factory()->create();
+        $workspace = app(CreateWorkspace::class)->handle($owner, 'Team One');
+        WorkspaceMember::factory()->create([
+            'workspace_id' => $workspace->id,
+            'user_id' => $admin->id,
+            'role' => WorkspaceRole::ADMIN,
+        ]);
+
+        $this->actingAs($admin)
+            ->patch(route('workspaces.update', $workspace), ['name' => 'Team Two'])
+            ->assertRedirect(route('workspaces.index'));
+
+        $this->assertSame('Team Two', $workspace->fresh()->name);
+    }
+
+    public function test_regular_suspended_and_non_members_cannot_rename_a_workspace(): void
+    {
+        $owner = User::factory()->create();
+        $member = User::factory()->create();
+        $suspended = User::factory()->create();
+        $outsider = User::factory()->create();
+        $workspace = app(CreateWorkspace::class)->handle($owner, 'Protected Workspace');
+
+        WorkspaceMember::factory()->create([
+            'workspace_id' => $workspace->id,
+            'user_id' => $member->id,
+            'role' => WorkspaceRole::MEMBER,
+        ]);
+        WorkspaceMember::factory()->create([
+            'workspace_id' => $workspace->id,
+            'user_id' => $suspended->id,
+            'role' => WorkspaceRole::ADMIN,
+            'suspended_at' => now(),
+        ]);
+
+        foreach ([$member, $suspended, $outsider] as $user) {
+            $this->actingAs($user)
+                ->patch(route('workspaces.update', $workspace), ['name' => 'Unauthorized'])
+                ->assertForbidden();
+        }
+
+        $this->assertSame('Protected Workspace', $workspace->fresh()->name);
+    }
+
+    public function test_workspace_rename_validates_name(): void
+    {
+        $owner = User::factory()->create();
+        $workspace = app(CreateWorkspace::class)->handle($owner, 'Original');
+
+        foreach (['', '   ', str_repeat('x', 121)] as $name) {
+            $this->actingAs($owner)
+                ->from(route('workspaces.index'))
+                ->patch(route('workspaces.update', $workspace), ['name' => $name])
+                ->assertSessionHasErrors('name');
+        }
+
+        $this->assertSame('Original', $workspace->fresh()->name);
+    }
+
     public function test_workspace_name_is_required(): void
     {
         $user = User::factory()->create();

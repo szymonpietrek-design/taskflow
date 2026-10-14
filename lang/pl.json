@@ -102,5 +102,6 @@
     "Version components must be between 0 and 4294967295.": "Każdy człon numeru wersji musi mieścić się w zakresie 0–4294967295.",
     "Version must use MAJOR.MINOR.PATCH (for example 1.2.3), with no leading zeros.": "Wersja musi mieć format MAJOR.MINOR.PATCH (np. 1.2.3), bez zer wiodących.",
     "Work Report requires Worklogs as a source.": "Raport pracy wymaga czasu pracy jako źródła.",
-    "Workspace name cannot be empty.": "Nazwa przestrzeni nie może być pusta."
+    "Workspace name cannot be empty.": "Nazwa przestrzeni nie może być pusta.",
+    "Workspace name updated.": "Zmieniono nazwę przestrzeni."
 }

@@ -1,4 +1,12 @@
 export default {
+    'workspaces.rename_aria': "Rename {workspace}",
+    'workspaces.edit_name': "Rename workspace",
+    'workspaces.edit_name_title': "Edit workspace name",
+    'workspaces.edit_name_description': "Change the display name. Projects, members, and workspace links will stay the same.",
+    'workspaces.create_description': "Give your workspace a name to start organizing projects and collaborating with your team.",
+    'workspaces.workspace_name': "Workspace name",
+    'workspaces.name_updated': "Workspace name updated.",
+
     'projects.inWorkspace': 'Projects in {workspace}.',
     'projects.chooseWorkspace': 'Choose a workspace to manage projects.',
     'projects.countOne': '{count} project',

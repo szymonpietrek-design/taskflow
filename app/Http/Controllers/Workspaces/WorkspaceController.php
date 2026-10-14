@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Workspaces;
 use App\Actions\Workspaces\CreateWorkspace;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Workspaces\StoreWorkspaceRequest;
+use App\Http\Requests\Workspaces\UpdateWorkspaceRequest;
+use App\Models\Workspace;
 use App\Models\WorkspaceMember;
 use App\Support\Workspaces\WorkspaceContext;
 use Illuminate\Http\RedirectResponse;
@@ -63,4 +65,20 @@ class WorkspaceController extends Controller
 
         return to_route('workspaces.index');
     }
+
+    public function update(UpdateWorkspaceRequest $request, Workspace $workspace): RedirectResponse
+    {
+        // The slug identifies the workspace and remains stable when its display name changes.
+        $workspace->update([
+            'name' => trim($request->validated('name')),
+        ]);
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => __('Workspace name updated.'),
+        ]);
+
+        return to_route('workspaces.index');
+    }
+
 }
