@@ -103,5 +103,6 @@
     "Version must use MAJOR.MINOR.PATCH (for example 1.2.3), with no leading zeros.": "Wersja musi mieć format MAJOR.MINOR.PATCH (np. 1.2.3), bez zer wiodących.",
     "Work Report requires Worklogs as a source.": "Raport pracy wymaga czasu pracy jako źródła.",
     "Workspace name cannot be empty.": "Nazwa przestrzeni nie może być pusta.",
-    "Workspace name updated.": "Zmieniono nazwę przestrzeni."
+    "Workspace name updated.": "Zmieniono nazwę przestrzeni.",
+    "Project updated.": "Projekt został zaktualizowany."
 }

@@ -19,3 +19,8 @@ export type ProjectDetail = ProjectSummary & {
     description: string | null;
     can_manage: boolean;
 };
+
+export type WorkspaceProjectSummary = ProjectSummary & {
+    description: string | null;
+    can_edit: boolean;
+};

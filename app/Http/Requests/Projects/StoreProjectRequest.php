@@ -24,13 +24,13 @@ class StoreProjectRequest extends FormRequest
     public function authorize(): bool
     {
         $user = $this->user();
-        $workspaceId = $this->session()->get('current_workspace_id');
+        $workspaceId = $this->workspaceId();
 
         if ($user === null || ! is_numeric($workspaceId)) {
             return false;
         }
 
-        $workspace = $user->workspaces()->whereKey((int) $workspaceId)->first();
+        $workspace = $user->workspaces()->whereKey($workspaceId)->first();
 
         return $workspace !== null
             && $user->can('create', [Project::class, $workspace]);
@@ -43,7 +43,7 @@ class StoreProjectRequest extends FormRequest
      */
     public function rules(): array
     {
-        $workspaceId = (int) $this->session()->get('current_workspace_id');
+        $workspaceId = $this->workspaceId();
         $types = array_map(fn (ProjectType $type): int => $type->value, ProjectType::cases());
         $visibilities = array_map(
             fn (ProjectVisibility $visibility): int => $visibility->value,
@@ -64,4 +64,17 @@ class StoreProjectRequest extends FormRequest
             'visibility' => ['required', Rule::in($visibilities)],
         ];
     }
+    private function workspaceId(): ?int
+    {
+        $workspace = $this->route('workspace');
+
+        if ($workspace instanceof \App\Models\Workspace) {
+            return $workspace->id;
+        }
+
+        $workspaceId = $this->session()->get('current_workspace_id');
+
+        return is_numeric($workspaceId) ? (int) $workspaceId : null;
+    }
+
 }

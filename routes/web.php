@@ -21,6 +21,7 @@ use App\Http\Controllers\Tasks\TaskWorklogController;
 use App\Http\Controllers\Worklogs\WorklogController;
 use App\Http\Controllers\Workspaces\CurrentWorkspaceController;
 use App\Http\Controllers\Workspaces\WorkspaceController;
+use App\Http\Controllers\Workspaces\WorkspaceProjectController;
 use App\Http\Controllers\Workspaces\WorkspaceMemberController;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -111,6 +112,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('tasks.messages.destroy');
 
     Route::get('workspaces', [WorkspaceController::class, 'index'])->name('workspaces.index');
+    Route::post('workspaces/{workspace}/projects', [WorkspaceProjectController::class, 'store'])->name('workspaces.projects.store');
+    Route::patch('workspaces/{workspace}/projects/{project}', [WorkspaceProjectController::class, 'update'])->name('workspaces.projects.update');
     Route::get('workspaces/{workspace}/members', [WorkspaceMemberController::class, 'index'])->name('workspaces.members.index');
     Route::post('workspaces/{workspace}/members', [WorkspaceMemberController::class, 'store'])
         ->middleware('throttle:20,1')->name('workspaces.members.store');

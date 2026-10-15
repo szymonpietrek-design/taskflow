@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { useI18n } from '@/composables/useI18n';
 import { Form, Head, Link, useForm, usePage } from '@inertiajs/vue3';
-import { Check, Pencil, Plus, Users } from '@lucide/vue';
+import { AppWindow, Check, FolderKanban, Pencil, Plus, Users } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import UserAvatar from '@/components/UserAvatar.vue';
+import ProjectFormDialog from '@/components/ProjectFormDialog.vue';
+import type { WorkspaceProjectSummary } from '@/types/project';
 import InputError from '@/components/InputError.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -34,6 +36,7 @@ type MemberGroup = { members: MemberPreview[]; remaining: number };
 
 const props = defineProps<{
     memberPreviews: Record<number, MemberGroup>;
+    projectsByWorkspace: Record<number, WorkspaceProjectSummary[]>;
 }>();
 
 const page = usePage();
@@ -42,6 +45,22 @@ const { t, formatText, countLabel } = useI18n();
 const dialogOpen = ref(false);
 const editingWorkspace = ref<WorkspaceSummary | null>(null);
 const workspaceForm = useForm({ name: '' });
+const projectDialogOpen = ref(false);
+const projectWorkspaceId = ref<number | null>(null);
+const editingProject = ref<WorkspaceProjectSummary | null>(null);
+
+function openProjectDialog(workspaceId: number, project: WorkspaceProjectSummary | null = null): void {
+    projectWorkspaceId.value = workspaceId;
+    editingProject.value = project;
+    projectDialogOpen.value = true;
+}
+
+function projectCount(count: number): string {
+    const rule = new Intl.PluralRules(page.props.locale === 'pl' ? 'pl-PL' : 'en-US').select(count);
+    const form = rule === 'one' ? 'One' : rule === 'few' ? 'Few' : 'Many';
+    return formatText(`workspaceProjects.count${form}`, { count });
+}
+
 
 const editing = computed(() => editingWorkspace.value !== null);
 
@@ -131,11 +150,8 @@ defineOptions({
 
             <Card v-if="workspaces.length" class="gap-0 py-0">
                 <CardContent class="divide-y p-0">
-                    <div
-                        v-for="workspaceItem in workspaces"
-                        :key="workspaceItem.id"
-                        class="flex flex-wrap items-center gap-4 px-4 py-5 transition-colors hover:bg-muted/20 sm:px-6"
-                    >
+                    <div v-for="workspaceItem in workspaces" :key="workspaceItem.id" class="px-4 py-5 sm:px-6">
+                      <div class="flex flex-wrap items-center gap-4">
                         <div class="flex size-12 shrink-0 items-center justify-center rounded-lg border bg-muted/50">
                             <Users class="size-5 text-muted-foreground" />
                         </div>
@@ -229,6 +245,40 @@ defineOptions({
                                 {{ t('stage2.selected') }}
                             </Button>
                         </div>
+                      </div>
+
+                      <section class="mt-5 space-y-3 border-t pt-4">
+                        <div class="flex flex-wrap items-center justify-between gap-3">
+                            <div class="space-y-0.5">
+                                <h3 class="text-sm font-semibold">{{ t('workspaceProjects.title') }}</h3>
+                                <p class="text-xs text-muted-foreground">{{ projectCount(props.projectsByWorkspace[workspaceItem.id]?.length ?? 0) }}</p>
+                            </div>
+                            <Button v-if="workspaceItem.role === 'owner' || workspaceItem.role === 'admin'" type="button" size="sm" variant="outline" @click="openProjectDialog(workspaceItem.id)">
+                                <Plus class="size-4" /> {{ t('workspaceProjects.add') }}
+                            </Button>
+                        </div>
+
+                        <div v-if="props.projectsByWorkspace[workspaceItem.id]?.length" class="divide-y rounded-lg border">
+                            <div v-for="project in props.projectsByWorkspace[workspaceItem.id]" :key="project.id" class="flex flex-wrap items-center gap-3 px-3 py-3 sm:px-4">
+                                <span class="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted/60">
+                                    <AppWindow v-if="project.type === 'application'" class="size-4 text-muted-foreground" />
+                                    <FolderKanban v-else class="size-4 text-muted-foreground" />
+                                </span>
+                                <div class="min-w-0 flex-1 space-y-1">
+                                    <Link :href="`/projects/${project.id}`" class="break-words text-sm font-medium hover:underline">{{ project.name }}</Link>
+                                    <p class="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
+                                        <span>{{ project.key }}</span><span>·</span>
+                                        <span>{{ project.type === 'application' ? t('stage2.application') : t('stage2.standard') }}</span><span>·</span>
+                                        <span>{{ project.visibility === 'private' ? t('stage2.private') : t('stage2.workspace') }}</span>
+                                    </p>
+                                </div>
+                                <Button v-if="project.can_edit" type="button" size="sm" variant="ghost" @click="openProjectDialog(workspaceItem.id, project)">
+                                    <Pencil class="size-4" /> {{ t('workspaceProjects.edit') }}
+                                </Button>
+                            </div>
+                        </div>
+                        <p v-else class="rounded-lg border border-dashed px-4 py-5 text-sm text-muted-foreground">{{ t('workspaceProjects.empty') }}</p>
+                      </section>
                     </div>
                 </CardContent>
             </Card>
@@ -245,6 +295,13 @@ defineOptions({
                 </CardContent>
             </Card>
         </section>
+
+        <ProjectFormDialog
+            v-if="projectWorkspaceId !== null"
+            v-model:open="projectDialogOpen"
+            :workspace-id="projectWorkspaceId"
+            :project="editingProject"
+        />
 
         <Dialog :open="dialogOpen" @update:open="onDialogChange">
             <DialogContent :show-close-button="!workspaceForm.processing">

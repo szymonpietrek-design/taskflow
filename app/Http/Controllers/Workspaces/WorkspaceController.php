@@ -6,11 +6,16 @@ use App\Actions\Workspaces\CreateWorkspace;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Workspaces\StoreWorkspaceRequest;
 use App\Http\Requests\Workspaces\UpdateWorkspaceRequest;
+use App\Enums\ProjectRole;
+use App\Enums\ProjectVisibility;
+use App\Models\Project;
+use App\Models\ProjectMember;
 use App\Models\Workspace;
 use App\Models\WorkspaceMember;
 use App\Support\Workspaces\WorkspaceContext;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Database\Eloquent\Builder;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -44,8 +49,51 @@ class WorkspaceController extends Controller
             ];
         }
 
+        $adminWorkspaceIds = array_values(array_map(
+            fn (array $item): int => $item['id'],
+            array_filter($workspaceItems, fn (array $item): bool => in_array($item['role'], ['owner', 'admin'], true)),
+        ));
+
+        $managerProjectIds = ProjectMember::query()
+            ->where('user_id', $request->user()->id)
+            ->where('role', ProjectRole::MANAGER->value)
+            ->pluck('project_id')
+            ->all();
+
+        // Members see only workspace-visible projects or their own private projects.
+        // Owner/admin access is scoped to their own workspace, never global.
+        $projects = Project::query()
+            ->whereIn('workspace_id', $workspaceIds)
+            ->whereNull('archived_at')
+            ->where(function (Builder $query) use ($adminWorkspaceIds, $request): void {
+                $query->whereIn('workspace_id', $adminWorkspaceIds)
+                    ->orWhere('visibility', ProjectVisibility::WORKSPACE->value)
+                    ->orWhereHas('memberships', fn (Builder $memberships) => $memberships
+                        ->where('user_id', $request->user()->id));
+            })
+            ->orderBy('name')
+            ->get();
+
+        $projectsByWorkspace = [];
+        foreach ($workspaceIds as $workspaceId) {
+            $projectsByWorkspace[$workspaceId] = [];
+        }
+        foreach ($projects as $project) {
+            $projectsByWorkspace[$project->workspace_id][] = [
+                'id' => $project->id,
+                'name' => $project->name,
+                'description' => $project->description,
+                'key' => $project->key,
+                'type' => strtolower($project->type->name),
+                'visibility' => strtolower($project->visibility->name),
+                'can_edit' => in_array($project->workspace_id, $adminWorkspaceIds, true)
+                    || in_array($project->id, $managerProjectIds, true),
+            ];
+        }
+
         return Inertia::render('workspaces/Index', [
             'memberPreviews' => $memberPreviews,
+            'projectsByWorkspace' => $projectsByWorkspace,
         ]);
     }
 

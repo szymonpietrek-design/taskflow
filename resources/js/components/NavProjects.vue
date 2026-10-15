@@ -28,11 +28,11 @@ function isActive(projectId: number): boolean {
     <SidebarGroup class="px-2 py-0">
         <SidebarGroupLabel>{{ t('nav.projects') }}</SidebarGroupLabel>
 
-        <SidebarGroupAction v-if="page.props.workspace.current" as-child>
+        <SidebarGroupAction v-if="page.props.projects.can_create" as-child>
             <Link
-                href="/projects"
-                :aria-label="t('nav.manageProjects')"
-                :title="t('nav.manageProjects')"
+                href="/projects?create=1"
+                :aria-label="t('stage2.new_project')"
+                :title="t('stage2.new_project')"
             >
                 <Plus class="size-4" />
             </Link>
