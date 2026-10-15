@@ -133,7 +133,62 @@ class ProjectOverviewTest extends TestCase
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->where('project.is_archived', true)
-                ->where('can_create_task', false),
+                ->where('can_create_task', false)
+                ->where('task_form', null),
+            );
+    }
+
+    public function test_task_creation_dialog_receives_only_current_project_options(): void
+    {
+        [$owner, $project] = $this->makeProject();
+        $status = $this->status($project, 'Ready', TaskStatusCategory::TODO);
+        $parent = $this->task($project, $owner, $status, 1);
+        $child = $this->task($project, $owner, $status, 2);
+        $child->forceFill(['parent_id' => $parent->id])->save();
+
+        [$otherOwner, $otherProject] = $this->makeProject();
+        $otherStatus = $this->status($otherProject, 'Other status', TaskStatusCategory::TODO);
+        $this->task($otherProject, $otherOwner, $otherStatus, 1);
+
+        $this->actingAs($owner)->get(route('projects.show', $project))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('projects/Show')
+                ->where('can_create_task', true)
+                ->has('task_form.statuses', 1)
+                ->where('task_form.statuses.0.id', $status->id)
+                ->has('task_form.assignees', 1)
+                ->where('task_form.assignees.0.id', $owner->id)
+                ->has('task_form.parent_tasks', 1)
+                ->where('task_form.parent_tasks.0.id', $parent->id),
+            );
+
+        $this->actingAs($owner)->get(route('tasks.index', $project))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('can_create', true)
+                ->has('statuses', 1)
+                ->where('statuses.0.id', $status->id)
+                ->has('parent_tasks', 1)
+                ->where('parent_tasks.0.id', $parent->id),
+            );
+    }
+
+    public function test_read_only_member_does_not_receive_creation_options(): void
+    {
+        [$owner, $project] = $this->makeProject();
+        $member = User::factory()->create();
+        WorkspaceMember::factory()->create([
+            'workspace_id' => $project->workspace_id,
+            'user_id' => $member->id,
+            'role' => WorkspaceRole::MEMBER,
+        ]);
+
+        $this->actingAs($member)->get(route('projects.show', $project))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('can_create_task', false)
+                ->where('task_form', null),
             );
     }
 

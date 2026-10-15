@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import { useI18n } from '@/composables/useI18n';
-import { Form, Head, Link, router } from '@inertiajs/vue3';
-import { computed, onMounted, reactive, ref, shallowRef, watch } from 'vue';
+import { Head, Link, router } from '@inertiajs/vue3';
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 import {
     ArrowLeft,
-    CalendarDays,
     CheckCircle2,
     Circle,
     Clock3,
@@ -14,28 +13,13 @@ import {
     Search,
     SlidersHorizontal,
 } from '@lucide/vue';
-import type { DateValue } from '@internationalized/date';
-import {
-    DateFormatter,
-    getLocalTimeZone,
-    today,
-} from '@internationalized/date';
-import InputError from '@/components/InputError.vue';
+import CreateTaskDialog from '@/components/tasks/CreateTaskDialog.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
     Card,
     CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
 } from '@/components/ui/card';
-import { Calendar } from '@/components/ui/calendar';
-import {
-    Popover,
-    PopoverContent,
-    PopoverTrigger,
-} from '@/components/ui/popover';
 import {
     Select,
     SelectContent,
@@ -172,33 +156,20 @@ function applyFilters() {
 
 const taskUrl = (id: number) => `/projects/${props.project.id}/tasks/${id}`;
 
-// The project overview links straight to the existing quick-create form.
-onMounted(() => {
-    if (props.can_create && window.location.hash === '#new-task') {
-        window.requestAnimationFrame(() => {
-            document.getElementById('new-task')?.scrollIntoView({ block: 'start' });
-        });
-    }
-});
-
-// shadcn-vue Select and Calendar are controlled Vue components rather than
-// native form inputs. Hidden inputs keep the request payload unchanged.
-const newTaskType = ref('1');
-const newTaskPriority = ref('2');
-const newTaskStatus = ref('default');
-const newTaskAssignee = ref('unassigned');
-const newTaskParent = ref('none');
-const newTaskDueDate = shallowRef<DateValue | undefined>();
-const dueDateFormatter = computed(() => new DateFormatter(locale.value === 'pl' ? 'pl-PL' : 'en-US', { dateStyle: 'medium' }));
-
-function resetNewTaskFields() {
-    newTaskType.value = '1';
-    newTaskPriority.value = '2';
-    newTaskStatus.value = 'default';
-    newTaskAssignee.value = 'unassigned';
-    newTaskParent.value = 'none';
-    newTaskDueDate.value = undefined;
+// Preserve existing deep links while opening the shared dialog instead of scrolling.
+const isCreateDialogOpen = ref(false);
+function openCreateDialog(): void {
+    if (!props.can_create) return;
+    isCreateDialogOpen.value = true;
 }
+function openFromHash(): void {
+    if (window.location.hash === '#new-task') openCreateDialog();
+}
+onMounted(() => {
+    openFromHash();
+    window.addEventListener('hashchange', openFromHash);
+});
+onUnmounted(() => window.removeEventListener('hashchange', openFromHash));
 
 function formatWorklogTime(totalMinutes: number): string {
     const hours = Math.floor(totalMinutes / 60);
@@ -223,30 +194,32 @@ defineOptions({
         breadcrumbs: [{ title: 'Projects', href: '/projects' }],
     },
 });
-const { t, locale, displayLabel, formatText } = useI18n();
+const { t, displayLabel, formatText } = useI18n();
 </script>
 
 <template>
-    <Head :title="`${project.name} · Tasks`" />
+    <Head :title="`${project.name} · ${t('stage2.tasks')}`" />
 
-    <div class="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 p-4 md:p-6">
-        <div>
-            <Link
+    <div class="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 p-4 md:p-6">
+        <div class="flex flex-wrap items-start justify-between gap-4">
+            <div>
+                <Link
                 :href="`/projects/${project.id}`"
                 class="mb-3 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
             >
                 <ArrowLeft class="size-4" /> {{ project.name }}
-            </Link>
-            <h1 class="text-2xl font-semibold tracking-tight">{{ t('stage2.tasks') }}</h1>
-            <p class="mt-1 text-sm text-muted-foreground">
-                {{ formatText('followup.track_work', { project: project.name, key: project.key }) }}
-            </p>
+                </Link>
+                <h1 class="text-2xl font-semibold tracking-tight">{{ t('stage2.tasks') }}</h1>
+                <p class="mt-1 text-sm text-muted-foreground">
+                    {{ formatText('followup.track_work', { project: project.name, key: project.key }) }}
+                </p>
+            </div>
+            <Button v-if="can_create" type="button" @click="openCreateDialog">
+                <Plus class="size-4" /> {{ t('stage2.new_task') }}
+            </Button>
         </div>
 
-        <div
-            class="grid items-start gap-6"
-            :class="can_create ? 'xl:grid-cols-[minmax(0,1fr)_23rem]' : ''"
-        >
+        <div class="min-w-0">
             <section class="min-w-0 space-y-3">
                 <div class="flex items-center justify-between gap-3">
                     <h2 class="text-sm font-medium">{{ t('stage2.project_tasks') }}</h2>
@@ -263,7 +236,7 @@ const { t, locale, displayLabel, formatText } = useI18n();
                         >
                             <SlidersHorizontal class="size-4" /> {{ t('stage2.filters') }}
                         </div>
-                        <div class="grid gap-3 sm:grid-cols-2 2xl:grid-cols-4">
+                        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                             <div class="grid min-w-0 gap-1.5">
                                 <Label for="task-search">{{ t('stage2.search') }}</Label>
                                 <Input
@@ -666,311 +639,15 @@ const { t, locale, displayLabel, formatText } = useI18n();
                     </nav>
                 </div>
             </section>
-
-            <Card v-if="can_create" id="new-task" class="h-fit scroll-mt-6">
-                <CardHeader>
-                    <CardTitle class="flex items-center gap-2"
-                        ><Plus class="size-4" /> {{ t('stage2.new_task') }}</CardTitle
-                    >
-                    <CardDescription
-                        >{{ t('followup.task_numbers') }}</CardDescription
-                    >
-                </CardHeader>
-                <CardContent>
-                    <Form
-                        :action="`/projects/${project.id}/tasks`"
-                        method="post"
-                        class="space-y-4"
-                        reset-on-success
-                        @success="resetNewTaskFields"
-                        v-slot="{ errors, processing }"
-                    >
-                        <div class="grid gap-2">
-                            <Label for="task-title">{{ t('stage2.title') }}</Label>
-                            <Input
-                                id="task-title"
-                                name="title"
-                                maxlength="200"
-                                required
-                                :placeholder="t('stage2.implement_dashboard')"
-                            />
-                            <InputError :message="errors.title" />
-                        </div>
-                        <div class="grid gap-2">
-                            <Label for="task-description"
-                                >{{ t('stage2.description') }}
-                                <span class="font-normal text-muted-foreground"
-                                    >{{ t('stage2.optional') }}</span
-                                ></Label
-                            >
-                            <textarea
-                                id="task-description"
-                                name="description"
-                                rows="3"
-                                maxlength="10000"
-                                :placeholder="t('stage2.optional_details')"
-                                class="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
-                            />
-                            <InputError :message="errors.description" />
-                        </div>
-                        <div class="grid gap-3 sm:grid-cols-2">
-                            <div class="grid min-w-0 gap-2">
-                                <Label for="task-type">{{ t('stage2.type') }}</Label>
-                                <input
-                                    type="hidden"
-                                    name="type"
-                                    :value="newTaskType"
-                                />
-                                <Select
-                                    v-model="newTaskType"
-                                    :disabled="processing"
-                                >
-                                    <SelectTrigger id="task-type" class="w-full"
-                                        ><SelectValue :placeholder="t('stage2.select_type')"
-                                    /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="1">{{ t('stage2.task') }}</SelectItem>
-                                        <SelectItem value="2"
-                                            >{{ t('stage2.feature') }}</SelectItem
-                                        >
-                                        <SelectItem value="3"
-                                            >{{ t('stage2.improvement') }}</SelectItem
-                                        >
-                                        <SelectItem value="4">{{ t('stage2.bug') }}</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                <InputError :message="errors.type" />
-                            </div>
-                            <div class="grid min-w-0 gap-2">
-                                <Label for="task-priority">{{ t('stage2.priority') }}</Label>
-                                <input
-                                    type="hidden"
-                                    name="priority"
-                                    :value="newTaskPriority"
-                                />
-                                <Select
-                                    v-model="newTaskPriority"
-                                    :disabled="processing"
-                                >
-                                    <SelectTrigger
-                                        id="task-priority"
-                                        class="w-full"
-                                        ><SelectValue
-                                            :placeholder="t('stage2.select_priority')"
-                                    /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="1">{{ t('stage2.low') }}</SelectItem>
-                                        <SelectItem value="2"
-                                            >{{ t('stage2.normal') }}</SelectItem
-                                        >
-                                        <SelectItem value="3">{{ t('stage2.high') }}</SelectItem>
-                                        <SelectItem value="4"
-                                            >{{ t('stage2.urgent') }}</SelectItem
-                                        >
-                                    </SelectContent>
-                                </Select>
-                                <InputError :message="errors.priority" />
-                            </div>
-                        </div>
-                        <div class="grid gap-2">
-                            <Label for="task-status"
-                                >{{ t('stage2.status') }}
-                                <span class="font-normal text-muted-foreground"
-                                    >{{ t('stage2.optional') }}</span
-                                ></Label
-                            >
-                            <input
-                                type="hidden"
-                                name="status_id"
-                                :value="
-                                    newTaskStatus === 'default'
-                                        ? ''
-                                        : newTaskStatus
-                                "
-                            />
-                            <Select
-                                v-model="newTaskStatus"
-                                :disabled="processing"
-                            >
-                                <SelectTrigger id="task-status" class="w-full"
-                                    ><SelectValue :placeholder="t('stage2.select_status')"
-                                /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="default"
-                                        >{{ t('stage2.default_todo') }}</SelectItem
-                                    >
-                                    <SelectItem
-                                        v-for="status in statuses"
-                                        :key="status.id"
-                                        :value="String(status.id)"
-                                        >{{ status.name }}</SelectItem
-                                    >
-                                </SelectContent>
-                            </Select>
-                            <InputError :message="errors.status_id" />
-                        </div>
-                        <div class="grid gap-2">
-                            <Label for="task-assignee"
-                                >{{ t('stage2.assignee') }}
-                                <span class="font-normal text-muted-foreground"
-                                    >{{ t('stage2.optional') }}</span
-                                ></Label
-                            >
-                            <input
-                                type="hidden"
-                                name="assignee_id"
-                                :value="
-                                    newTaskAssignee === 'unassigned'
-                                        ? ''
-                                        : newTaskAssignee
-                                "
-                            />
-                            <Select
-                                v-model="newTaskAssignee"
-                                :disabled="processing"
-                            >
-                                <SelectTrigger id="task-assignee" class="w-full"
-                                    ><SelectValue :placeholder="t('stage2.select_assignee')"
-                                /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="unassigned"
-                                        >{{ t('stage2.unassigned') }}</SelectItem
-                                    >
-                                    <SelectItem
-                                        v-for="person in assignees"
-                                        :key="person.id"
-                                        :value="String(person.id)"
-                                        >{{ person.name }}</SelectItem
-                                    >
-                                </SelectContent>
-                            </Select>
-                            <InputError :message="errors.assignee_id" />
-                        </div>
-                        <div class="grid gap-2">
-                            <Label for="task-parent"
-                                >{{ t('stage2.parent_task') }}
-                                <span class="font-normal text-muted-foreground"
-                                    >{{ t('stage2.optional') }}</span
-                                ></Label
-                            >
-                            <input
-                                type="hidden"
-                                name="parent_id"
-                                :value="
-                                    newTaskParent === 'none'
-                                        ? ''
-                                        : newTaskParent
-                                "
-                            />
-                            <Select
-                                v-model="newTaskParent"
-                                :disabled="processing"
-                            >
-                                <SelectTrigger id="task-parent" class="w-full"
-                                    ><SelectValue
-                                        :placeholder="t('stage2.select_parent_task')"
-                                /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="none"
-                                        >{{ t('stage2.none_regular_task') }}</SelectItem
-                                    >
-                                    <SelectItem
-                                        v-for="task in parent_tasks"
-                                        :key="task.id"
-                                        :value="String(task.id)"
-                                        >{{ task.reference }} —
-                                        {{ task.title }}</SelectItem
-                                    >
-                                </SelectContent>
-                            </Select>
-                            <InputError :message="errors.parent_id" />
-                        </div>
-                        <div class="grid gap-2">
-                            <Label for="task-due-date"
-                                >{{ t('stage2.due_date') }}
-                                <span class="font-normal text-muted-foreground"
-                                    >{{ t('stage2.optional') }}</span
-                                ></Label
-                            >
-                            <input
-                                type="hidden"
-                                name="due_date"
-                                :value="newTaskDueDate?.toString() ?? ''"
-                            />
-                            <Popover v-slot="{ close }">
-                                <PopoverTrigger as-child>
-                                    <Button
-                                        id="task-due-date"
-                                        type="button"
-                                        variant="outline"
-                                        class="w-full justify-between text-left font-normal"
-                                        :class="
-                                            !newTaskDueDate &&
-                                            'text-muted-foreground'
-                                        "
-                                        :disabled="processing"
-                                    >
-                                        <span>{{
-                                            newTaskDueDate
-                                                ? dueDateFormatter.format(
-                                                      newTaskDueDate.toDate(
-                                                          getLocalTimeZone(),
-                                                      ),
-                                                  )
-                                                : t('followup.date')
-                                        }}</span>
-                                        <CalendarDays
-                                            class="size-4 shrink-0 opacity-70"
-                                        />
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent
-                                    align="start"
-                                    class="w-auto p-0"
-                                >
-                                    <Calendar
-                                        v-model="newTaskDueDate"
-                                        :default-placeholder="
-                                            today(getLocalTimeZone())
-                                        "
-                                        layout="month-and-year"
-                                        initial-focus
-                                        @update:model-value="close"
-                                    />
-                                    <div class="border-t p-2">
-                                        <Button
-                                            type="button"
-                                            variant="ghost"
-                                            size="sm"
-                                            class="w-full"
-                                            :disabled="!newTaskDueDate"
-                                            @click="
-                                                newTaskDueDate = undefined;
-                                                close();
-                                            "
-                                        >
-                                            {{ t('stage2.clear_date') }}
-                                        </Button>
-                                    </div>
-                                </PopoverContent>
-                            </Popover>
-                            <InputError :message="errors.due_date" />
-                        </div>
-                        <Button
-                            type="submit"
-                            :disabled="processing"
-                            class="w-full"
-                            ><LoaderCircle
-                                v-if="processing"
-                                class="size-4 animate-spin"
-                            /><Plus v-else class="size-4" />
-                            {{
-                                processing ? t('followup.creating') : t('stage2.create_task')
-                            }}</Button
-                        >
-                    </Form>
-                </CardContent>
-            </Card>
         </div>
+
+        <CreateTaskDialog
+            v-if="can_create"
+            v-model:open="isCreateDialogOpen"
+            :project-id="project.id"
+            :statuses="statuses"
+            :assignees="assignees"
+            :parent-tasks="parent_tasks"
+        />
     </div>
 </template>

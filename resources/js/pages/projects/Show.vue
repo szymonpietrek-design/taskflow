@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useI18n } from '@/composables/useI18n';
 import { Head, Link } from '@inertiajs/vue3';
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import {
     Activity,
     Archive,
@@ -19,10 +19,12 @@ import {
     Package,
     Plus,
 } from '@lucide/vue';
+import CreateTaskDialog from '@/components/tasks/CreateTaskDialog.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { ProjectDetail } from '@/types';
+import type { TaskParentSummary, TaskStatusSummary, TaskUserSummary } from '@/types/task';
 
 type RecentTask = {
     id: number;
@@ -64,6 +66,11 @@ const props = defineProps<{
     project: ProjectDetail;
     can_create_task: boolean;
     overview: ProjectOverview;
+    task_form: {
+        statuses: TaskStatusSummary[];
+        assignees: TaskUserSummary[];
+        parent_tasks: TaskParentSummary[];
+    } | null;
 }>();
 
 defineOptions({
@@ -73,6 +80,7 @@ defineOptions({
 });
 
 const { t, locale, displayLabel } = useI18n();
+const isCreateDialogOpen = ref(false);
 const projectUrl = computed(() => `/projects/${props.project.id}`);
 const taskUrl = (id: number) => `${projectUrl.value}/tasks/${id}`;
 const progress = computed(() => Math.min(100, Math.max(0, props.overview.stats.progress_percent)));
@@ -144,10 +152,8 @@ function statusBadgeVariant(category: RecentTask['category']): 'default' | 'seco
                     </p>
                 </div>
             </div>
-            <Button v-if="can_create_task && !project.is_archived" as-child class="shrink-0 self-start">
-                <Link :href="`${projectUrl}/tasks#new-task`">
-                    <Plus class="size-4" /> {{ t('overview.newTask') }}
-                </Link>
+            <Button v-if="can_create_task && !project.is_archived && task_form" type="button" class="shrink-0 self-start" @click="isCreateDialogOpen = true">
+                <Plus class="size-4" /> {{ t('overview.newTask') }}
             </Button>
         </section>
 
@@ -291,5 +297,14 @@ function statusBadgeVariant(category: RecentTask['category']): 'default' | 'seco
                 </CardContent>
             </Card>
         </div>
+
+        <CreateTaskDialog
+            v-if="can_create_task && !project.is_archived && task_form"
+            v-model:open="isCreateDialogOpen"
+            :project-id="project.id"
+            :statuses="task_form.statuses"
+            :assignees="task_form.assignees"
+            :parent-tasks="task_form.parent_tasks"
+        />
     </div>
 </template>

@@ -10,6 +10,7 @@ use App\Http\Requests\Projects\StoreProjectRequest;
 use App\Models\Project;
 use App\Models\Task;
 use App\Support\Projects\ProjectOverview;
+use App\Support\Tasks\TaskCreationOptions;
 use App\Models\Workspace;
 use App\Support\Workspaces\WorkspaceContext;
 use Illuminate\Http\RedirectResponse;
@@ -55,11 +56,13 @@ class ProjectController extends Controller
         return to_route('projects.show', $project);
     }
 
-    public function show(Request $request, Project $project, ProjectOverview $overview): Response
+    public function show(Request $request, Project $project, ProjectOverview $overview, TaskCreationOptions $taskCreationOptions): Response
     {
         Gate::forUser($request->user())->authorize('view', $project);
 
         $request->session()->put('current_workspace_id', $project->workspace_id);
+
+        $canCreateTask = $request->user()->can('create', [Task::class, $project]);
 
         return Inertia::render('projects/Show', [
             'project' => [
@@ -73,7 +76,8 @@ class ProjectController extends Controller
                 'can_manage' => $request->user()->can('update', $project),
                 'is_archived' => $project->archived_at !== null,
             ],
-            'can_create_task' => $request->user()->can('create', [Task::class, $project]),
+            'can_create_task' => $canCreateTask,
+            'task_form' => $canCreateTask ? $taskCreationOptions->forProject($project) : null,
             'overview' => $overview->forProject($project),
         ]);
     }
