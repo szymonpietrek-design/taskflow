@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useI18n } from '@/composables/useI18n';
 import { Form, Head, Link, router } from '@inertiajs/vue3';
-import { computed, reactive, ref, shallowRef, watch } from 'vue';
+import { computed, onMounted, reactive, ref, shallowRef, watch } from 'vue';
 import {
     ArrowLeft,
     CalendarDays,
@@ -171,6 +171,15 @@ function applyFilters() {
 }
 
 const taskUrl = (id: number) => `/projects/${props.project.id}/tasks/${id}`;
+
+// The project overview links straight to the existing quick-create form.
+onMounted(() => {
+    if (props.can_create && window.location.hash === '#new-task') {
+        window.requestAnimationFrame(() => {
+            document.getElementById('new-task')?.scrollIntoView({ block: 'start' });
+        });
+    }
+});
 
 // shadcn-vue Select and Calendar are controlled Vue components rather than
 // native form inputs. Hidden inputs keep the request payload unchanged.
@@ -658,7 +667,7 @@ const { t, locale, displayLabel, formatText } = useI18n();
                 </div>
             </section>
 
-            <Card v-if="can_create" class="h-fit">
+            <Card v-if="can_create" id="new-task" class="h-fit scroll-mt-6">
                 <CardHeader>
                     <CardTitle class="flex items-center gap-2"
                         ><Plus class="size-4" /> {{ t('stage2.new_task') }}</CardTitle

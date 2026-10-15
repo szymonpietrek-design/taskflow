@@ -8,6 +8,8 @@ use App\Enums\ProjectVisibility;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Projects\StoreProjectRequest;
 use App\Models\Project;
+use App\Models\Task;
+use App\Support\Projects\ProjectOverview;
 use App\Models\Workspace;
 use App\Support\Workspaces\WorkspaceContext;
 use Illuminate\Http\RedirectResponse;
@@ -53,7 +55,7 @@ class ProjectController extends Controller
         return to_route('projects.show', $project);
     }
 
-    public function show(Request $request, Project $project): Response
+    public function show(Request $request, Project $project, ProjectOverview $overview): Response
     {
         Gate::forUser($request->user())->authorize('view', $project);
 
@@ -71,6 +73,8 @@ class ProjectController extends Controller
                 'can_manage' => $request->user()->can('update', $project),
                 'is_archived' => $project->archived_at !== null,
             ],
+            'can_create_task' => $request->user()->can('create', [Task::class, $project]),
+            'overview' => $overview->forProject($project),
         ]);
     }
 
