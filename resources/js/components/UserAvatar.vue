@@ -8,11 +8,13 @@ const props = withDefaults(
         name: string;
         src?: string | null;
         compact?: boolean;
+        small?: boolean;
         stacked?: boolean;
     }>(),
     {
         src: null,
         compact: false,
+        small: false,
         stacked: false,
     },
 );
@@ -40,7 +42,7 @@ const initials = computed(() => {
 <template>
     <Avatar
         :class="[
-            compact ? 'size-9' : 'size-11 sm:size-12',
+            small ? 'size-7' : compact ? 'size-9' : 'size-11 sm:size-12',
             stacked ? 'ring-2 ring-background' : 'ring-1 ring-border/60',
         ]"
     >
@@ -48,7 +50,7 @@ const initials = computed(() => {
         <AvatarFallback
             :class="[
                 tone,
-                compact ? 'text-xs' : 'text-sm',
+                small ? 'text-[10px]' : compact ? 'text-xs' : 'text-sm',
                 'font-semibold tracking-tight',
             ]"
         >

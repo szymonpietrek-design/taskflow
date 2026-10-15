@@ -8,7 +8,6 @@ import {
     ArrowUpRight,
     CalendarDays,
     CheckCircle2,
-    Circle,
     Clock3,
     FileText,
     FolderKanban,
@@ -20,6 +19,8 @@ import {
     Plus,
 } from '@lucide/vue';
 import CreateTaskDialog from '@/components/tasks/CreateTaskDialog.vue';
+import TaskStatusIcon from '@/components/tasks/TaskStatusIcon.vue';
+import { taskStatusBadgeClass } from '@/lib/taskVisuals';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -114,10 +115,6 @@ function activityLabel(kind: TimelineItem['kind']): string {
     return t(`overview.activity.${kind}`);
 }
 
-function statusBadgeVariant(category: RecentTask['category']): 'default' | 'secondary' | 'outline' {
-    if (category === 'done') return 'default';
-    return category === 'canceled' ? 'outline' : 'secondary';
-}
 </script>
 
 <template>
@@ -231,14 +228,13 @@ function statusBadgeVariant(category: RecentTask['category']): 'default' | 'seco
                             class="flex items-start justify-between gap-3 border-b px-4 py-3 transition-colors last:border-b-0 hover:bg-muted/40 sm:px-5"
                         >
                             <div class="flex min-w-0 items-start gap-2.5">
-                                <CheckCircle2 v-if="task.category === 'done'" class="mt-0.5 size-4 shrink-0 text-foreground" />
-                                <Circle v-else class="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                                <span class="mt-0.5 shrink-0"><TaskStatusIcon :category="task.category" /></span>
                                 <div class="min-w-0 space-y-1">
                                     <p class="break-words text-sm font-medium">{{ task.title }}</p>
                                     <p class="text-xs text-muted-foreground">{{ task.reference }}</p>
                                 </div>
                             </div>
-                            <Badge :variant="statusBadgeVariant(task.category)" class="max-w-36 shrink-0 text-center text-[11px] font-normal whitespace-normal">
+                            <Badge variant="outline" :class="[taskStatusBadgeClass(task.category), 'max-w-36 shrink-0 text-center text-[11px] font-normal whitespace-normal']">
                                 {{ displayLabel(task.status) }}
                             </Badge>
                         </Link>

@@ -4,8 +4,10 @@ import { Head, Link, router } from '@inertiajs/vue3';
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 import {
     ArrowLeft,
-    CheckCircle2,
-    Circle,
+    Bug,
+    ListTodo,
+    Sparkles,
+    Wrench,
     Clock3,
     ClipboardList,
     LoaderCircle,
@@ -14,6 +16,9 @@ import {
     SlidersHorizontal,
 } from '@lucide/vue';
 import CreateTaskDialog from '@/components/tasks/CreateTaskDialog.vue';
+import TaskStatusIcon from '@/components/tasks/TaskStatusIcon.vue';
+import UserAvatar from '@/components/UserAvatar.vue';
+import { taskPriorityDotClass, taskStatusBadgeClass } from '@/lib/taskVisuals';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -179,14 +184,6 @@ function formatWorklogTime(totalMinutes: number): string {
             .filter(Boolean)
             .join(' ') || '0m'
     );
-}
-
-function badgeVariant(
-    category: TaskStatusSummary['category'],
-): 'secondary' | 'outline' | 'default' {
-    if (category === 'done') return 'default';
-    if (category === 'canceled') return 'outline';
-    return 'secondary';
 }
 
 defineOptions({
@@ -396,7 +393,7 @@ const { t, displayLabel, formatText } = useI18n();
                     <Card class="gap-0 overflow-hidden py-0">
                         <div class="overflow-x-auto">
                             <table
-                                class="w-full min-w-[39rem] text-left text-sm"
+                                class="w-full min-w-[43rem] text-left text-sm"
                             >
                                 <thead
                                     class="border-b bg-muted/30 text-xs text-muted-foreground"
@@ -427,20 +424,9 @@ const { t, displayLabel, formatText } = useI18n();
                                                 <Link
                                                     :href="taskUrl(task.id)"
                                                     :aria-label="formatText('audit.view_task', { reference: task.reference })"
-                                                    class="mt-0.5 shrink-0 text-muted-foreground"
+                                                    class="mt-0.5 inline-flex shrink-0 rounded-sm text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                                 >
-                                                    <CheckCircle2
-                                                        v-if="
-                                                            task.status
-                                                                .category ===
-                                                            'done'
-                                                        "
-                                                        class="size-4"
-                                                    />
-                                                    <Circle
-                                                        v-else
-                                                        class="size-4"
-                                                    />
+                                                    <TaskStatusIcon :category="task.status.category" />
                                                 </Link>
                                                 <div class="min-w-0">
                                                     <Link
@@ -459,9 +445,11 @@ const { t, displayLabel, formatText } = useI18n();
                                                         >
                                                             {{ task.reference }}
                                                             ·
-                                                            {{
-                                                                displayLabel(task.type_label)
-                                                            }}
+                                                            <Bug v-if="task.type === 4" class="inline size-3 align-[-2px]" aria-hidden="true" />
+                                                            <Sparkles v-else-if="task.type === 2" class="inline size-3 align-[-2px]" aria-hidden="true" />
+                                                            <Wrench v-else-if="task.type === 3" class="inline size-3 align-[-2px]" aria-hidden="true" />
+                                                            <ListTodo v-else class="inline size-3 align-[-2px]" aria-hidden="true" />
+                                                            {{ displayLabel(task.type_label) }}
                                                             <template
                                                                 v-if="
                                                                     task.parent
@@ -527,26 +515,32 @@ const { t, displayLabel, formatText } = useI18n();
                                         </td>
                                         <td class="px-4 py-3">
                                             <Badge
-                                                :variant="
-                                                    badgeVariant(
-                                                        task.status.category,
-                                                    )
-                                                "
-                                                >{{ task.status.name }}</Badge
-                                            >
+                                                variant="outline"
+                                                :class="taskStatusBadgeClass(task.status.category)"
+                                            >{{ displayLabel(task.status.name) }}</Badge>
                                         </td>
-                                        <td
-                                            class="px-4 py-3 text-muted-foreground"
-                                        >
-                                            {{ displayLabel(task.priority_label) }}
+                                        <td class="px-4 py-3">
+                                            <span class="inline-flex items-center gap-2 whitespace-nowrap text-muted-foreground">
+                                                <span
+                                                    class="size-2 shrink-0 rounded-full"
+                                                    :class="taskPriorityDotClass(task.priority)"
+                                                    aria-hidden="true"
+                                                />
+                                                {{ displayLabel(task.priority_label) }}
+                                            </span>
                                         </td>
-                                        <td
-                                            class="px-4 py-3 text-muted-foreground"
-                                        >
-                                            {{
-                                                task.assignee?.name ??
-                                                t('fix.no_assignee')
-                                            }}
+                                        <td class="px-4 py-3">
+                                            <div v-if="task.assignee" class="flex min-w-0 items-center gap-2">
+                                                <UserAvatar
+                                                    :user-id="task.assignee.id"
+                                                    :name="task.assignee.name"
+                                                    small
+                                                />
+                                                <span class="truncate text-muted-foreground" :title="task.assignee.name">
+                                                    {{ task.assignee.name }}
+                                                </span>
+                                            </div>
+                                            <span v-else class="text-muted-foreground">{{ t('fix.no_assignee') }}</span>
                                         </td>
                                     </tr>
                                 </tbody>
