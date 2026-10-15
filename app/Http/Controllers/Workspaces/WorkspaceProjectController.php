@@ -11,6 +11,9 @@ use App\Http\Requests\Projects\UpdateProjectRequest;
 use App\Models\Project;
 use App\Models\Workspace;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 
 class WorkspaceProjectController extends Controller
@@ -66,4 +69,38 @@ class WorkspaceProjectController extends Controller
 
         return back();
     }
+    public function archive(Request $request, Workspace $workspace, Project $project): RedirectResponse
+    {
+        abort_unless($project->workspace_id === $workspace->id, 403);
+        Gate::forUser($request->user())->authorize('archive', $project);
+
+        DB::transaction(function () use ($project): void {
+            $locked = Project::query()->whereKey($project->id)->lockForUpdate()->firstOrFail();
+            if ($locked->archived_at === null) {
+                $locked->forceFill(['archived_at' => now()])->save();
+            }
+        });
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Project archived.')]);
+
+        return to_route('workspaces.index');
+    }
+
+    public function restore(Request $request, Workspace $workspace, Project $project): RedirectResponse
+    {
+        abort_unless($project->workspace_id === $workspace->id, 403);
+        Gate::forUser($request->user())->authorize('archive', $project);
+
+        DB::transaction(function () use ($project): void {
+            $locked = Project::query()->whereKey($project->id)->lockForUpdate()->firstOrFail();
+            if ($locked->archived_at !== null) {
+                $locked->forceFill(['archived_at' => null])->save();
+            }
+        });
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Project restored.')]);
+
+        return to_route('workspaces.index');
+    }
+
 }

@@ -114,6 +114,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('workspaces', [WorkspaceController::class, 'index'])->name('workspaces.index');
     Route::post('workspaces/{workspace}/projects', [WorkspaceProjectController::class, 'store'])->name('workspaces.projects.store');
     Route::patch('workspaces/{workspace}/projects/{project}', [WorkspaceProjectController::class, 'update'])->name('workspaces.projects.update');
+    Route::patch('workspaces/{workspace}/projects/{project}/archive', [WorkspaceProjectController::class, 'archive'])->name('workspaces.projects.archive');
+    Route::patch('workspaces/{workspace}/projects/{project}/restore', [WorkspaceProjectController::class, 'restore'])->name('workspaces.projects.restore');
     Route::get('workspaces/{workspace}/members', [WorkspaceMemberController::class, 'index'])->name('workspaces.members.index');
     Route::post('workspaces/{workspace}/members', [WorkspaceMemberController::class, 'store'])
         ->middleware('throttle:20,1')->name('workspaces.members.store');

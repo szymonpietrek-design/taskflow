@@ -69,6 +69,7 @@ class ProjectController extends Controller
                 'type' => strtolower($project->type->name),
                 'visibility' => strtolower($project->visibility->name),
                 'can_manage' => $request->user()->can('update', $project),
+                'is_archived' => $project->archived_at !== null,
             ],
         ]);
     }

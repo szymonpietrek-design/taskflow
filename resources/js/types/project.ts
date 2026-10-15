@@ -18,9 +18,12 @@ export type ProjectContext = {
 export type ProjectDetail = ProjectSummary & {
     description: string | null;
     can_manage: boolean;
+    is_archived: boolean;
 };
 
 export type WorkspaceProjectSummary = ProjectSummary & {
     description: string | null;
     can_edit: boolean;
+    is_archived: boolean;
+    can_archive: boolean;
 };

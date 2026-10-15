@@ -39,6 +39,10 @@ class TaskPolicy
     public function delete(User $user, Task $task): bool
     {
         $project = $task->project;
+        if ($project->archived_at !== null) {
+            return false;
+        }
+
         $workspaceMembership = $this->workspaceMembership($user, $project);
 
         if ($workspaceMembership !== null && $this->isWorkspaceAdministrator($workspaceMembership)) {
@@ -56,6 +60,10 @@ class TaskPolicy
 
     private function canContribute(User $user, Project $project): bool
     {
+        if ($project->archived_at !== null) {
+            return false;
+        }
+
         $workspaceMembership = $this->workspaceMembership($user, $project);
 
         if ($workspaceMembership === null) {

@@ -30,7 +30,7 @@ class TaskStatusController extends Controller
                 'name' => $project->name,
                 'key' => $project->key,
             ],
-            'can_manage' => $request->user()->can('update', $project),
+            'can_manage' => $project->archived_at === null && $request->user()->can('update', $project),
             'statuses' => $project->taskStatuses()
                 ->withCount('tasks')
                 ->orderBy('position')

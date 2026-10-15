@@ -49,12 +49,12 @@ class ProjectPolicy
 
     public function update(User $user, Project $project): bool
     {
-        return $this->canManageProject($user, $project);
+        return $project->archived_at === null && $this->canManageProject($user, $project);
     }
 
     public function delete(User $user, Project $project): bool
     {
-        return $this->canManageProject($user, $project);
+        return $project->archived_at === null && $this->canManageProject($user, $project);
     }
 
     public function archive(User $user, Project $project): bool
@@ -64,7 +64,7 @@ class ProjectPolicy
 
     public function manageMembers(User $user, Project $project): bool
     {
-        return $this->canManageProject($user, $project);
+        return $project->archived_at === null && $this->canManageProject($user, $project);
     }
 
     private function canManageProject(User $user, Project $project): bool

@@ -8,8 +8,8 @@ import {
     LockKeyhole,
     Package,
     FileText,
-    Settings2,
     Users,
+    Archive,
 } from '@lucide/vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -45,6 +45,11 @@ function visibilityLabel(visibility: ProjectDetail['visibility']): string {
     <Head :title="project.name" />
 
     <div class="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 p-4 md:p-6">
+        <div v-if="project.is_archived" class="flex items-center gap-2 rounded-lg border bg-muted/50 px-4 py-3 text-sm text-muted-foreground">
+            <Archive class="size-4 shrink-0" />
+            {{ t('workspaceProjects.archivedNotice') }}
+            <Link href="/workspaces" class="font-medium underline underline-offset-2">{{ t('stage2.workspaces') }}</Link>
+        </div>
         <div class="min-w-0">
             <div class="mb-2 flex flex-wrap items-center gap-2">
                 <Badge variant="secondary">{{ project.key }}</Badge>
@@ -95,12 +100,6 @@ function visibilityLabel(visibility: ProjectDetail['visibility']): string {
                 <Link :href="`/projects/${project.id}/reports`">
                     <FileText class="size-4" />
                     {{ t('stage2.reports') }}
-                </Link>
-            </Button>
-            <Button v-if="project.can_manage" as-child variant="outline">
-                <Link :href="`/projects/${project.id}/statuses`">
-                    <Settings2 class="size-4" />
-                    {{ t('stage2.manage_statuses') }}
                 </Link>
             </Button>
         </div>

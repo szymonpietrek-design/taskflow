@@ -104,5 +104,7 @@
     "Work Report requires Worklogs as a source.": "Raport pracy wymaga czasu pracy jako źródła.",
     "Workspace name cannot be empty.": "Nazwa przestrzeni nie może być pusta.",
     "Workspace name updated.": "Zmieniono nazwę przestrzeni.",
-    "Project updated.": "Projekt został zaktualizowany."
+    "Project updated.": "Projekt został zaktualizowany.",
+    "Project archived.": "Projekt został zarchiwizowany.",
+    "Project restored.": "Projekt został przywrócony."
 }

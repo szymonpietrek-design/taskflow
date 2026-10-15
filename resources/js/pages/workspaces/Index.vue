@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useI18n } from '@/composables/useI18n';
-import { Form, Head, Link, useForm, usePage } from '@inertiajs/vue3';
-import { AppWindow, Check, FolderKanban, Pencil, Plus, Users } from '@lucide/vue';
+import { Form, Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
+import { AppWindow, Archive, ArchiveRestore, Check, FolderKanban, Pencil, Plus, Settings2, Users } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import UserAvatar from '@/components/UserAvatar.vue';
 import ProjectFormDialog from '@/components/ProjectFormDialog.vue';
@@ -37,6 +37,7 @@ type MemberGroup = { members: MemberPreview[]; remaining: number };
 const props = defineProps<{
     memberPreviews: Record<number, MemberGroup>;
     projectsByWorkspace: Record<number, WorkspaceProjectSummary[]>;
+    archivedProjectsByWorkspace: Record<number, WorkspaceProjectSummary[]>;
 }>();
 
 const page = usePage();
@@ -48,6 +49,34 @@ const workspaceForm = useForm({ name: '' });
 const projectDialogOpen = ref(false);
 const projectWorkspaceId = ref<number | null>(null);
 const editingProject = ref<WorkspaceProjectSummary | null>(null);
+const confirmingProject = ref<{ workspaceId: number; project: WorkspaceProjectSummary; action: 'archive' | 'restore' } | null>(null);
+const projectActionBusy = ref(false);
+
+function confirmProjectAction(workspaceId: number, project: WorkspaceProjectSummary, action: 'archive' | 'restore'): void {
+    if (!project.can_archive || projectActionBusy.value) return;
+    confirmingProject.value = { workspaceId, project, action };
+}
+
+function onProjectActionDialogChange(open: boolean): void {
+    if (!open && !projectActionBusy.value) confirmingProject.value = null;
+}
+
+function submitProjectAction(): void {
+    const selected = confirmingProject.value;
+    if (!selected || projectActionBusy.value) return;
+    router.patch(`/workspaces/${selected.workspaceId}/projects/${selected.project.id}/${selected.action}`, {}, {
+        preserveScroll: true,
+        onStart: () => { projectActionBusy.value = true; },
+        onSuccess: () => { confirmingProject.value = null; },
+        onFinish: () => { projectActionBusy.value = false; },
+    });
+}
+
+function archivedCount(count: number): string {
+    const rule = new Intl.PluralRules(page.props.locale === 'pl' ? 'pl-PL' : 'en-US').select(count);
+    const form = rule === 'one' ? 'One' : rule === 'few' ? 'Few' : 'Many';
+    return formatText(`workspaceProjects.archivedCount${form}`, { count });
+}
 
 function openProjectDialog(workspaceId: number, project: WorkspaceProjectSummary | null = null): void {
     projectWorkspaceId.value = workspaceId;
@@ -272,12 +301,41 @@ defineOptions({
                                         <span>{{ project.visibility === 'private' ? t('stage2.private') : t('stage2.workspace') }}</span>
                                     </p>
                                 </div>
-                                <Button v-if="project.can_edit" type="button" size="sm" variant="ghost" @click="openProjectDialog(workspaceItem.id, project)">
-                                    <Pencil class="size-4" /> {{ t('workspaceProjects.edit') }}
-                                </Button>
+                                <div v-if="project.can_edit" class="flex flex-wrap items-center gap-2">
+                                    <Button type="button" size="sm" variant="outline" @click="openProjectDialog(workspaceItem.id, project)">
+                                        <Pencil class="size-4" /> {{ t('workspaceProjects.edit') }}
+                                    </Button>
+                                    <Button as-child size="sm" variant="outline">
+                                        <Link :href="`/projects/${project.id}/statuses`">
+                                            <Settings2 class="size-4" /> {{ t('workspaceProjects.statuses') }}
+                                        </Link>
+                                    </Button>
+                                    <Button v-if="project.can_archive" type="button" size="sm" variant="ghost" @click="confirmProjectAction(workspaceItem.id, project, 'archive')">
+                                        <Archive class="size-4" /> {{ t('workspaceProjects.archive') }}
+                                    </Button>
+                                </div>
                             </div>
                         </div>
                         <p v-else class="rounded-lg border border-dashed px-4 py-5 text-sm text-muted-foreground">{{ t('workspaceProjects.empty') }}</p>
+                      </section>
+
+                      <section v-if="props.archivedProjectsByWorkspace[workspaceItem.id]?.length" class="mt-5 space-y-3 border-t pt-4">
+                        <div class="space-y-1">
+                            <h3 class="flex items-center gap-2 text-sm font-semibold"><Archive class="size-4" /> {{ t('workspaceProjects.archivedTitle') }}</h3>
+                            <p class="text-xs text-muted-foreground">{{ archivedCount(props.archivedProjectsByWorkspace[workspaceItem.id]?.length ?? 0) }} · {{ t('workspaceProjects.archiveWarning') }}</p>
+                        </div>
+                        <div class="divide-y rounded-lg border bg-muted/20">
+                            <div v-for="project in props.archivedProjectsByWorkspace[workspaceItem.id]" :key="project.id" class="flex flex-wrap items-center gap-3 px-3 py-3 sm:px-4">
+                                <span class="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted"><Archive class="size-4 text-muted-foreground" /></span>
+                                <div class="min-w-0 flex-1 space-y-1">
+                                    <Link :href="`/projects/${project.id}`" class="break-words text-sm font-medium hover:underline">{{ project.name }}</Link>
+                                    <p class="text-xs text-muted-foreground">{{ project.key }} · {{ project.type === 'application' ? t('stage2.application') : t('stage2.standard') }} · {{ t('stage3.archived') }}</p>
+                                </div>
+                                <Button v-if="project.can_archive" type="button" size="sm" variant="outline" @click="confirmProjectAction(workspaceItem.id, project, 'restore')">
+                                    <ArchiveRestore class="size-4" /> {{ t('workspaceProjects.restore') }}
+                                </Button>
+                            </div>
+                        </div>
                       </section>
                     </div>
                 </CardContent>
@@ -302,6 +360,25 @@ defineOptions({
             :workspace-id="projectWorkspaceId"
             :project="editingProject"
         />
+
+        <Dialog :open="confirmingProject !== null" @update:open="onProjectActionDialogChange">
+            <DialogContent :show-close-button="!projectActionBusy">
+                <DialogHeader>
+                    <DialogTitle>{{ confirmingProject?.action === 'archive' ? t('workspaceProjects.archiveTitle') : t('workspaceProjects.restoreTitle') }}</DialogTitle>
+                    <DialogDescription>
+                        {{ confirmingProject ? formatText(confirmingProject.action === 'archive' ? 'workspaceProjects.archiveDescription' : 'workspaceProjects.restoreDescription', { project: confirmingProject.project.name }) : '' }}
+                    </DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                    <Button variant="outline" type="button" :disabled="projectActionBusy" @click="confirmingProject = null">{{ t('stage2.cancel') }}</Button>
+                    <Button type="button" :disabled="projectActionBusy" @click="submitProjectAction">
+                        <Archive v-if="confirmingProject?.action === 'archive'" class="size-4" />
+                        <ArchiveRestore v-else class="size-4" />
+                        {{ projectActionBusy ? t(confirmingProject?.action === 'archive' ? 'workspaceProjects.archiving' : 'workspaceProjects.restoring') : t(confirmingProject?.action === 'archive' ? 'workspaceProjects.archive' : 'workspaceProjects.restore') }}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
 
         <Dialog :open="dialogOpen" @update:open="onDialogChange">
             <DialogContent :show-close-button="!workspaceForm.processing">

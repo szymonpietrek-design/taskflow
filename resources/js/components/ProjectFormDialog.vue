@@ -89,7 +89,7 @@ function submit(): void {
                     {{ t('workspaceProjects.keyUnchanged') }}: <span class="font-medium">{{ form.key }}</span>
                 </div>
                 <div class="grid gap-2">
-                    <Label for="workspace-project-description">{{ t('stage2.description') }} ({{ t('stage2.optional') }})</Label>
+                    <Label for="workspace-project-description">{{ t('stage2.description') }} {{ t('stage2.optional') }}</Label>
                     <textarea id="workspace-project-description" v-model="form.description" rows="3" maxlength="5000"
                         :placeholder="t('stage2.what_is_this_project_for')"
                         class="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50" />

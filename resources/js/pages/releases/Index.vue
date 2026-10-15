@@ -1,19 +1,23 @@
 <script setup lang="ts">
 import { useI18n } from '@/composables/useI18n';
 import { Form, Head, Link } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
+import { DateFormatter, getLocalTimeZone, parseDate } from '@internationalized/date';
+import { DatePicker } from '@/components/ui/date-picker';
 import { ArrowLeft, CalendarDays, Package, Plus } from '@lucide/vue';
 import InputError from '@/components/InputError.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Card, CardContent } from '@/components/ui/card';
 import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-} from '@/components/ui/card';
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
@@ -44,17 +48,37 @@ const props = defineProps<{
 
 const baseUrl = `/projects/${props.project.id}/releases`;
 const includeCompleted = ref(true);
+const isCreateDialogOpen = ref(false);
+const plannedFor = ref('');
+
+function openCreateDialog(): void {
+    includeCompleted.value = true;
+    plannedFor.value = '';
+    isCreateDialogOpen.value = true;
+}
+
+function onReleaseCreated(): void {
+    isCreateDialogOpen.value = false;
+    plannedFor.value = '';
+}
 
 defineOptions({
     layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }] },
 });
 const { t, locale, formatText, translateLiteral, countLabel } = useI18n();
+const plannedDateFormatter = computed(() => new DateFormatter(
+    locale.value === 'pl' ? 'pl-PL' : 'en-US',
+    { dateStyle: 'medium' },
+));
+function formatPlannedDate(value: string): string {
+    return plannedDateFormatter.value.format(parseDate(value.slice(0, 10)).toDate(getLocalTimeZone()));
+}
 </script>
 
 <template>
-    <Head :title="`Releases · ${project.name}`" />
+    <Head :title="`${t('stage3.releases')} · ${project.name}`" />
 
-    <div class="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 p-4 md:p-6">
+    <div class="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-4 md:p-6">
         <div class="space-y-3">
             <Button variant="ghost" size="sm" as-child class="-ml-3 w-fit">
                 <Link :href="`/projects/${project.id}`"
@@ -65,18 +89,20 @@ const { t, locale, formatText, translateLiteral, countLabel } = useI18n();
                 <Badge variant="secondary">{{ project.key }}</Badge>
                 <Badge variant="outline">{{ t('stage3.application') }}</Badge>
             </div>
-            <div>
-                <h1 class="text-2xl font-semibold tracking-tight">{{ t('stage3.releases') }}</h1>
-                <p class="mt-1 text-sm text-muted-foreground">
-                    {{ formatText('audit.releases_track_for', { project: project.name }) }}
-                </p>
+            <div class="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                    <h1 class="text-2xl font-semibold tracking-tight">{{ t('stage3.releases') }}</h1>
+                    <p class="mt-1 text-sm text-muted-foreground">
+                        {{ formatText('audit.releases_track_for', { project: project.name }) }}
+                    </p>
+                </div>
+                <Button v-if="can_create" type="button" @click="openCreateDialog">
+                    <Plus class="size-4" /> {{ t('stage3.new_release') }}
+                </Button>
             </div>
         </div>
 
-        <div
-            class="grid items-start gap-6"
-            :class="can_create ? 'lg:grid-cols-[minmax(0,1fr)_22rem]' : ''"
-        >
+        <div class="w-full">
             <section class="space-y-3">
                 <div>
                     <h2 class="font-medium">{{ t('stage3.version_history') }}</h2>
@@ -135,7 +161,7 @@ const { t, locale, formatText, translateLiteral, countLabel } = useI18n();
                                     v-if="release.planned_for"
                                     class="flex items-center gap-1 text-xs text-muted-foreground"
                                 >
-                                    <CalendarDays class="size-3.5" /> {{ formatText('audit.day_planned', { date: release.planned_for }) }}
+                                    <CalendarDays class="size-3.5" /> {{ formatText('audit.day_planned', { date: formatPlannedDate(release.planned_for) }) }}
                                 </div>
                             </CardContent>
                         </Card>
@@ -172,22 +198,22 @@ const { t, locale, formatText, translateLiteral, countLabel } = useI18n();
                     >
                 </div>
             </section>
+        </div>
 
-            <Card v-if="can_create" class="h-fit">
-                <CardHeader>
-                    <CardTitle class="flex items-center gap-2"
-                        ><Plus class="size-4" /> {{ t('stage3.new_release') }}</CardTitle
-                    >
-                    <CardDescription
-                        >{{ t('audit.use_major_minor_patch_for_example_1_0_0_or_1_2_3') }}</CardDescription
-                    >
-                </CardHeader>
-                <CardContent>
-                    <Form
+        <Dialog v-if="can_create" v-model:open="isCreateDialogOpen">
+            <DialogContent class="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-[34rem]">
+                <DialogHeader>
+                    <DialogTitle class="flex items-center gap-2">
+                        <Plus class="size-4" /> {{ t('stage3.new_release') }}
+                    </DialogTitle>
+                    <DialogDescription>{{ t('audit.use_major_minor_patch_for_example_1_0_0_or_1_2_3') }}</DialogDescription>
+                </DialogHeader>
+                <Form
                         :action="baseUrl"
                         method="post"
                         class="space-y-4"
                         reset-on-success
+                        @success="onReleaseCreated"
                         v-slot="{ errors, processing }"
                     >
                         <div class="grid gap-2">
@@ -240,10 +266,14 @@ const { t, locale, formatText, translateLiteral, countLabel } = useI18n();
                                     >{{ t('stage3.optional') }}</span
                                 ></Label
                             >
-                            <Input
+                            <input type="hidden" name="planned_for" :value="plannedFor" />
+                            <DatePicker
                                 id="release-date"
-                                name="planned_for"
-                                type="date"
+                                v-model="plannedFor"
+                                :aria-label="t('audit.planned_date')"
+                                :invalid="Boolean(errors.planned_for)"
+                                :disabled="processing"
+                                clearable
                             />
                             <InputError :message="errors.planned_for" />
                         </div>
@@ -278,15 +308,16 @@ const { t, locale, formatText, translateLiteral, countLabel } = useI18n();
                         </div>
                         <InputError :message="errors.include_completed_tasks" />
                         <InputError :message="errors.release" />
-                        <Button
-                            type="submit"
-                            class="w-full"
-                            :disabled="processing"
-                            ><Plus class="size-4" /> {{ t('audit.create_draft_release') }}</Button
-                        >
-                    </Form>
-                </CardContent>
-            </Card>
-        </div>
+                        <DialogFooter class="gap-3 pt-2 sm:gap-3">
+                            <Button type="button" variant="outline" :disabled="processing" @click="isCreateDialogOpen = false">
+                                {{ t('stage2.cancel') }}
+                            </Button>
+                            <Button type="submit" :disabled="processing">
+                                <Plus class="size-4" /> {{ t('audit.create_draft_release') }}
+                            </Button>
+                        </DialogFooter>
+                </Form>
+            </DialogContent>
+        </Dialog>
     </div>
 </template>

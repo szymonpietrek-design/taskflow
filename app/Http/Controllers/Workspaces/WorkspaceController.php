@@ -62,21 +62,33 @@ class WorkspaceController extends Controller
 
         // Members see only workspace-visible projects or their own private projects.
         // Owner/admin access is scoped to their own workspace, never global.
-        $projects = Project::query()
+        $visibleProjects = Project::query()
             ->whereIn('workspace_id', $workspaceIds)
-            ->whereNull('archived_at')
             ->where(function (Builder $query) use ($adminWorkspaceIds, $request): void {
                 $query->whereIn('workspace_id', $adminWorkspaceIds)
                     ->orWhere('visibility', ProjectVisibility::WORKSPACE->value)
                     ->orWhereHas('memberships', fn (Builder $memberships) => $memberships
                         ->where('user_id', $request->user()->id));
+            });
+
+        $projects = (clone $visibleProjects)->whereNull('archived_at')->orderBy('name')->get();
+
+        // Archived projects are accessible only to workspace administrators and their managers.
+        // Regular workspace members must never discover private archived projects.
+        $archivedProjects = (clone $visibleProjects)
+            ->whereNotNull('archived_at')
+            ->where(function (Builder $query) use ($adminWorkspaceIds, $managerProjectIds): void {
+                $query->whereIn('workspace_id', $adminWorkspaceIds)
+                    ->orWhereIn('id', $managerProjectIds);
             })
-            ->orderBy('name')
-            ->get();
+            ->orderBy('name')->get()
+            ->filter(fn (Project $project): bool => $request->user()->can('archive', $project));
 
         $projectsByWorkspace = [];
+        $archivedProjectsByWorkspace = [];
         foreach ($workspaceIds as $workspaceId) {
             $projectsByWorkspace[$workspaceId] = [];
+            $archivedProjectsByWorkspace[$workspaceId] = [];
         }
         foreach ($projects as $project) {
             $projectsByWorkspace[$project->workspace_id][] = [
@@ -86,14 +98,30 @@ class WorkspaceController extends Controller
                 'key' => $project->key,
                 'type' => strtolower($project->type->name),
                 'visibility' => strtolower($project->visibility->name),
-                'can_edit' => in_array($project->workspace_id, $adminWorkspaceIds, true)
-                    || in_array($project->id, $managerProjectIds, true),
+                'can_edit' => $request->user()->can('update', $project),
+                'can_archive' => $request->user()->can('archive', $project),
+                'is_archived' => false,
+            ];
+        }
+
+        foreach ($archivedProjects as $project) {
+            $archivedProjectsByWorkspace[$project->workspace_id][] = [
+                'id' => $project->id,
+                'name' => $project->name,
+                'description' => $project->description,
+                'key' => $project->key,
+                'type' => strtolower($project->type->name),
+                'visibility' => strtolower($project->visibility->name),
+                'can_edit' => false,
+                'can_archive' => $request->user()->can('archive', $project),
+                'is_archived' => true,
             ];
         }
 
         return Inertia::render('workspaces/Index', [
             'memberPreviews' => $memberPreviews,
             'projectsByWorkspace' => $projectsByWorkspace,
+            'archivedProjectsByWorkspace' => $archivedProjectsByWorkspace,
         ]);
     }
 
