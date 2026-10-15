@@ -56,6 +56,7 @@ export type TaskSubtaskSummary = {
 
 export type TaskDetail = TaskSummary & {
     description: string | null;
+    description_html: string;
     creator: TaskUserSummary;
     subtasks: TaskSubtaskSummary[];
     subtask_progress: { total: number; done: number };

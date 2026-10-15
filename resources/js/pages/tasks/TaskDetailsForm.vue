@@ -10,6 +10,7 @@ import {
 } from '@internationalized/date';
 import { CalendarDays, LoaderCircle } from '@lucide/vue';
 import { computed, ref, shallowRef } from 'vue';
+import TaskMarkdown from '@/components/tasks/TaskMarkdown.vue';
 import { toast } from 'vue-sonner';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
@@ -49,6 +50,50 @@ const updateUrl = computed(
 );
 // Controlled shadcn-vue fields need hidden inputs for Inertia's Form payload.
 const editPriority = ref(String(props.task.priority));
+const editDescription = ref(props.task.description ?? '');
+const descriptionTab = ref<'edit' | 'preview'>('edit');
+const descriptionPreview = ref('');
+const previewLoading = ref(false);
+const previewError = ref(false);
+let previewRequestId = 0;
+
+async function showDescriptionPreview(): Promise<void> {
+    descriptionTab.value = 'preview';
+    previewError.value = false;
+    descriptionPreview.value = '';
+    const requestId = ++previewRequestId;
+    if (!editDescription.value.trim()) return;
+
+    previewLoading.value = true;
+    try {
+        // Use the current cookie: Laravel may regenerate the CSRF token after login
+        // without a full page reload (Inertia navigation).
+        const xsrfCookie = document.cookie.split('; ').find((cookie) => cookie.startsWith('XSRF-TOKEN='));
+        const xsrfToken = xsrfCookie ? decodeURIComponent(xsrfCookie.slice('XSRF-TOKEN='.length)) : null;
+        const metaToken = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content;
+        if (!xsrfToken && !metaToken) throw new Error('Missing CSRF token');
+        const response = await fetch(`/projects/${props.projectId}/tasks/${props.task.id}/description-preview`, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                ...(xsrfToken ? { 'X-XSRF-TOKEN': xsrfToken } : { 'X-CSRF-TOKEN': metaToken! }),
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            body: JSON.stringify({ description: editDescription.value }),
+        });
+        if (!response.ok) throw new Error(`Preview request failed: ${response.status}`);
+        const data: { html?: unknown } = await response.json();
+        if (typeof data.html !== 'string') throw new Error('Invalid Markdown preview response');
+        if (requestId === previewRequestId) descriptionPreview.value = data.html;
+    } catch {
+        if (requestId === previewRequestId) previewError.value = true;
+    } finally {
+        if (requestId === previewRequestId) previewLoading.value = false;
+    }
+}
+
 const editAssignee = ref(
     props.task.assignee ? String(props.task.assignee.id) : 'unassigned',
 );
@@ -103,21 +148,41 @@ const { t, locale, formatText, translateLiteral, displayLabel } = useI18n();
                     <InputError :message="errors.title" />
                 </div>
                 <div class="space-y-2">
-                    <Label for="task-edit-description"
-                        >{{ t('stage2.description') }}
-                        <span class="font-normal text-muted-foreground"
-                            >{{ t('stage2.optional') }}</span
-                        ></Label
-                    >
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <Label for="task-edit-description">
+                            {{ t('stage2.description') }}
+                            <span class="font-normal text-muted-foreground">{{ t('stage2.optional') }}</span>
+                        </Label>
+                        <div class="inline-flex rounded-md border p-0.5" role="group" :aria-label="t('taskDetails.markdownMode')">
+                            <Button
+                                type="button" size="sm" :variant="descriptionTab === 'edit' ? 'secondary' : 'ghost'"
+                                :aria-pressed="descriptionTab === 'edit'" :disabled="processing"
+                                @click="descriptionTab = 'edit'"
+                            >{{ t('taskDetails.editMarkdown') }}</Button>
+                            <Button
+                                type="button" size="sm" :variant="descriptionTab === 'preview' ? 'secondary' : 'ghost'"
+                                :aria-pressed="descriptionTab === 'preview'" :disabled="processing"
+                                @click="showDescriptionPreview"
+                            >{{ t('taskDetails.previewMarkdown') }}</Button>
+                        </div>
+                    </div>
                     <textarea
+                        v-show="descriptionTab === 'edit'"
                         id="task-edit-description"
+                        v-model="editDescription"
                         name="description"
-                        rows="5"
+                        rows="8"
                         maxlength="10000"
-                        :value="task.description ?? ''"
                         :disabled="processing"
-                        class="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        class="flex w-full rounded-md border border-input bg-transparent px-3 py-2 font-mono text-sm shadow-xs outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     />
+                    <div v-if="descriptionTab === 'preview'" class="min-h-36 rounded-md border px-4 py-3">
+                        <p v-if="previewLoading" role="status" class="text-sm text-muted-foreground">{{ t('taskDetails.loadingPreview') }}</p>
+                        <p v-else-if="previewError" role="alert" class="text-sm text-destructive">{{ t('taskDetails.previewError') }}</p>
+                        <TaskMarkdown v-else-if="descriptionPreview" :html="descriptionPreview" />
+                        <p v-else class="text-sm text-muted-foreground">{{ t('taskDetails.emptyPreview') }}</p>
+                    </div>
+                    <p class="text-xs text-muted-foreground">{{ t('taskDetails.markdownHelp') }}</p>
                     <InputError :message="errors.description" />
                 </div>
                 <div class="grid gap-4 sm:grid-cols-2">

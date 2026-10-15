@@ -976,4 +976,11 @@ export default {
     'overview.latestRelease': 'Latest release',
     'overview.noRelease': 'No published release yet.',
     'overview.viewReleases': 'View releases',
+    'taskDetails.markdownMode': 'Description mode',
+    'taskDetails.editMarkdown': 'Edit',
+    'taskDetails.previewMarkdown': 'Preview',
+    'taskDetails.loadingPreview': 'Rendering preview…',
+    'taskDetails.previewError': 'Could not render the preview. Try again.',
+    'taskDetails.emptyPreview': 'Nothing to preview yet.',
+    'taskDetails.markdownHelp': 'Markdown supported: headings, lists, links, tables and code blocks.',
 } as const;

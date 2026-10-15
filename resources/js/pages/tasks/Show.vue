@@ -5,6 +5,10 @@ import { ArrowLeft, CalendarDays, LoaderCircle, Pencil } from '@lucide/vue';
 import { computed, ref, watch } from 'vue';
 import { toast } from 'vue-sonner';
 import { Badge } from '@/components/ui/badge';
+import TaskMarkdown from '@/components/tasks/TaskMarkdown.vue';
+import TaskStatusIcon from '@/components/tasks/TaskStatusIcon.vue';
+import UserAvatar from '@/components/UserAvatar.vue';
+import { taskStatusBadgeClass, taskPriorityDotClass } from '@/lib/taskVisuals';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import InputError from '@/components/InputError.vue';
@@ -65,6 +69,14 @@ const hasStatusChange = computed(
     () => selectedStatus.value !== String(props.task.status.id),
 );
 const stayOnTask = { preserveScroll: true, preserveState: true };
+const dueDateLabel = computed(() => {
+    if (!props.task.due_date) return t('fix.not_set');
+    // Calendar-only dates must not be shifted by the browser's timezone.
+    const date = new Date(`${props.task.due_date.slice(0, 10)}T12:00:00Z`);
+    return new Intl.DateTimeFormat(locale.value === 'pl' ? 'pl-PL' : 'en-US', {
+        dateStyle: 'medium', timeZone: 'UTC',
+    }).format(date);
+});
 const notifyError = () =>
     toast.error(
         t('fix.no_time_change'),
@@ -92,9 +104,10 @@ const { t, displayLabel, locale } = useI18n();
             <div class="flex flex-wrap items-center gap-2">
                 <Badge variant="secondary">{{ task.reference }}</Badge>
                 <Badge variant="outline">{{ displayLabel(task.type_label) }}</Badge>
-                <Badge variant="outline"
-                    >{{ t('followup.priority') }}: {{ displayLabel(task.priority_label) }}</Badge
-                >
+                <Badge variant="outline" class="gap-1.5">
+                    <span class="size-2 rounded-full" :class="taskPriorityDotClass(task.priority)" />
+                    {{ t('followup.priority') }}: {{ displayLabel(task.priority_label) }}
+                </Badge>
             </div>
             <div class="mt-3 flex items-start justify-between gap-4">
                 <h1 class="text-2xl font-semibold tracking-tight">
@@ -127,12 +140,7 @@ const { t, displayLabel, locale } = useI18n();
                         <CardTitle>{{ t('stage2.description') }}</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <p
-                            v-if="task.description"
-                            class="text-sm leading-relaxed whitespace-pre-wrap"
-                        >
-                            {{ task.description }}
-                        </p>
+                        <TaskMarkdown v-if="task.description_html" :html="task.description_html" />
                         <p v-else class="text-sm text-muted-foreground">
                             {{ t('stage2.no_description_yet') }}
                         </p>
@@ -198,6 +206,10 @@ const { t, displayLabel, locale } = useI18n();
                 <CardContent class="space-y-4 text-sm">
                     <div>
                         <p class="text-xs text-muted-foreground">{{ t('stage2.status') }}</p>
+                        <Badge variant="outline" class="mt-2 gap-1.5" :class="taskStatusBadgeClass(task.status.category)">
+                            <TaskStatusIcon :category="task.status.category" />
+                            {{ task.status.name }}
+                        </Badge>
                         <Form
                             v-if="can_update"
                             :action="statusUrl"
@@ -245,9 +257,6 @@ const { t, displayLabel, locale } = useI18n();
                                 }}
                             </Button>
                         </Form>
-                        <Badge v-else class="mt-2" variant="secondary">{{
-                            task.status.name
-                        }}</Badge>
                     </div>
                     <div v-if="task.release">
                         <Label class="text-xs text-muted-foreground"
@@ -265,15 +274,20 @@ const { t, displayLabel, locale } = useI18n();
                         <Label class="text-xs text-muted-foreground"
                             >{{ t('stage2.assigned_to') }}</Label
                         >
-                        <p class="mt-1">
-                            {{ task.assignee?.name ?? t('fix.no_assignee') }}
-                        </p>
+                        <div v-if="task.assignee" class="mt-1 flex items-center gap-2">
+                            <UserAvatar :user-id="task.assignee.id" :name="task.assignee.name" small />
+                            <span>{{ task.assignee.name }}</span>
+                        </div>
+                        <p v-else class="mt-1">{{ t('fix.no_assignee') }}</p>
                     </div>
                     <div>
                         <Label class="text-xs text-muted-foreground"
                             >{{ t('stage2.created_by') }}</Label
                         >
-                        <p class="mt-1">{{ task.creator.name }}</p>
+                        <div class="mt-1 flex items-center gap-2">
+                            <UserAvatar :user-id="task.creator.id" :name="task.creator.name" small />
+                            <span>{{ task.creator.name }}</span>
+                        </div>
                     </div>
                     <div>
                         <Label class="text-xs text-muted-foreground"
@@ -283,7 +297,7 @@ const { t, displayLabel, locale } = useI18n();
                             <CalendarDays
                                 class="size-4 text-muted-foreground"
                             />
-                            {{ task.due_date ?? t('fix.not_set') }}
+                            {{ dueDateLabel }}
                         </p>
                     </div>
                     <div v-if="task.completed_at">

@@ -12,7 +12,7 @@ import {
 import { computed, ref, watch } from 'vue';
 import { toast } from 'vue-sonner';
 import InputError from '@/components/InputError.vue';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import UserAvatar from '@/components/UserAvatar.vue';
 import { Button } from '@/components/ui/button';
 import {
     Card,
@@ -55,18 +55,6 @@ const stayOnTask = { preserveScroll: true, preserveState: true };
 const notifyError = () =>
     toast.error(t('fix.could_not_save_message'));
 
-function initials(name: string): string {
-    return (
-        name
-            .split(/\s+/)
-            .filter(Boolean)
-            .slice(0, 2)
-            .map((part) => part.charAt(0))
-            .join('')
-            .toUpperCase() || '?'
-    );
-}
-
 function formattedDate(value: string): string {
     return new Date(value).toLocaleString(locale.value === 'pl' ? 'pl-PL' : 'en-US');
 }
@@ -94,11 +82,13 @@ const { t, locale } = useI18n();
                     :key="message.id"
                     class="flex items-start gap-3"
                 >
-                    <Avatar class="size-9 shrink-0">
-                        <AvatarFallback>{{
-                            initials(message.author?.name ?? '?')
-                        }}</AvatarFallback>
-                    </Avatar>
+                    <UserAvatar
+                        v-if="message.author"
+                        :user-id="message.author.id"
+                        :name="message.author.name"
+                        compact
+                    />
+                    <div v-else class="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-xs text-muted-foreground">?</div>
                     <div class="min-w-0 flex-1 space-y-2">
                         <div
                             class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1"

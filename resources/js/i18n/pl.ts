@@ -976,4 +976,11 @@ export default {
     'overview.latestRelease': 'Ostatnie wydanie',
     'overview.noRelease': 'Brak opublikowanych wydań.',
     'overview.viewReleases': 'Zobacz wydania',
+    'taskDetails.markdownMode': 'Tryb opisu',
+    'taskDetails.editMarkdown': 'Edytuj',
+    'taskDetails.previewMarkdown': 'Podgląd',
+    'taskDetails.loadingPreview': 'Przygotowywanie podglądu…',
+    'taskDetails.previewError': 'Nie udało się wyświetlić podglądu. Spróbuj ponownie.',
+    'taskDetails.emptyPreview': 'Brak treści do podglądu.',
+    'taskDetails.markdownHelp': 'Możesz używać Markdown: nagłówków, list, linków, tabel i bloków kodu.',
 } as const;

@@ -21,6 +21,7 @@ use App\Models\TaskStatus;
 use App\Models\TaskWorklog;
 use App\Models\User;
 use App\Support\Tasks\TaskCreationOptions;
+use App\Support\Tasks\TaskMarkdown;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -150,7 +151,7 @@ class TaskController extends Controller
         return to_route('tasks.show', [$project, $task]);
     }
 
-    public function show(Request $request, Project $project, Task $task): Response
+    public function show(Request $request, Project $project, Task $task, TaskMarkdown $markdown): Response
     {
         abort_unless($task->project_id === $project->id, 404);
         Gate::forUser($request->user())->authorize('view', $task);
@@ -179,6 +180,7 @@ class TaskController extends Controller
             'project' => $this->projectData($project),
             'task' => $this->taskData($task) + [
                 'description' => $task->description,
+                'description_html' => $markdown->render($task->description),
                 'source_task' => $task->sourceTask !== null && $task->sourceTask->project_id === $project->id
                     && $request->user()->can('view', $task->sourceTask) ? [
                         'id' => $task->sourceTask->id,

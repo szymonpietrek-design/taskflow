@@ -14,6 +14,7 @@ use App\Http\Controllers\Reports\ReportPdfController;
 use App\Http\Controllers\Reports\ReportPublicationController;
 use App\Http\Controllers\Reports\ReportSharingController;
 use App\Http\Controllers\Tasks\TaskController;
+use App\Http\Controllers\Tasks\TaskMarkdownPreviewController;
 use App\Http\Controllers\Tasks\TaskFromMessageController;
 use App\Http\Controllers\Tasks\TaskMessageController;
 use App\Http\Controllers\Tasks\TaskStatusController;
@@ -89,6 +90,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('projects/{project}/tasks', [TaskController::class, 'store'])->name('tasks.store');
     Route::get('projects/{project}/tasks/{task}', [TaskController::class, 'show'])->name('tasks.show');
     Route::patch('projects/{project}/tasks/{task}', [TaskController::class, 'update'])->name('tasks.update');
+    Route::post('projects/{project}/tasks/{task}/description-preview', TaskMarkdownPreviewController::class)
+        ->middleware('throttle:60,1')->name('tasks.description.preview');
     Route::patch('projects/{project}/tasks/{task}/status', [TaskController::class, 'updateStatus'])
         ->name('tasks.status.update');
 

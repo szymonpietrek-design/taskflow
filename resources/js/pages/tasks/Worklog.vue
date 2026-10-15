@@ -11,6 +11,7 @@ import { Clock3, LoaderCircle, Pencil, Plus, Trash2 } from '@lucide/vue';
 import { computed, ref, watch } from 'vue';
 import { toast } from 'vue-sonner';
 import InputError from '@/components/InputError.vue';
+import UserAvatar from '@/components/UserAvatar.vue';
 import WorklogDatePicker from '@/components/worklogs/WorklogDatePicker.vue';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -271,17 +272,18 @@ const { t, locale, countLabel, formatText } = useI18n();
                     <div
                         class="flex flex-wrap items-start justify-between gap-3"
                     >
-                        <div class="min-w-0 space-y-1">
-                            <p class="text-sm font-medium">
-                                {{ dateLabel(entry.work_date) }} ·
-                                {{ durationLabel(entry.duration_minutes) }}
-                            </p>
-                            <p class="text-xs text-muted-foreground">
-                                {{ entry.author?.name ?? t('fix.deleted_user')
-                                }}<span v-if="entry.is_creative">
-                                    {{ t('stage2.creative_work') }}</span
-                                >
-                            </p>
+                        <div class="flex min-w-0 items-start gap-2.5">
+                            <UserAvatar v-if="entry.author" :user-id="entry.author.id" :name="entry.author.name" small />
+                            <div class="min-w-0 space-y-1">
+                                <p class="text-sm font-medium">
+                                    {{ dateLabel(entry.work_date) }} ·
+                                    {{ durationLabel(entry.duration_minutes) }}
+                                </p>
+                                <p class="text-xs text-muted-foreground">
+                                    {{ entry.author?.name ?? t('fix.deleted_user') }}
+                                    <span v-if="entry.is_creative"> · {{ t('stage2.creative_work') }}</span>
+                                </p>
+                            </div>
                         </div>
                         <div
                             v-if="entry.can_update || entry.can_delete"
