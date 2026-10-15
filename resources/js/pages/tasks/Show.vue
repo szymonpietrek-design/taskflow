@@ -6,6 +6,7 @@ import { computed, ref, watch } from 'vue';
 import { toast } from 'vue-sonner';
 import { Badge } from '@/components/ui/badge';
 import TaskMarkdown from '@/components/tasks/TaskMarkdown.vue';
+import TaskAttachments from '@/components/tasks/TaskAttachments.vue';
 import TaskStatusIcon from '@/components/tasks/TaskStatusIcon.vue';
 import UserAvatar from '@/components/UserAvatar.vue';
 import { taskStatusBadgeClass, taskPriorityDotClass } from '@/lib/taskVisuals';
@@ -26,6 +27,7 @@ import {
 } from '@/components/ui/select';
 import type {
     TaskDetail,
+    TaskAttachmentSummary,
     TaskMessageSummary,
     TaskProjectSummary,
     TaskStatusSummary,
@@ -36,6 +38,7 @@ import type {
 const props = defineProps<{
     project: TaskProjectSummary;
     task: TaskDetail;
+    attachments: TaskAttachmentSummary[];
     statuses: TaskStatusSummary[];
     can_update: boolean;
     can_create_subtask: boolean;
@@ -173,6 +176,13 @@ const { t, displayLabel, locale } = useI18n();
                         </p>
                     </CardContent>
                 </Card>
+
+                <TaskAttachments
+                    :project-id="project.id"
+                    :task-id="task.id"
+                    :attachments="attachments"
+                    :can-update="can_update"
+                />
 
                 <TaskSubtasks
                     v-if="task.parent === null"

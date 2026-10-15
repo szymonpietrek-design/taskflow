@@ -16,6 +16,7 @@ use App\Http\Controllers\Reports\ReportSharingController;
 use App\Http\Controllers\Tasks\TaskController;
 use App\Http\Controllers\Tasks\TaskMarkdownPreviewController;
 use App\Http\Controllers\Tasks\TaskFromMessageController;
+use App\Http\Controllers\Tasks\TaskAttachmentController;
 use App\Http\Controllers\Tasks\TaskMessageController;
 use App\Http\Controllers\Tasks\TaskStatusController;
 use App\Http\Controllers\Tasks\TaskWorklogController;
@@ -94,6 +95,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('throttle:60,1')->name('tasks.description.preview');
     Route::patch('projects/{project}/tasks/{task}/status', [TaskController::class, 'updateStatus'])
         ->name('tasks.status.update');
+
+    Route::post('projects/{project}/tasks/{task}/attachments', [TaskAttachmentController::class, 'store'])
+        ->middleware('throttle:30,1')->name('tasks.attachments.store');
+    Route::get('projects/{project}/tasks/{task}/attachments/{attachment}/download', [TaskAttachmentController::class, 'download'])
+        ->name('tasks.attachments.download');
+    Route::get('projects/{project}/tasks/{task}/attachments/{attachment}/preview', [TaskAttachmentController::class, 'preview'])
+        ->name('tasks.attachments.preview');
+    Route::delete('projects/{project}/tasks/{task}/attachments/{attachment}', [TaskAttachmentController::class, 'destroy'])
+        ->name('tasks.attachments.destroy');
 
     Route::post('projects/{project}/tasks/{task}/worklogs', [TaskWorklogController::class, 'store'])
         ->name('tasks.worklogs.store');

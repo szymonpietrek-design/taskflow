@@ -14,6 +14,8 @@ return [
     'different' => 'Pola :attribute i :other muszą się różnić.',
     'digits' => 'Pole :attribute musi mieć :digits cyfr.',
     'email' => 'Pole :attribute musi zawierać prawidłowy adres e-mail.',
+    'file' => 'Pole :attribute musi być plikiem.',
+    'mimes' => 'Plik :attribute musi mieć jeden z dozwolonych formatów: :values.',
     'exists' => 'Wybrana wartość pola :attribute nie istnieje.',
     'in' => 'Wybrana wartość pola :attribute jest nieprawidłowa.',
     'integer' => 'Pole :attribute musi być liczbą całkowitą.',
@@ -34,6 +36,7 @@ return [
         'password' => 'hasło', 'password_confirmation' => 'potwierdzenie hasła',
         'locale' => 'język', 'description' => 'opis', 'priority' => 'priorytet',
         'status_id' => 'status', 'assignee_id' => 'osoba przypisana',
+        'files' => 'załączniki', 'files.*' => 'załącznik',
         'period_start' => 'data początkowa', 'period_end' => 'data końcowa',
     ],
 ];

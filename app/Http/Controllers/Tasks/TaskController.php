@@ -166,6 +166,7 @@ class TaskController extends Controller
             ->get();
         $canPostMessage = $request->user()->can('create', [TaskMessage::class, $task]);
         $canUpdate = $request->user()->can('update', $task);
+        $attachments = $task->attachments()->with('uploader:id,name')->orderByDesc('id')->get();
 
         $worklogs = $task->worklogs()
             ->with('author:id,name')
@@ -213,6 +214,15 @@ class TaskController extends Controller
                     )->count(),
                 ],
             ],
+            'attachments' => $attachments->map(fn ($attachment): array => [
+                'id' => $attachment->id,
+                'name' => $attachment->original_name,
+                'size' => $attachment->size,
+                'mime_type' => $attachment->mime_type,
+                'is_image' => $attachment->isImage(),
+                'uploader' => $attachment->uploader?->name,
+                'created_at' => $attachment->created_at?->toIso8601String(),
+            ])->all(),
             'statuses' => $this->statusOptions($project),
             'can_update' => $canUpdate,
             'can_create_subtask' => $task->parent_id === null

@@ -78,6 +78,16 @@ export type TaskMessageSummary = {
     can_create_task: boolean;
 };
 
+export type TaskAttachmentSummary = {
+    id: number;
+    name: string;
+    size: number;
+    mime_type: string;
+    is_image: boolean;
+    uploader: string | null;
+    created_at: string | null;
+};
+
 export type TaskWorklogSummary = {
     id: number;
     work_date: string;

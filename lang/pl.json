@@ -106,5 +106,7 @@
     "Workspace name updated.": "Zmieniono nazwę przestrzeni.",
     "Project updated.": "Projekt został zaktualizowany.",
     "Project archived.": "Projekt został zarchiwizowany.",
-    "Project restored.": "Projekt został przywrócony."
+    "Project restored.": "Projekt został przywrócony.",
+    "Attachments added.": "Dodano załączniki.",
+    "Attachment removed.": "Usunięto załącznik."
 }
