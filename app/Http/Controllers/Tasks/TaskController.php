@@ -20,6 +20,7 @@ use App\Models\TaskMessage;
 use App\Models\TaskStatus;
 use App\Models\TaskWorklog;
 use App\Models\User;
+use App\Support\Tasks\TaskCreationOptions;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -29,7 +30,7 @@ use Inertia\Response;
 
 class TaskController extends Controller
 {
-    public function index(FilterTasksRequest $request, Project $project): Response
+    public function index(FilterTasksRequest $request, Project $project, TaskCreationOptions $taskCreationOptions): Response
     {
         Gate::forUser($request->user())->authorize('viewAny', [Task::class, $project]);
         $this->syncWorkspace($request, $project);
@@ -86,6 +87,7 @@ class TaskController extends Controller
 
         $tasks = $query->paginate(15)->withQueryString();
         $canCreate = $request->user()->can('create', [Task::class, $project]);
+        $creationOptions = $canCreate ? $taskCreationOptions->forProject($project) : null;
 
         return Inertia::render('tasks/Index', [
             'project' => $this->projectData($project),
@@ -109,23 +111,16 @@ class TaskController extends Controller
                 'assignee_id' => $assignee,
                 'sort' => $sort,
             ],
-            'statuses' => $this->statusOptions($project),
+            'statuses' => $creationOptions['statuses'] ?? $this->statusOptions($project),
             'filter_assignees' => User::query()
                 ->whereIn('id', $project->tasks()->whereNotNull('assignee_id')->select('assignee_id'))
                 ->orderBy('name')
                 ->get(['id', 'name'])
                 ->map(fn (User $user): array => ['id' => $user->id, 'name' => $user->name])->all(),
-            // Options for creating subtasks must not be limited to the filtered/paginated list.
-            'parent_tasks' => $canCreate ? $project->tasks()
-                ->whereNull('parent_id')
-                ->orderByDesc('number')
-                ->get(['id', 'number', 'title'])
-                ->map(fn (Task $task): array => [
-                    'id' => $task->id,
-                    'reference' => $project->key.'-'.$task->number,
-                    'title' => $task->title,
-                ])->all() : [],
-            'assignees' => $canCreate ? $this->eligibleAssignees($project) : [],
+            // The list and project overview share one task-creation dialog.
+            // Keep all options scoped to this project and to users who can create.
+            'parent_tasks' => $creationOptions['parent_tasks'] ?? [],
+            'assignees' => $creationOptions['assignees'] ?? [],
             'can_create' => $canCreate,
         ]);
     }
