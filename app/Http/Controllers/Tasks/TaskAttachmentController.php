@@ -91,7 +91,7 @@ class TaskAttachmentController extends Controller
     ): RedirectResponse {
         $this->authorizeAttachment($request, $project, $task, $attachment, true);
 
-        if ($attachment->messages()->exists()) {
+        if ($attachment->messages()->exists() || preg_match('/\]\(attachment:'.preg_quote((string) $attachment->id, '/').'\)/i', (string) $task->description)) {
             throw ValidationException::withMessages([
                 'attachment' => __('This file is still used by messages. Remove it from those messages first.'),
             ]);

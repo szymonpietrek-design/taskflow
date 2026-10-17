@@ -1,0 +1,328 @@
+/*
+ * TaskFlow Markdown typography. The very same element rules style both:
+ *   - Milkdown/Crepe ProseMirror editing surface
+ *   - Laravel-rendered, safe HTML in TaskMarkdown.vue
+ * Do not add typography rules for just one of those two surfaces.
+ */
+:is(.task-markdown, .visual-markdown-editor .milkdown .editor) {
+    --task-md-paragraph-gap: 0.75rem;
+    --task-md-list-gap: 0.125rem;
+    font-family: var(--font-sans, 'Instrument Sans', ui-sans-serif, sans-serif);
+    font-size: 0.875rem;
+    line-height: 1.65;
+    color: var(--foreground);
+    overflow-wrap: break-word;
+}
+
+:is(.task-markdown, .visual-markdown-editor .milkdown .editor) :is(h1, h2, h3, h4, h5, h6) {
+    margin: 1.125rem 0 0.5rem;
+    font-family: inherit;
+    font-weight: 600;
+    line-height: 1.4;
+    letter-spacing: -0.015em;
+    color: inherit;
+}
+:is(.task-markdown, .visual-markdown-editor .milkdown .editor) h1 { font-size: 1.375rem; }
+:is(.task-markdown, .visual-markdown-editor .milkdown .editor) h2 { font-size: 1.2rem; }
+:is(.task-markdown, .visual-markdown-editor .milkdown .editor) h3 { font-size: 1.05rem; }
+:is(.task-markdown, .visual-markdown-editor .milkdown .editor) :is(h4, h5, h6) { font-size: 0.9375rem; }
+
+:is(.task-markdown, .visual-markdown-editor .milkdown .editor) p {
+    margin: 0 0 var(--task-md-paragraph-gap);
+    line-height: inherit;
+}
+
+/* Crepe's frame theme normally spaces its lists more generously and uses
+   faint bullets. These rules reproduce the compact saved view while editing. */
+:is(.task-markdown, .visual-markdown-editor .milkdown .editor) ul:not([data-type="taskList"]),
+:is(.task-markdown, .visual-markdown-editor .milkdown .editor) ol {
+    padding-left: 1.5rem;
+    margin: 0.5rem 0 0.875rem;
+    list-style-position: outside;
+}
+:is(.task-markdown, .visual-markdown-editor .milkdown .editor) ul:not([data-type="taskList"]) {
+    list-style-type: disc;
+}
+:is(.task-markdown, .visual-markdown-editor .milkdown .editor) ol {
+    list-style-type: decimal;
+}
+:is(.task-markdown, .visual-markdown-editor .milkdown .editor) li {
+    padding-left: 0.15rem;
+    margin-block: var(--task-md-list-gap);
+    line-height: inherit;
+}
+:is(.task-markdown, .visual-markdown-editor .milkdown .editor) li::marker {
+    color: var(--foreground);
+}
+:is(.task-markdown, .visual-markdown-editor .milkdown .editor) li > p {
+    margin: 0;
+}
+:is(.task-markdown, .visual-markdown-editor .milkdown .editor) li > :is(ul, ol) {
+    margin: 0.25rem 0;
+}
+
+:is(.task-markdown, .visual-markdown-editor .milkdown .editor) a[href] {
+    color: inherit;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    overflow-wrap: anywhere;
+    cursor: pointer;
+}
+:is(.task-markdown, .visual-markdown-editor .milkdown .editor) a[href]:hover {
+    color: var(--primary);
+}
+:is(.task-markdown, .visual-markdown-editor .milkdown .editor) strong { font-weight: 650; }
+
+:is(.task-markdown, .visual-markdown-editor .milkdown .editor) blockquote {
+    margin: 0.75rem 0;
+    padding: 0.125rem 0 0.125rem 0.875rem;
+    border-left: 3px solid var(--border);
+    color: var(--muted-foreground);
+}
+:is(.task-markdown, .visual-markdown-editor .milkdown .editor) blockquote p:last-child {
+    margin-bottom: 0;
+}
+:is(.task-markdown, .visual-markdown-editor .milkdown .editor) :not(pre) > code {
+    padding: 0.125rem 0.3rem;
+    border-radius: 0.25rem;
+    background: var(--muted);
+    font-size: 0.875em;
+    overflow-wrap: anywhere;
+}
+:is(.task-markdown, .visual-markdown-editor .milkdown .editor) pre {
+    margin: 0.75rem 0;
+    padding: 0.875rem;
+    border-radius: 0.5rem;
+    background: var(--muted);
+    overflow-x: auto;
+    font-size: 0.875rem;
+    line-height: 1.6;
+}
+:is(.task-markdown, .visual-markdown-editor .milkdown .editor) pre code {
+    padding: 0;
+    background: transparent;
+    overflow-wrap: normal;
+}
+:is(.task-markdown, .visual-markdown-editor .milkdown .editor) table {
+    max-width: 100%;
+    border-collapse: collapse;
+    margin: 0.75rem 0;
+    font-size: inherit;
+}
+:is(.task-markdown, .visual-markdown-editor .milkdown .editor) :is(th, td) {
+    border: 1px solid var(--border);
+    padding: 0.375rem 0.625rem;
+    text-align: left;
+}
+:is(.task-markdown, .visual-markdown-editor .milkdown .editor) th {
+    background: var(--muted);
+    font-weight: 600;
+}
+
+:is(.task-markdown, .visual-markdown-editor .milkdown .editor) img {
+    display: block;
+    width: auto;
+    height: auto;
+    max-width: 100%;
+    max-height: 20rem;
+    margin: 0.75rem 0;
+    border-radius: 0.375rem;
+    object-fit: contain;
+}
+/* Crepe's image block wraps the <img> in its own container. */
+.visual-markdown-editor .milkdown .editor .image-block img {
+    max-height: 20rem;
+    max-width: 100%;
+    object-fit: contain;
+}
+.task-markdown--zoom img { cursor: zoom-in; }
+
+:is(.task-markdown, .visual-markdown-editor .milkdown .editor) hr {
+    margin: 1rem 0;
+    border: 0;
+    border-top: 1px solid var(--border);
+}
+:is(.task-markdown, .visual-markdown-editor .milkdown .editor) > :first-child {
+    margin-top: 0;
+}
+:is(.task-markdown, .visual-markdown-editor .milkdown .editor) > :last-child {
+    margin-bottom: 0;
+}
+
+/* A wide table may scroll in read-only output; the editor has its own table wrapper. */
+.task-markdown table { display: block; overflow-x: auto; }
+
+/*
+ * Milkdown 7.9+ migrated Crepe node views from custom elements to Vue
+ * elements with class names (e.g. .milkdown-list-item-block).
+ * Older rules targeting milkdown-list-item-block and milkdown-image-block
+ * never matched our @milkdown/crepe 7.20.x DOM.
+ *
+ * Keep both shapes for tolerance if the rendering engine is updated.
+ */
+.visual-markdown-editor .milkdown .editor :is(.milkdown-list-item-block, milkdown-list-item-block) {
+    margin-block: 0 !important;
+    padding-block: 0 !important;
+    min-height: 0 !important;
+    line-height: inherit !important;
+}
+/* List node DOM uses a separate label column, unlike saved HTML's ::marker. */
+.visual-markdown-editor .milkdown .editor :is(ul, ol) {
+    margin-block: 0.5rem 0.875rem !important;
+    padding-inline-start: 1.5rem !important;
+}
+.visual-markdown-editor .milkdown .editor :is(.milkdown-list-item-block, milkdown-list-item-block) :is(.list-item, li) {
+    margin-block: 0.125rem !important;
+    padding-block: 0 !important;
+    min-height: 0 !important;
+    align-items: flex-start !important;
+    gap: 0.375rem !important;
+    line-height: inherit !important;
+}
+.visual-markdown-editor .milkdown .editor :is(.milkdown-list-item-block, milkdown-list-item-block) .children {
+    min-width: 0;
+    margin: 0 !important;
+    padding: 0 !important;
+    line-height: inherit !important;
+}
+.visual-markdown-editor .milkdown .editor :is(.milkdown-list-item-block, milkdown-list-item-block) .children > :is(p, .paragraph) {
+    margin: 0 !important;
+    padding: 0 !important;
+    line-height: inherit !important;
+}
+/* Never change checkbox colors in interactive task lists. */
+.visual-markdown-editor .milkdown .editor :is(ul:not([data-type="taskList"]), ol) :is(.milkdown-list-item-block, milkdown-list-item-block) .label-wrapper {
+    width: 1.25rem !important;
+    min-width: 1.25rem !important;
+    height: 1.45rem !important;
+    flex: 0 0 1.25rem !important;
+    color: var(--foreground) !important;
+    opacity: 1 !important;
+}
+.visual-markdown-editor .milkdown .editor :is(ul:not([data-type="taskList"]), ol) :is(.milkdown-list-item-block, milkdown-list-item-block) .label-wrapper .label {
+    color: var(--foreground) !important;
+    opacity: 1 !important;
+    height: 1.45rem !important;
+    min-height: 0 !important;
+    line-height: 1.45rem !important;
+}
+.visual-markdown-editor .milkdown .editor :is(ul:not([data-type="taskList"]), ol) :is(.milkdown-list-item-block, milkdown-list-item-block) .label-wrapper :is(svg, path, circle) {
+    color: var(--foreground) !important;
+    opacity: 1 !important;
+}
+.visual-markdown-editor .milkdown .editor :is(ul:not([data-type="taskList"]), ol) :is(.milkdown-list-item-block, milkdown-list-item-block) .label-wrapper circle {
+    fill: currentColor !important;
+}
+
+/* Image node views have a flex wrapper and centered defaults in Crepe. */
+.visual-markdown-editor .milkdown .editor :is(.milkdown-image-block, milkdown-image-block) {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    justify-content: flex-start !important;
+    width: 100%;
+    max-width: 100%;
+    margin: 0.75rem 0 !important;
+    padding: 0 !important;
+    text-align: left !important;
+}
+.visual-markdown-editor .milkdown .editor :is(.milkdown-image-block, milkdown-image-block) .image-wrapper {
+    align-self: flex-start !important;
+    justify-content: flex-start !important;
+    margin-left: 0 !important;
+    margin-right: auto !important;
+    max-width: 100% !important;
+    text-align: left !important;
+}
+.visual-markdown-editor .milkdown .editor :is(.milkdown-image-block, milkdown-image-block) .image-wrapper img {
+    display: block !important;
+    max-width: 100% !important;
+    max-height: 20rem !important;
+    height: auto !important;
+    margin: 0 !important;
+    object-fit: contain;
+}
+.visual-markdown-editor .milkdown .editor :is(.milkdown-image-block, milkdown-image-block) :is(.caption-input, .caption) {
+    align-self: flex-start !important;
+    width: 100%;
+    margin: 0.375rem 0 0 !important;
+    text-align: left !important;
+    font-family: inherit;
+}
+
+/*
+ * Stage 19C: compact Crepe's editable document flow only.
+ *
+ * Crepe's theme supplies margins on .paragraph/.heading classes and node-view
+ * wrappers, not just native <p>/<h*> tags. The saved TaskMarkdown HTML is the
+ * visual reference; never change its margins through these overrides.
+ */
+.visual-markdown-editor .milkdown .editor :is(p, .paragraph) {
+    margin-block: 0 0.625rem !important;
+    padding-block: 0 !important;
+    line-height: inherit !important;
+}
+.visual-markdown-editor .milkdown .editor :is(h1, h2, h3, h4, h5, h6, .heading) {
+    margin-block: 1rem 0.375rem !important;
+    padding-block: 0 !important;
+    line-height: 1.4 !important;
+}
+.visual-markdown-editor .milkdown .editor > :first-child {
+    margin-block-start: 0 !important;
+}
+.visual-markdown-editor .milkdown .editor > :last-child {
+    margin-block-end: 0 !important;
+}
+
+/* Empty editable paragraphs still need a caret target, but should not create
+   the large blank bands seen between images and lists in Crepe's frame theme. */
+/* Reserve the same caret height for every paragraph. ProseMirror may add or
+   remove .ProseMirror-trailingBreak as the selection changes; a conditional
+   margin would cause every following block to jump vertically. */
+.visual-markdown-editor .milkdown .editor :is(p, .paragraph) {
+    min-height: 1.15em !important;
+    margin-block: 0 0.625rem !important;
+    padding-block: 0 !important;
+}
+
+/* List content has its own editable node view, so native list spacing alone
+   does not control the rendered vertical rhythm. */
+.visual-markdown-editor .milkdown .editor :is(ul, ol, .bullet-list, .ordered-list) {
+    margin-block: 0.375rem 0.625rem !important;
+}
+.visual-markdown-editor .milkdown .editor :is(.milkdown-list-item-block, milkdown-list-item-block) {
+    margin-block: 0 !important;
+    padding-block: 0 !important;
+}
+.visual-markdown-editor .milkdown .editor :is(.milkdown-list-item-block, milkdown-list-item-block) .children > :is(p, .paragraph) {
+    margin-block: 0 !important;
+}
+
+/* The image node view can contribute its own gap even with the <img> aligned
+   correctly. Keep the caption editable but remove extra wrapper spacing. */
+.visual-markdown-editor .milkdown .editor :is(.milkdown-image-block, milkdown-image-block) {
+    gap: 0.25rem !important;
+    margin-block: 0.5rem 0.625rem !important;
+    padding-block: 0 !important;
+    min-height: 0 !important;
+}
+.visual-markdown-editor .milkdown .editor :is(.milkdown-image-block, milkdown-image-block) .image-wrapper {
+    margin-block: 0 !important;
+    padding-block: 0 !important;
+}
+.visual-markdown-editor .milkdown .editor :is(.milkdown-image-block, milkdown-image-block) :is(.caption, .caption-input) {
+    margin-block: 0.25rem 0 !important;
+    padding-block: 0 !important;
+}
+
+/* ProseMirror may insert invisible decoration nodes before a visible block.
+   :first-child then changes without a document edit. Select the first real
+   content block instead, keeping the layout stable without flattening margins
+   between later headings and paragraphs. */
+.visual-markdown-editor .milkdown .editor > :nth-child(1 of :is(
+    h1, h2, h3, h4, h5, h6, p, ul, ol, blockquote, pre, table, hr,
+    .heading, .paragraph, .milkdown-image-block, .milkdown-list-item-block,
+    .bullet-list, .ordered-list
+)) {
+    margin-block-start: 0 !important;
+}

@@ -18,6 +18,7 @@ use App\Http\Controllers\Tasks\TaskMarkdownPreviewController;
 use App\Http\Controllers\Tasks\TaskMessageMarkdownPreviewController;
 use App\Http\Controllers\Tasks\TaskFromMessageController;
 use App\Http\Controllers\Tasks\TaskAttachmentController;
+use App\Http\Controllers\Tasks\TaskInlineAttachmentController;
 use App\Http\Controllers\Tasks\TaskMessageController;
 use App\Http\Controllers\Tasks\TaskMessageAttachmentController;
 use App\Http\Controllers\Tasks\TaskStatusController;
@@ -98,6 +99,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::patch('projects/{project}/tasks/{task}/status', [TaskController::class, 'updateStatus'])
         ->name('tasks.status.update');
 
+    Route::post('projects/{project}/tasks/{task}/attachments/inline', TaskInlineAttachmentController::class)
+        ->middleware('throttle:30,1')->name('tasks.attachments.inline');
     Route::post('projects/{project}/tasks/{task}/attachments', [TaskAttachmentController::class, 'store'])
         ->middleware('throttle:30,1')->name('tasks.attachments.store');
     Route::get('projects/{project}/tasks/{task}/attachments/{attachment}/download', [TaskAttachmentController::class, 'download'])

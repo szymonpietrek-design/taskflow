@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from '@/composables/useI18n';
-import { Form } from '@inertiajs/vue3';
+import { Form, router } from '@inertiajs/vue3';
 import type { DateValue } from '@internationalized/date';
 import {
     DateFormatter,
@@ -8,12 +8,13 @@ import {
     parseDate,
     today,
 } from '@internationalized/date';
-import { CalendarDays, LoaderCircle } from '@lucide/vue';
+import { CalendarDays, LoaderCircle, Image as ImageIcon, Link2, Paperclip, ChevronDown } from '@lucide/vue';
 import { computed, ref, shallowRef } from 'vue';
-import TaskMarkdown from '@/components/tasks/TaskMarkdown.vue';
+import VisualMarkdownEditor from '@/components/tasks/VisualMarkdownEditor.vue';
 import { toast } from 'vue-sonner';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import {
     Card,
     CardContent,
@@ -36,12 +37,13 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import type { TaskDetail, TaskUserSummary } from '@/types/task';
+import type { TaskAttachmentSummary, TaskDetail, TaskUserSummary } from '@/types/task';
 
 const props = defineProps<{
     projectId: number;
     task: TaskDetail;
     assignees: TaskUserSummary[];
+    attachments: TaskAttachmentSummary[];
 }>();
 
 const emit = defineEmits<{ saved: []; cancel: [] }>();
@@ -51,48 +53,7 @@ const updateUrl = computed(
 // Controlled shadcn-vue fields need hidden inputs for Inertia's Form payload.
 const editPriority = ref(String(props.task.priority));
 const editDescription = ref(props.task.description ?? '');
-const descriptionTab = ref<'edit' | 'preview'>('edit');
-const descriptionPreview = ref('');
-const previewLoading = ref(false);
-const previewError = ref(false);
-let previewRequestId = 0;
-
-async function showDescriptionPreview(): Promise<void> {
-    descriptionTab.value = 'preview';
-    previewError.value = false;
-    descriptionPreview.value = '';
-    const requestId = ++previewRequestId;
-    if (!editDescription.value.trim()) return;
-
-    previewLoading.value = true;
-    try {
-        // Use the current cookie: Laravel may regenerate the CSRF token after login
-        // without a full page reload (Inertia navigation).
-        const xsrfCookie = document.cookie.split('; ').find((cookie) => cookie.startsWith('XSRF-TOKEN='));
-        const xsrfToken = xsrfCookie ? decodeURIComponent(xsrfCookie.slice('XSRF-TOKEN='.length)) : null;
-        const metaToken = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content;
-        if (!xsrfToken && !metaToken) throw new Error('Missing CSRF token');
-        const response = await fetch(`/projects/${props.projectId}/tasks/${props.task.id}/description-preview`, {
-            method: 'POST',
-            credentials: 'same-origin',
-            headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json',
-                ...(xsrfToken ? { 'X-XSRF-TOKEN': xsrfToken } : { 'X-CSRF-TOKEN': metaToken! }),
-                'X-Requested-With': 'XMLHttpRequest',
-            },
-            body: JSON.stringify({ description: editDescription.value }),
-        });
-        if (!response.ok) throw new Error(`Preview request failed: ${response.status}`);
-        const data: { html?: unknown } = await response.json();
-        if (typeof data.html !== 'string') throw new Error('Invalid Markdown preview response');
-        if (requestId === previewRequestId) descriptionPreview.value = data.html;
-    } catch {
-        if (requestId === previewRequestId) previewError.value = true;
-    } finally {
-        if (requestId === previewRequestId) previewLoading.value = false;
-    }
-}
+const descriptionEditor = ref<InstanceType<typeof VisualMarkdownEditor> | null>(null);
 
 const editAssignee = ref(
     props.task.assignee ? String(props.task.assignee.id) : 'unassigned',
@@ -153,36 +114,38 @@ const { t, locale, formatText, translateLiteral, displayLabel } = useI18n();
                             {{ t('stage2.description') }}
                             <span class="font-normal text-muted-foreground">{{ t('stage2.optional') }}</span>
                         </Label>
-                        <div class="inline-flex rounded-md border p-0.5" role="group" :aria-label="t('taskDetails.markdownMode')">
-                            <Button
-                                type="button" size="sm" :variant="descriptionTab === 'edit' ? 'secondary' : 'ghost'"
-                                :aria-pressed="descriptionTab === 'edit'" :disabled="processing"
-                                @click="descriptionTab = 'edit'"
-                            >{{ t('taskDetails.editMarkdown') }}</Button>
-                            <Button
-                                type="button" size="sm" :variant="descriptionTab === 'preview' ? 'secondary' : 'ghost'"
-                                :aria-pressed="descriptionTab === 'preview'" :disabled="processing"
-                                @click="showDescriptionPreview"
-                            >{{ t('taskDetails.previewMarkdown') }}</Button>
-                        </div>
                     </div>
-                    <textarea
-                        v-show="descriptionTab === 'edit'"
-                        id="task-edit-description"
+                    <input type="hidden" name="description" :value="editDescription" />
+                    <VisualMarkdownEditor
+                        ref="descriptionEditor"
                         v-model="editDescription"
-                        name="description"
-                        rows="8"
-                        maxlength="10000"
+                        :project-id="projectId"
+                        :task-id="task.id"
+                        :attachments="attachments"
                         :disabled="processing"
-                        class="flex w-full rounded-md border border-input bg-transparent px-3 py-2 font-mono text-sm shadow-xs outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        can-upload
+                        @uploaded="router.reload({ only: ['attachments'] })"
                     />
-                    <div v-if="descriptionTab === 'preview'" class="min-h-36 rounded-md border px-4 py-3">
-                        <p v-if="previewLoading" role="status" class="text-sm text-muted-foreground">{{ t('taskDetails.loadingPreview') }}</p>
-                        <p v-else-if="previewError" role="alert" class="text-sm text-destructive">{{ t('taskDetails.previewError') }}</p>
-                        <TaskMarkdown v-else-if="descriptionPreview" :html="descriptionPreview" />
-                        <p v-else class="text-sm text-muted-foreground">{{ t('taskDetails.emptyPreview') }}</p>
+                    <div v-if="attachments.length" class="flex flex-wrap gap-2">
+                        <DropdownMenu v-for="file in attachments" :key="file.id">
+                            <DropdownMenuTrigger as-child>
+                                <Button type="button" variant="outline" size="sm" :disabled="processing" class="max-w-full gap-1.5">
+                                    <ImageIcon v-if="file.is_image" class="size-3.5" />
+                                    <Paperclip v-else class="size-3.5" />
+                                    <span class="max-w-44 truncate">{{ file.name }}</span>
+                                    <ChevronDown class="size-3" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start" class="min-w-40">
+                                <DropdownMenuItem v-if="file.is_image" @select="descriptionEditor?.insertAttachment(file, true)">
+                                    <ImageIcon class="size-4" /> {{ t('visualEditor.image') }}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem @select="descriptionEditor?.insertAttachment(file, false)">
+                                    <Link2 class="size-4" /> {{ t('messages.markdown.insertLink') }}
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                     </div>
-                    <p class="text-xs text-muted-foreground">{{ t('taskDetails.markdownHelp') }}</p>
                     <InputError :message="errors.description" />
                 </div>
                 <div class="grid gap-4 sm:grid-cols-2">

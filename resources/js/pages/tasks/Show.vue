@@ -134,6 +134,7 @@ const { t, displayLabel, locale } = useI18n();
                     v-if="editingDetails && can_update"
                     :project-id="project.id"
                     :task="task"
+                    :attachments="attachments"
                     :assignees="assignees"
                     @saved="editingDetails = false"
                     @cancel="editingDetails = false"

@@ -182,7 +182,7 @@ class TaskController extends Controller
             'project' => $this->projectData($project),
             'task' => $this->taskData($task) + [
                 'description' => $task->description,
-                'description_html' => $markdown->render($task->description),
+                'description_html' => $markdown->render($task->description, $project->id, $task->id, $attachments),
                 'source_task' => $task->sourceTask !== null && $task->sourceTask->project_id === $project->id
                     && $request->user()->can('view', $task->sourceTask) ? [
                         'id' => $task->sourceTask->id,

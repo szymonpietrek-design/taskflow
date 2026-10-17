@@ -22,7 +22,7 @@ class TaskMarkdownPreviewController extends Controller
         ]);
 
         return response()->json([
-            'html' => $markdown->render($data['description'] ?? null),
+            'html' => $markdown->render($data['description'] ?? null, $project->id, $task->id, $task->attachments),
         ])->header('Cache-Control', 'no-store');
     }
 }

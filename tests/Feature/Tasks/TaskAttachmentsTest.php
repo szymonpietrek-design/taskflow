@@ -165,6 +165,44 @@ class TaskAttachmentsTest extends TestCase
         Storage::disk('local')->assertMissing($path);
     }
 
+    public function test_inline_upload_keeps_image_private_and_renders_it_from_description(): void
+    {
+        [$project, $owner, $task] = $this->taskWithOwner();
+        $url = route('tasks.attachments.inline', [$project, $task]);
+
+        $response = $this->actingAs($owner)->postJson($url, [
+            'file' => UploadedFile::fake()->createWithContent('screen.png', base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l1cAAAAASUVORK5CYII=')),
+        ])->assertCreated()->assertJsonPath('attachment.is_image', true);
+
+        $id = $response->json('attachment.id');
+        $this->assertNotNull($id);
+        $task->forceFill(['description' => "![Screenshot](attachment:{$id})"])->save();
+        $this->get(route('tasks.show', [$project, $task]))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('task.description', "![Screenshot](attachment:{$id})")
+                ->where('task.description_html', fn (string $html): bool =>
+                    str_contains($html, "/attachments/{$id}/preview") && str_contains($html, '<img ')));
+
+        $this->delete(route('tasks.attachments.destroy', [$project, $task, $id]))
+            ->assertSessionHasErrors('attachment');
+        $this->assertDatabaseHas('task_attachments', ['id' => $id]);
+    }
+
+    public function test_inline_upload_rejects_non_images_and_outsiders(): void
+    {
+        [$project, $owner, $task] = $this->taskWithOwner();
+        $url = route('tasks.attachments.inline', [$project, $task]);
+        $this->actingAs($owner)->postJson($url, [
+            'file' => UploadedFile::fake()->create('payload.svg', 3, 'image/svg+xml'),
+        ])->assertUnprocessable()->assertJsonValidationErrors('file');
+
+        $outsider = User::factory()->create();
+        $this->actingAs($outsider)->postJson($url, [
+            'file' => UploadedFile::fake()->createWithContent('not-allowed.png', base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l1cAAAAASUVORK5CYII=')),
+        ])->assertForbidden();
+        $this->assertDatabaseCount('task_attachments', 0);
+    }
+
     /** @return array{\App\Models\Project, User, Task} */
     private function taskWithOwner(string $key = 'APP'): array
     {
