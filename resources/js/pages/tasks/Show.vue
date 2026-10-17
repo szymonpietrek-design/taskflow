@@ -207,6 +207,7 @@ const { t, displayLabel, locale } = useI18n();
                     :project-id="project.id"
                     :task-id="task.id"
                     :messages="messages"
+                    :available-attachments="attachments"
                     :can-post="can_post_message"
                 />
             </div>

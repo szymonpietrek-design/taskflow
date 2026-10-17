@@ -8,21 +8,49 @@ use App\Http\Requests\Tasks\UpdateTaskMessageRequest;
 use App\Models\Project;
 use App\Models\Task;
 use App\Models\TaskMessage;
+use App\Support\Attachments\PrivateAttachmentStorage;
+use App\Support\Attachments\TaskAttachmentUpload;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
+use Throwable;
 
 class TaskMessageController extends Controller
 {
-    public function store(StoreTaskMessageRequest $request, Project $project, Task $task): RedirectResponse
-    {
+    public function store(
+        StoreTaskMessageRequest $request,
+        Project $project,
+        Task $task,
+        TaskAttachmentUpload $upload,
+        PrivateAttachmentStorage $storage,
+    ): RedirectResponse {
         $this->assertTaskBelongsToProject($project, $task);
+        $data = $request->validated();
+        $storedPaths = [];
 
-        $task->messages()->create([
-            'user_id' => $request->user()->id,
-            'body' => trim($request->validated('body')),
-        ]);
+        try {
+            DB::transaction(function () use ($request, $task, $data, $upload, &$storedPaths): void {
+                $message = $task->messages()->create([
+                    'user_id' => $request->user()->id,
+                    'body' => trim((string) ($data['body'] ?? '')),
+                ]);
+                $ids = $data['attachment_ids'] ?? [];
+
+                foreach ($data['files'] ?? [] as $file) {
+                    $attachment = $upload->store($task, $request->user(), $file);
+                    $storedPaths[] = $attachment->path;
+                    $ids[] = $attachment->id;
+                }
+                $message->attachments()->sync($ids);
+            });
+        } catch (Throwable $exception) {
+            foreach ($storedPaths as $path) {
+                $storage->delete($path);
+            }
+            throw $exception;
+        }
 
         Inertia::flash('toast', [
             'type' => 'success',

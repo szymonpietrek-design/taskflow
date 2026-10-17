@@ -15,9 +15,11 @@ use App\Http\Controllers\Reports\ReportPublicationController;
 use App\Http\Controllers\Reports\ReportSharingController;
 use App\Http\Controllers\Tasks\TaskController;
 use App\Http\Controllers\Tasks\TaskMarkdownPreviewController;
+use App\Http\Controllers\Tasks\TaskMessageMarkdownPreviewController;
 use App\Http\Controllers\Tasks\TaskFromMessageController;
 use App\Http\Controllers\Tasks\TaskAttachmentController;
 use App\Http\Controllers\Tasks\TaskMessageController;
+use App\Http\Controllers\Tasks\TaskMessageAttachmentController;
 use App\Http\Controllers\Tasks\TaskStatusController;
 use App\Http\Controllers\Tasks\TaskWorklogController;
 use App\Http\Controllers\Worklogs\WorklogController;
@@ -117,12 +119,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('projects/{project}/tasks/{task}/messages/{message}/create-task', [TaskFromMessageController::class, 'store'])
         ->name('tasks.messages.store-task');
 
+    Route::post('projects/{project}/tasks/{task}/messages/preview', [TaskMessageMarkdownPreviewController::class, 'create'])
+        ->middleware('throttle:60,1')->name('tasks.messages.preview');
+    Route::post('projects/{project}/tasks/{task}/messages/{message}/preview', [TaskMessageMarkdownPreviewController::class, 'edit'])
+        ->middleware('throttle:60,1')->name('tasks.messages.edit-preview');
     Route::post('projects/{project}/tasks/{task}/messages', [TaskMessageController::class, 'store'])
         ->name('tasks.messages.store');
     Route::patch('projects/{project}/tasks/{task}/messages/{message}', [TaskMessageController::class, 'update'])
         ->name('tasks.messages.update');
     Route::delete('projects/{project}/tasks/{task}/messages/{message}', [TaskMessageController::class, 'destroy'])
         ->name('tasks.messages.destroy');
+    Route::delete('projects/{project}/tasks/{task}/messages/{message}/attachments/{attachment}', [TaskMessageAttachmentController::class, 'destroy'])
+        ->name('tasks.messages.attachments.destroy');
 
     Route::get('workspaces', [WorkspaceController::class, 'index'])->name('workspaces.index');
     Route::post('workspaces/{workspace}/projects', [WorkspaceProjectController::class, 'store'])->name('workspaces.projects.store');

@@ -7,7 +7,9 @@ use App\Http\Requests\Tasks\StoreTaskAttachmentsRequest;
 use App\Models\Project;
 use App\Models\Task;
 use App\Models\TaskAttachment;
+use Illuminate\Validation\ValidationException;
 use App\Support\Attachments\PrivateAttachmentStorage;
+use App\Support\Attachments\TaskAttachmentUpload;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -24,28 +26,17 @@ class TaskAttachmentController extends Controller
         Project $project,
         Task $task,
         PrivateAttachmentStorage $storage,
+        TaskAttachmentUpload $upload,
     ): RedirectResponse {
         $files = $request->validated('files');
 
         $storedPaths = [];
 
         try {
-            DB::transaction(function () use ($files, $task, $request, $storage, &$storedPaths): void {
+            DB::transaction(function () use ($files, $task, $request, $upload, &$storedPaths): void {
                 foreach ($files as $file) {
-                    $path = $storage->store($file, 'task-attachments/'.$task->id);
-                    $storedPaths[] = $path;
-
-                    // Normalize client-provided names without relying on fragile regex delimiter escaping.
-                    $originalName = str_replace(['/', '\\'], '_', $file->getClientOriginalName());
-                    $originalName = preg_replace('/[\x00-\x1F\x7F]/', '_', $originalName) ?: 'file';
-
-                    $task->attachments()->create([
-                        'uploaded_by' => $request->user()->id,
-                        'original_name' => mb_substr($originalName, 0, 255),
-                        'path' => $path,
-                        'mime_type' => $file->getMimeType() ?: 'application/octet-stream',
-                        'size' => $file->getSize(),
-                    ]);
+                    $attachment = $upload->store($task, $request->user(), $file);
+                    $storedPaths[] = $attachment->path;
                 }
             });
         } catch (Throwable $exception) {
@@ -99,6 +90,12 @@ class TaskAttachmentController extends Controller
         PrivateAttachmentStorage $storage,
     ): RedirectResponse {
         $this->authorizeAttachment($request, $project, $task, $attachment, true);
+
+        if ($attachment->messages()->exists()) {
+            throw ValidationException::withMessages([
+                'attachment' => __('This file is still used by messages. Remove it from those messages first.'),
+            ]);
+        }
 
         $path = $attachment->path;
         $attachment->delete();

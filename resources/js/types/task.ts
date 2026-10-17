@@ -70,6 +70,8 @@ export type TaskDetail = TaskSummary & {
 export type TaskMessageSummary = {
     id: number;
     body: string;
+    body_html: string;
+    attachments: TaskAttachmentSummary[];
     author: TaskUserSummary | null;
     created_at: string;
     updated_at: string;

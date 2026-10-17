@@ -1,4 +1,18 @@
 export default {
+    'messages.attachments.title': 'Message attachments',
+    'messages.attachments.addFiles': 'Attach files',
+    'messages.attachments.fromTask': 'Choose from task attachments',
+    'messages.attachments.selected': 'Selected from task',
+    'messages.attachments.download': 'Download attachment',
+    'messages.attachments.unlink': 'Remove from message',
+    'messages.attachments.unlinkError': 'Could not remove attachment from the message.',
+
+    'messages.markdown.help': 'Markdown supported. Choose a file from the task library to insert an image or a link.',
+    'messages.markdown.insertImage': 'Insert image into message',
+    'messages.markdown.insertLink': 'Insert file link into message',
+    'messages.markdown.maxFiles': 'You can select up to 20 existing files.',
+    'messages.markdown.tooLong': 'The message is too long (maximum 10,000 characters).',
+
     'attachments.title': 'Attachments',
     'attachments.add': 'Add files',
     'attachments.empty': 'No attachments yet.',

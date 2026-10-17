@@ -90,7 +90,7 @@ function removeAttachment(): void {
         onSuccess: () => {
             pendingDelete.value = null;
         },
-        onError: () => toast.error(t('attachments.remove_error')),
+        onError: (errors) => toast.error(String(errors.attachment || t('attachments.remove_error'))),
         onFinish: () => { deleting.value = false; },
     });
 }

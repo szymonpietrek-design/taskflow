@@ -108,5 +108,8 @@
     "Project archived.": "Projekt został zarchiwizowany.",
     "Project restored.": "Projekt został przywrócony.",
     "Attachments added.": "Dodano załączniki.",
-    "Attachment removed.": "Usunięto załącznik."
+    "Attachment removed.": "Usunięto załącznik.",
+    "This file is still used by messages. Remove it from those messages first.": "Ten plik jest używany w wiadomościach. Najpierw odłącz go od tych wiadomości.",
+    "File removed from message.": "Odłączono plik od wiadomości.",
+    "Attachment unavailable.": "Załącznik niedostępny."
 }

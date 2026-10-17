@@ -1,10 +1,18 @@
 <script setup lang="ts">
 // Only pass HTML rendered on the server with TaskMarkdown (HTML stripped, unsafe links disabled).
-defineProps<{ html: string }>();
+const props = defineProps<{ html: string; zoomImages?: boolean }>();
+const emit = defineEmits<{ imageClick: [url: string] }>();
+function openEmbeddedImage(event: MouseEvent): void {
+    if (!props.zoomImages) return;
+    const element = event.target;
+    if (!(element instanceof HTMLImageElement)) return;
+    const src = element.getAttribute('src');
+    if (src) emit('imageClick', src);
+}
 </script>
 
 <template>
-    <div class="task-markdown min-w-0 break-words text-sm leading-6" v-html="html" />
+    <div class="task-markdown min-w-0 break-words text-sm leading-6" :class="{ 'task-markdown--zoom': zoomImages }" v-html="html" @click="openEmbeddedImage" />
 </template>
 
 <style scoped>
@@ -33,5 +41,7 @@ defineProps<{ html: string }>();
 .task-markdown :deep(table) { display: block; overflow-x: auto; border-collapse: collapse; max-width: 100%; margin: 0.75rem 0; }
 .task-markdown :deep(th), .task-markdown :deep(td) { border: 1px solid var(--border); padding: 0.375rem 0.625rem; text-align: left; }
 .task-markdown :deep(th) { background: var(--muted); font-weight: 600; }
+.task-markdown :deep(img) { max-width: 100%; max-height: 32rem; height: auto; border-radius: 0.375rem; object-fit: contain; margin: 0.75rem 0; }
+.task-markdown--zoom :deep(img) { cursor: zoom-in; }
 .task-markdown :deep(hr) { border-top: 1px solid var(--border); margin: 1rem 0; }
 </style>

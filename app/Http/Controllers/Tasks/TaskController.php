@@ -22,6 +22,7 @@ use App\Models\TaskWorklog;
 use App\Models\User;
 use App\Support\Tasks\TaskCreationOptions;
 use App\Support\Tasks\TaskMarkdown;
+use App\Support\Tasks\TaskMessageMarkdown;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -151,7 +152,7 @@ class TaskController extends Controller
         return to_route('tasks.show', [$project, $task]);
     }
 
-    public function show(Request $request, Project $project, Task $task, TaskMarkdown $markdown): Response
+    public function show(Request $request, Project $project, Task $task, TaskMarkdown $markdown, TaskMessageMarkdown $messageMarkdown): Response
     {
         abort_unless($task->project_id === $project->id, 404);
         Gate::forUser($request->user())->authorize('view', $task);
@@ -160,7 +161,7 @@ class TaskController extends Controller
         $task->load(['project', 'status', 'assignee', 'creator', 'parent', 'subtasks.status', 'subtasks.assignee', 'sourceTask', 'sourceMessage', 'release']);
 
         $messages = $task->messages()
-            ->with('author:id,name')
+            ->with(['author:id,name', 'attachments'])
             ->orderBy('created_at')
             ->orderBy('id')
             ->get();
@@ -254,6 +255,16 @@ class TaskController extends Controller
             'messages' => $messages->map(fn (TaskMessage $message): array => [
                 'id' => $message->id,
                 'body' => $message->body,
+                'body_html' => $messageMarkdown->render($message->body, $project->id, $task->id, $message->attachments),
+                'attachments' => $message->attachments->map(fn ($attachment): array => [
+                    'id' => $attachment->id,
+                    'name' => $attachment->original_name,
+                    'size' => $attachment->size,
+                    'mime_type' => $attachment->mime_type,
+                    'is_image' => $attachment->isImage(),
+                    'uploader' => null,
+                    'created_at' => $attachment->created_at?->toIso8601String(),
+                ])->all(),
                 'author' => $message->author === null ? null : [
                     'id' => $message->author->id,
                     'name' => $message->author->name,

@@ -6,6 +6,7 @@ use App\Models\Project;
 use App\Models\Task;
 use App\Models\TaskMessage;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreTaskMessageRequest extends FormRequest
 {
@@ -24,11 +25,21 @@ class StoreTaskMessageRequest extends FormRequest
             && $this->user()->can('create', [TaskMessage::class, $task]);
     }
 
-    /** @return array<string, array<int, string>> */
+    /** @return array<string, array<int, mixed>> */
     public function rules(): array
     {
+        $task = $this->route('task');
+
         return [
-            'body' => ['required', 'string', 'max:10000'],
+            // A message may contain only a file, only text, or both.
+            'body' => ['nullable', 'string', 'max:10000', 'required_without_all:files,attachment_ids'],
+            'files' => ['nullable', 'array', 'max:5'],
+            'files.*' => ['required', 'file', 'max:20480', 'mimes:jpg,jpeg,png,webp,pdf,txt,json,zip'],
+            'attachment_ids' => ['nullable', 'array', 'max:20'],
+            'attachment_ids.*' => [
+                'required', 'integer', 'distinct',
+                Rule::exists('task_attachments', 'id')->where('task_id', $task?->id),
+            ],
         ];
     }
 }

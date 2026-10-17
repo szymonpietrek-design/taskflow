@@ -1,4 +1,18 @@
 export default {
+    'messages.attachments.title': 'Załączniki wiadomości',
+    'messages.attachments.addFiles': 'Dodaj pliki',
+    'messages.attachments.fromTask': 'Wybierz z załączników zadania',
+    'messages.attachments.selected': 'Wybrano z zadania',
+    'messages.attachments.download': 'Pobierz załącznik',
+    'messages.attachments.unlink': 'Odłącz od wiadomości',
+    'messages.attachments.unlinkError': 'Nie udało się odłączyć załącznika od wiadomości.',
+
+    'messages.markdown.help': 'Obsługa Markdown. Wybierz plik z biblioteki zadania, aby wstawić obraz lub link.',
+    'messages.markdown.insertImage': 'Wstaw obraz do wiadomości',
+    'messages.markdown.insertLink': 'Wstaw link do pliku',
+    'messages.markdown.maxFiles': 'Możesz wybrać maksymalnie 20 istniejących plików.',
+    'messages.markdown.tooLong': 'Wiadomość jest za długa (maksymalnie 10 000 znaków).',
+
     'attachments.title': 'Załączniki',
     'attachments.add': 'Dodaj pliki',
     'attachments.empty': 'Brak załączników.',
