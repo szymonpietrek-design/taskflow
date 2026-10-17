@@ -72,6 +72,26 @@ class TaskMessageMarkdownTest extends TestCase
                     && str_contains($html, __('Attachment unavailable.'))));
     }
 
+    public function test_unavailable_image_does_not_prevent_resolving_the_next_valid_image(): void
+    {
+        [$project, $owner, $task] = $this->taskWithOwner();
+        $unlinked = $this->upload($project, $task, 'not-linked.png', 'image/png');
+        $linked = $this->upload($project, $task, 'linked.png', 'image/png');
+        $body = "![Unlinked](attachment:{$unlinked->id})\n\n![Linked](attachment:{$linked->id})";
+
+        $this->post(route('tasks.messages.store', [$project, $task]), [
+            'body' => $body, 'attachment_ids' => [$linked->id],
+        ])->assertSessionHasNoErrors();
+
+        $this->get(route('tasks.show', [$project, $task]))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('messages.0.body_html', fn (string $html): bool =>
+                    str_contains($html, __('Attachment unavailable.'))
+                    && str_contains($html, route('tasks.attachments.preview', [$project, $task, $linked], false))
+                    && ! str_contains($html, route('tasks.attachments.preview', [$project, $task, $unlinked], false))
+                    && substr_count($html, '<img ') === 1));
+    }
+
     public function test_markdown_reference_in_code_block_is_not_changed_into_an_image(): void
     {
         [$project, $owner, $task] = $this->taskWithOwner();

@@ -41,7 +41,10 @@ class TaskMessageMarkdown
         $environment->addExtension(new CommonMarkCoreExtension());
         $environment->addExtension(new GithubFlavoredMarkdownExtension());
         $environment->addEventListener(DocumentParsedEvent::class, function (DocumentParsedEvent $event) use ($allowed, $projectId, $taskId): void {
+            // Collect nodes first. Replacing a node while traversing the
+            // document can make the walker skip following links or images.
             $walker = $event->getDocument()->walker();
+            $nodes = [];
 
             while ($walk = $walker->next()) {
                 if (! $walk->isEntering()) {
@@ -49,10 +52,12 @@ class TaskMessageMarkdown
                 }
 
                 $node = $walk->getNode();
-                if (! $node instanceof Link && ! $node instanceof Image) {
-                    continue;
+                if ($node instanceof Link || $node instanceof Image) {
+                    $nodes[] = $node;
                 }
+            }
 
+            foreach ($nodes as $node) {
                 $url = $node->getUrl();
                 if (! str_starts_with(strtolower($url), 'attachment:')) {
                     continue;
