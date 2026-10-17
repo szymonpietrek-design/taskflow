@@ -34,10 +34,10 @@ class ProjectOverviewTest extends TestCase
     public function test_overview_counts_tasks_and_time_shows_recent_events_and_latest_published_release(): void
     {
         [$user, $project] = $this->makeProject(ProjectType::APPLICATION);
-        $todo = $this->status($project, 'Todo', TaskStatusCategory::TODO);
-        $doing = $this->status($project, 'Working', TaskStatusCategory::IN_PROGRESS);
-        $done = $this->status($project, 'Done', TaskStatusCategory::DONE);
-        $canceled = $this->status($project, 'Canceled', TaskStatusCategory::CANCELED);
+        $todo = $this->createTaskStatus($project, 'Todo', TaskStatusCategory::TODO);
+        $doing = $this->createTaskStatus($project, 'Working', TaskStatusCategory::IN_PROGRESS);
+        $done = $this->createTaskStatus($project, 'Done', TaskStatusCategory::DONE);
+        $canceled = $this->createTaskStatus($project, 'Canceled', TaskStatusCategory::CANCELED);
 
         $task = $this->task($project, $user, $done, 1);
         $this->task($project, $user, $doing, 2);
@@ -99,7 +99,7 @@ class ProjectOverviewTest extends TestCase
     {
         [$user, $project] = $this->makeProject();
         [$otherUser, $otherProject] = $this->makeProject();
-        $status = $this->status($otherProject, 'Done', TaskStatusCategory::DONE);
+        $status = $this->createTaskStatus($otherProject, 'Done', TaskStatusCategory::DONE);
         $otherTask = $this->task($otherProject, $otherUser, $status, 1);
         TaskMessage::factory()->create(['task_id' => $otherTask->id, 'user_id' => $otherUser->id]);
         TaskWorklog::query()->create([
@@ -141,13 +141,13 @@ class ProjectOverviewTest extends TestCase
     public function test_task_creation_dialog_receives_only_current_project_options(): void
     {
         [$owner, $project] = $this->makeProject();
-        $status = $this->status($project, 'Ready', TaskStatusCategory::TODO);
+        $status = $this->createTaskStatus($project, 'Ready', TaskStatusCategory::TODO);
         $parent = $this->task($project, $owner, $status, 1);
         $child = $this->task($project, $owner, $status, 2);
         $child->forceFill(['parent_id' => $parent->id])->save();
 
         [$otherOwner, $otherProject] = $this->makeProject();
-        $otherStatus = $this->status($otherProject, 'Other status', TaskStatusCategory::TODO);
+        $otherStatus = $this->createTaskStatus($otherProject, 'Other status', TaskStatusCategory::TODO);
         $this->task($otherProject, $otherOwner, $otherStatus, 1);
 
         $this->actingAs($owner)->get(route('projects.show', $project))
@@ -212,7 +212,7 @@ class ProjectOverviewTest extends TestCase
         return [$user, $project];
     }
 
-    private function status(Project $project, string $name, TaskStatusCategory $category): TaskStatus
+    private function createTaskStatus(Project $project, string $name, TaskStatusCategory $category): TaskStatus
     {
         return TaskStatus::factory()->create([
             'project_id' => $project->id,
