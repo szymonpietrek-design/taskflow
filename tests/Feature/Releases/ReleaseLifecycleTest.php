@@ -196,7 +196,7 @@ class ReleaseLifecycleTest extends TestCase
                 ->where('can_manage_release', false));
         $this->actingAs($owner)->patch($this->url($project, $release), [
             'status' => ReleaseStatus::PLANNED->value,
-        ])->assertSessionHasErrors(['status']);
+        ])->assertForbidden();
 
         $project->update(['archived_at' => null, 'type' => ProjectType::STANDARD]);
         $this->actingAs($owner)->patch($this->url($project, $release), [

@@ -163,7 +163,7 @@ class ReleaseTaskAssignmentTest extends TestCase
         $project->update(['archived_at' => now()]);
         $this->actingAs($owner)->post(route('releases.tasks.store', [$project, $release]), [
             'task_id' => $task->id,
-        ])->assertSessionHasErrors(['task_id']);
+        ])->assertForbidden();
         $this->actingAs($owner)->get(route('releases.show', [$project, $release]))
             ->assertInertia(fn (Assert $page) => $page->component('releases/Show')
                 ->where('can_manage_tasks', false));

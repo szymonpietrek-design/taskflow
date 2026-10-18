@@ -96,7 +96,8 @@ class CreateReleaseTest extends TestCase
         [$user, $project] = $this->applicationFor(WorkspaceRole::OWNER);
         $project->update(['archived_at' => now()]);
 
-        $this->expectException(InvalidArgumentException::class);
+        // Authorization precedes action-level domain validation for archived projects.
+        $this->expectException(\Illuminate\Auth\Access\AuthorizationException::class);
         app(CreateRelease::class)->handle($user, $project, '1.0.0');
     }
 

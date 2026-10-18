@@ -58,7 +58,7 @@ class StoreReleaseRequest extends FormRequest
             try {
                 ReleaseVersion::parse($version);
             } catch (InvalidArgumentException $exception) {
-                $validator->errors()->add('version', $exception->getMessage());
+                $validator->errors()->add('version', __($exception->getMessage()));
             }
         }];
     }

@@ -141,6 +141,6 @@ class WorkspaceProjectArchiveTest extends TestCase
         $this->actingAs($manager)->patch(route('workspaces.projects.restore', [$workspace, $project]))->assertForbidden();
         $this->actingAs($manager)->get(route('workspaces.index'))
             ->assertOk()->assertInertia(fn (Assert $page) => $page
-                ->has("archivedProjectsByWorkspace.{$workspace->id}", 0)->etc());
+                ->missing("archivedProjectsByWorkspace.{$workspace->id}")->etc());
     }
 }

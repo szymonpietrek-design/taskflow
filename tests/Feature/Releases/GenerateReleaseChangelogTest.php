@@ -249,7 +249,7 @@ class GenerateReleaseChangelogTest extends TestCase
     public function test_interface_language_is_used_as_default_for_display(): void
     {
         [$owner, $project, $release] = $this->fixtures();
-        app()->setLocale('pl');
+        $owner->update(['locale' => 'pl']);
         $this->actingAs($owner)->get(route('releases.show', [$project, $release]))
             ->assertInertia(fn (Assert $page) => $page
                 ->where('default_ai_language', 'pl'));

@@ -151,7 +151,7 @@ class AttachCompletedTasksTest extends TestCase
 
         $project->update(['archived_at' => now()]);
         $this->actingAs($owner)->post(route('releases.tasks.attach-completed', [$project, $release]))
-            ->assertSessionHasErrors('release');
+            ->assertForbidden();
         $this->assertNull($task->fresh()->release_id);
         $this->assertDatabaseCount('task_activities', 0);
     }

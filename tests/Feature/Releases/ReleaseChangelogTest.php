@@ -185,7 +185,7 @@ class ReleaseChangelogTest extends TestCase
         $this->actingAs($owner)->get(route('releases.show', [$project, $release]))
             ->assertInertia(fn (Assert $page) => $page->where('can_edit_changelog', false));
         $this->actingAs($owner)->put($this->draftUrl($project, $release), ['draft_body' => 'Bad'])
-            ->assertSessionHasErrors(['draft_body']);
+            ->assertForbidden();
         $this->assertDatabaseCount('release_changelogs', 0);
     }
 

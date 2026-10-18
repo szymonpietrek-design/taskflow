@@ -33,12 +33,13 @@ class TaskPolicy
 
     public function update(User $user, Task $task): bool
     {
-        return $this->canContribute($user, $task->project);
+        // Read the current project state: the Task model may hold a cached relation from before archival.
+        return $this->canContribute($user, $task->project()->firstOrFail());
     }
 
     public function delete(User $user, Task $task): bool
     {
-        $project = $task->project;
+        $project = $task->project()->firstOrFail();
         if ($project->archived_at !== null) {
             return false;
         }

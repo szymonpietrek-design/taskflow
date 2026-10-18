@@ -406,6 +406,9 @@ class ReportManagementTest extends TestCase
         [$owner, $project] = $this->fixtures();
         $report = $this->report($project, $owner);
         $project->update(['archived_at' => now()]);
+        $this->actingAs($owner)->get(route('reports.index', $project))
+            ->assertOk()->assertInertia(fn (Assert $page) => $page
+                ->where('reports.data.0.id', $report->id));
         $this->actingAs($owner)->get(route('reports.show', [$project, $report]))->assertOk();
         $this->actingAs($owner)->post(route('reports.store', $project), $this->payload())->assertForbidden();
         $this->actingAs($owner)->delete(route('reports.destroy', [$project, $report]))->assertForbidden();

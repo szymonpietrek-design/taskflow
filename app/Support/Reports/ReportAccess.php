@@ -15,6 +15,13 @@ final class ReportAccess
         return Gate::forUser($user)->allows('update', $project);
     }
 
+    public function canViewTeam(User $user, Project $project): bool
+    {
+        // Archived projects are read-only, but their managers retain access to team reports.
+        return $this->canManageTeam($user, $project)
+            || ($project->archived_at !== null && Gate::forUser($user)->allows('archive', $project));
+    }
+
     public function canCreate(User $user, Project $project): bool
     {
         return $project->archived_at === null && Gate::forUser($user)->allows('view', $project);
@@ -23,7 +30,7 @@ final class ReportAccess
     public function canView(User $user, Report $report): bool
     {
         return Gate::forUser($user)->allows('view', $report->project)
-            && ($this->canManageTeam($user, $report->project) || $this->isOwnPersonal($user, $report));
+            && ($this->canViewTeam($user, $report->project) || $this->isOwnPersonal($user, $report));
     }
 
     public function canEdit(User $user, Report $report): bool

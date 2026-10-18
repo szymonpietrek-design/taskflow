@@ -158,7 +158,7 @@ class ReleaseManagementTest extends TestCase
         $this->actingAs($owner)->get(route('releases.index', $project))->assertOk()
             ->assertInertia(fn (Assert $page) => $page->component('releases/Index')->where('can_create', false));
         $this->actingAs($owner)->post(route('releases.store', $project), ['version' => '1.0.0'])
-            ->assertSessionHasErrors(['release']);
+            ->assertForbidden();
     }
 
     public function test_guests_must_log_in(): void

@@ -32,7 +32,7 @@ class ReportController extends Controller
             'can_select_people' => app(ReportAccess::class)->canManageTeam($request->user(), $project),
             'contributors' => app(ReportAccess::class)->canManageTeam($request->user(), $project) ? $this->contributors($project) : [],
             'reports' => $project->reports()->with('creator:id,name')
-                ->when(! app(ReportAccess::class)->canManageTeam($request->user(), $project),
+                ->when(! app(ReportAccess::class)->canViewTeam($request->user(), $project),
                     fn ($query) => $query->where('created_by', $request->user()->id)->whereJsonContains('contributor_ids', $request->user()->id))
                 ->latest('id')
                 ->paginate(15)->through(fn (Report $report): array => $this->reportData($report)),
