@@ -1,5 +1,8 @@
 export type ProjectType = 'standard' | 'application';
 export type ProjectVisibility = 'workspace' | 'private';
+export type ProjectIcon = 'folder-kanban' | 'code-2' | 'shopping-bag' | 'building-2' | 'package' | 'globe' | 'server' | 'database' | 'rocket' | 'book-open' | 'smartphone' | 'wrench'
+    | 'monitor' | 'terminal' | 'cloud' | 'git-branch' | 'workflow' | 'cpu' | 'shield-check' | 'chart-no-axes-combined' | 'calendar-days' | 'message-square' | 'users' | 'briefcase-business' | 'graduation-cap' | 'palette' | 'camera' | 'mail' | 'bot' | 'heart';
+export type ProjectColor = 'slate' | 'blue' | 'emerald' | 'violet' | 'amber' | 'rose' | 'cyan' | 'orange';
 
 export type ProjectSummary = {
     id: number;
@@ -8,6 +11,9 @@ export type ProjectSummary = {
     key: string;
     type: ProjectType;
     visibility: ProjectVisibility;
+    icon: ProjectIcon | null;
+    color: ProjectColor | null;
+    logo_url?: string | null;
 };
 
 export type ProjectContext = {

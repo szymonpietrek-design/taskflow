@@ -10,6 +10,7 @@ use App\Enums\WorkspaceRole;
 use App\Models\Project;
 use App\Models\User;
 use App\Models\Workspace;
+use App\Support\Projects\ProjectIdentity;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -29,6 +30,8 @@ final class CreateProject
         ProjectType $type = ProjectType::STANDARD,
         ProjectVisibility $visibility = ProjectVisibility::WORKSPACE,
         ?string $description = null,
+        ?string $icon = null,
+        ?string $color = null,
     ): Project {
         $name = trim($name);
         $key = Str::upper(trim($key));
@@ -51,6 +54,11 @@ final class CreateProject
             throw new AuthorizationException('You are not allowed to create projects in this workspace.');
         }
 
+        if (($icon !== null && ! in_array($icon, ProjectIdentity::ICONS, true))
+            || ($color !== null && ! in_array($color, ProjectIdentity::COLORS, true))) {
+            throw new InvalidArgumentException('Unsupported project icon or color.');
+        }
+
         if ($workspace->projects()->where('key', $key)->exists()) {
             throw new InvalidArgumentException(__('Project key must be unique within the workspace.'));
         }
@@ -63,6 +71,8 @@ final class CreateProject
             $type,
             $visibility,
             $description,
+            $icon,
+            $color,
         ): Project {
             $project = $workspace->projects()->create([
                 'created_by' => $creator->id,
@@ -70,6 +80,8 @@ final class CreateProject
                 'slug' => $this->uniqueSlug($workspace, $name),
                 'key' => $key,
                 'description' => $description !== '' ? $description : null,
+                'icon' => $icon,
+                'color' => $color,
                 'type' => $type,
                 'visibility' => $visibility,
                 'task_sequence' => 0,

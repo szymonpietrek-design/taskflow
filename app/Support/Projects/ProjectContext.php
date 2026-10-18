@@ -5,6 +5,7 @@ namespace App\Support\Projects;
 use App\Enums\ProjectVisibility;
 use App\Enums\WorkspaceRole;
 use App\Models\Project;
+use App\Support\Projects\ProjectLogo;
 use App\Support\Workspaces\WorkspaceContext;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -15,7 +16,7 @@ final class ProjectContext
 
     /**
      * @return array{
-     *     items: array<int, array{id: int, name: string, slug: string, key: string, type: string, visibility: string}>,
+     *     items: array<int, array{id: int, name: string, slug: string, key: string, type: string, visibility: string, icon: string|null, color: string|null, logo_url: string|null}>,
      *     can_create: bool
      * }
      */
@@ -67,6 +68,9 @@ final class ProjectContext
                 'key' => $project->key,
                 'type' => strtolower($project->type->name),
                 'visibility' => strtolower($project->visibility->name),
+                'icon' => $project->icon,
+                'color' => $project->color,
+                'logo_url' => ProjectLogo::url($project),
             ])
             ->values()
             ->all();

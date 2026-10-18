@@ -9,6 +9,7 @@ use App\Http\Requests\Workspaces\UpdateWorkspaceRequest;
 use App\Enums\ProjectRole;
 use App\Enums\ProjectVisibility;
 use App\Models\Project;
+use App\Support\Projects\ProjectLogo;
 use App\Models\ProjectMember;
 use App\Models\Workspace;
 use App\Models\WorkspaceMember;
@@ -98,6 +99,9 @@ class WorkspaceController extends Controller
                 'key' => $project->key,
                 'type' => strtolower($project->type->name),
                 'visibility' => strtolower($project->visibility->name),
+                'icon' => $project->icon,
+                'color' => $project->color,
+                'logo_url' => ProjectLogo::url($project),
                 'can_edit' => $request->user()->can('update', $project),
                 'can_archive' => $request->user()->can('archive', $project),
                 'is_archived' => false,
@@ -112,6 +116,9 @@ class WorkspaceController extends Controller
                 'key' => $project->key,
                 'type' => strtolower($project->type->name),
                 'visibility' => strtolower($project->visibility->name),
+                'icon' => $project->icon,
+                'color' => $project->color,
+                'logo_url' => ProjectLogo::url($project),
                 'can_edit' => false,
                 'can_archive' => $request->user()->can('archive', $project),
                 'is_archived' => true,

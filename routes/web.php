@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Projects\ProjectController;
+use App\Http\Controllers\Projects\ProjectLogoController;
 use App\Http\Controllers\Releases\GenerateReleaseChangelogController;
 use App\Http\Controllers\Releases\ReleaseChangelogController;
 use App\Http\Controllers\Releases\ReleaseController;
@@ -60,6 +61,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('projects', [ProjectController::class, 'index'])->name('projects.index');
     Route::post('projects', [ProjectController::class, 'store'])->name('projects.store');
     Route::get('projects/{project}', [ProjectController::class, 'show'])->name('projects.show');
+    Route::get('projects/{project}/logo', [ProjectLogoController::class, 'show'])->name('projects.logo.show');
+    Route::post('projects/{project}/logo', [ProjectLogoController::class, 'store'])->middleware('throttle:15,1')->name('projects.logo.store');
+    Route::delete('projects/{project}/logo', [ProjectLogoController::class, 'destroy'])->name('projects.logo.destroy');
 
     Route::get('projects/{project}/reports', [ReportController::class, 'index'])->name('reports.index');
     Route::post('projects/{project}/reports', [ReportController::class, 'store'])->name('reports.store');

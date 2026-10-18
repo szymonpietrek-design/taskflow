@@ -8,6 +8,7 @@ use App\Enums\ProjectVisibility;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Projects\StoreProjectRequest;
 use App\Models\Project;
+use App\Support\Projects\ProjectLogo;
 use App\Models\Task;
 use App\Support\Projects\ProjectOverview;
 use App\Support\Tasks\TaskCreationOptions;
@@ -46,6 +47,8 @@ class ProjectController extends Controller
             ProjectType::from((int) $validated['type']),
             ProjectVisibility::from((int) $validated['visibility']),
             $validated['description'] ?? null,
+            $validated['icon'] ?? null,
+            $validated['color'] ?? null,
         );
 
         Inertia::flash('toast', [
@@ -71,6 +74,9 @@ class ProjectController extends Controller
                 'slug' => $project->slug,
                 'key' => $project->key,
                 'description' => $project->description,
+                'icon' => $project->icon,
+                'color' => $project->color,
+                'logo_url' => ProjectLogo::url($project),
                 'type' => strtolower($project->type->name),
                 'visibility' => strtolower($project->visibility->name),
                 'can_manage' => $request->user()->can('update', $project),

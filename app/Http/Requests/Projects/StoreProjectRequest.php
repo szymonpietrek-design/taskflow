@@ -4,6 +4,7 @@ namespace App\Http\Requests\Projects;
 
 use App\Enums\ProjectType;
 use App\Enums\ProjectVisibility;
+use App\Support\Projects\ProjectIdentity;
 use App\Models\Project;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -60,6 +61,8 @@ class StoreProjectRequest extends FormRequest
                     ->where(fn ($query) => $query->where('workspace_id', $workspaceId)),
             ],
             'description' => ['nullable', 'string', 'max:5000'],
+            'icon' => ['nullable', 'string', Rule::in(ProjectIdentity::ICONS)],
+            'color' => ['nullable', 'string', Rule::in(ProjectIdentity::COLORS)],
             'type' => ['required', Rule::in($types)],
             'visibility' => ['required', Rule::in($visibilities)],
         ];

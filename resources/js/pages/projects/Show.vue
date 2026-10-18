@@ -10,7 +10,6 @@ import {
     CheckCircle2,
     Clock3,
     FileText,
-    FolderKanban,
     History,
     ListTodo,
     LockKeyhole,
@@ -19,11 +18,13 @@ import {
     Plus,
 } from '@lucide/vue';
 import CreateTaskDialog from '@/components/tasks/CreateTaskDialog.vue';
+import ProjectIdentity from '@/components/ProjectIdentity.vue';
 import TaskStatusIcon from '@/components/tasks/TaskStatusIcon.vue';
 import { taskStatusBadgeClass } from '@/lib/taskVisuals';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useSidebar } from '@/components/ui/sidebar';
 import type { ProjectDetail } from '@/types';
 import type { TaskParentSummary, TaskStatusSummary, TaskUserSummary } from '@/types/task';
 
@@ -81,6 +82,8 @@ defineOptions({
 });
 
 const { t, locale, displayLabel } = useI18n();
+const { isMobile, state: sidebarState } = useSidebar();
+const showQuickNavigation = computed(() => isMobile.value || sidebarState.value === 'collapsed');
 const isCreateDialogOpen = ref(false);
 const projectUrl = computed(() => `/projects/${props.project.id}`);
 const taskUrl = (id: number) => `${projectUrl.value}/tasks/${id}`;
@@ -120,7 +123,7 @@ function activityLabel(kind: TimelineItem['kind']): string {
 <template>
     <Head :title="project.name" />
 
-    <div class="mx-auto flex w-full min-w-0 max-w-6xl flex-1 flex-col gap-6 px-4 py-6 sm:px-6 md:gap-7 lg:px-8">
+    <div class="mx-auto flex w-full min-w-0 max-w-[90rem] flex-1 flex-col gap-6 px-4 py-6 sm:px-6 md:gap-7 lg:px-8">
         <div v-if="project.is_archived" class="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/50 px-4 py-3 text-sm text-muted-foreground">
             <Archive class="size-4 shrink-0" />
             {{ t('workspaceProjects.archivedNotice') }}
@@ -129,9 +132,7 @@ function activityLabel(kind: TimelineItem['kind']): string {
 
         <section class="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
             <div class="flex min-w-0 items-start gap-3 sm:gap-4">
-                <div class="flex size-11 shrink-0 items-center justify-center rounded-xl border bg-muted/50 sm:size-12">
-                    <FolderKanban class="size-5 text-foreground" />
-                </div>
+                <ProjectIdentity :logo-url="project.logo_url" :icon="project.icon" :color="project.color" :type="project.type" size="lg" />
                 <div class="min-w-0 space-y-2">
                     <div>
                         <h1 class="break-words text-2xl font-semibold tracking-tight">{{ project.name }}</h1>
@@ -154,7 +155,8 @@ function activityLabel(kind: TimelineItem['kind']): string {
             </Button>
         </section>
 
-        <nav class="flex flex-wrap gap-2" :aria-label="t('overview.projectNavigation')">
+        <!-- On desktop the same navigation is already available in the expanded sidebar. -->
+        <nav v-if="showQuickNavigation" class="flex flex-wrap gap-2" :aria-label="t('overview.projectNavigation')">
             <Button variant="outline" size="sm" as-child>
                 <Link :href="`${projectUrl}/tasks`"><ListTodo class="size-4" /> {{ t('stage2.tasks') }}</Link>
             </Button>

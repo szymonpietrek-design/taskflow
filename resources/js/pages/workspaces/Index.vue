@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { useI18n } from '@/composables/useI18n';
 import { Form, Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
-import { AppWindow, Archive, ArchiveRestore, Check, FolderKanban, Pencil, Plus, Settings2, Users } from '@lucide/vue';
+import { Archive, ArchiveRestore, Check, Pencil, Plus, Settings2, Users } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import UserAvatar from '@/components/UserAvatar.vue';
 import ProjectFormDialog from '@/components/ProjectFormDialog.vue';
+import ProjectIdentity from '@/components/ProjectIdentity.vue';
 import type { WorkspaceProjectSummary } from '@/types/project';
 import InputError from '@/components/InputError.vue';
 import { Badge } from '@/components/ui/badge';
@@ -49,6 +50,16 @@ const workspaceForm = useForm({ name: '' });
 const projectDialogOpen = ref(false);
 const projectWorkspaceId = ref<number | null>(null);
 const editingProject = ref<WorkspaceProjectSummary | null>(null);
+// Prefer the latest Inertia props after uploading/removing a logo. Keeping only
+// the object captured when opening the dialog leaves a stale logo thumbnail.
+const currentEditingProject = computed<WorkspaceProjectSummary | null>(() => {
+    const selected = editingProject.value;
+    const workspaceId = projectWorkspaceId.value;
+    if (!selected || workspaceId === null) return null;
+    return props.projectsByWorkspace[workspaceId]?.find(project => project.id === selected.id)
+        ?? props.archivedProjectsByWorkspace[workspaceId]?.find(project => project.id === selected.id)
+        ?? selected;
+});
 const confirmingProject = ref<{ workspaceId: number; project: WorkspaceProjectSummary; action: 'archive' | 'restore' } | null>(null);
 const projectActionBusy = ref(false);
 
@@ -288,11 +299,8 @@ defineOptions({
                         </div>
 
                         <div v-if="props.projectsByWorkspace[workspaceItem.id]?.length" class="divide-y rounded-lg border">
-                            <div v-for="project in props.projectsByWorkspace[workspaceItem.id]" :key="project.id" class="flex flex-wrap items-center gap-3 px-3 py-3 sm:px-4">
-                                <span class="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted/60">
-                                    <AppWindow v-if="project.type === 'application'" class="size-4 text-muted-foreground" />
-                                    <FolderKanban v-else class="size-4 text-muted-foreground" />
-                                </span>
+                            <div v-for="project in props.projectsByWorkspace[workspaceItem.id]" :key="project.id" class="flex flex-wrap items-center gap-3 px-3 py-3 transition-colors hover:bg-muted/25 focus-within:bg-muted/25 sm:px-4">
+                                <ProjectIdentity :logo-url="project.logo_url" :icon="project.icon" :color="project.color" :type="project.type" />
                                 <div class="min-w-0 flex-1 space-y-1">
                                     <Link :href="`/projects/${project.id}`" class="break-words text-sm font-medium hover:underline">{{ project.name }}</Link>
                                     <p class="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
@@ -301,19 +309,42 @@ defineOptions({
                                         <span>{{ project.visibility === 'private' ? t('stage2.private') : t('stage2.workspace') }}</span>
                                     </p>
                                 </div>
-                                <div v-if="project.can_edit" class="flex flex-wrap items-center gap-2">
-                                    <Button type="button" size="sm" variant="outline" @click="openProjectDialog(workspaceItem.id, project)">
-                                        <Pencil class="size-4" /> {{ t('workspaceProjects.edit') }}
-                                    </Button>
-                                    <Button as-child size="sm" variant="outline">
-                                        <Link :href="`/projects/${project.id}/statuses`">
-                                            <Settings2 class="size-4" /> {{ t('workspaceProjects.statuses') }}
-                                        </Link>
-                                    </Button>
-                                    <Button v-if="project.can_archive" type="button" size="sm" variant="ghost" @click="confirmProjectAction(workspaceItem.id, project, 'archive')">
-                                        <Archive class="size-4" /> {{ t('workspaceProjects.archive') }}
-                                    </Button>
-                                </div>
+                                <TooltipProvider v-if="project.can_edit" :delay-duration="150">
+                                    <div class="flex shrink-0 items-center gap-1" role="group" :aria-label="project.name">
+                                        <Tooltip>
+                                            <TooltipTrigger as-child>
+                                                <Button type="button" size="icon-sm" variant="ghost"
+                                                    :aria-label="`${t('workspaceProjects.edit')}: ${project.name}`"
+                                                    @click="openProjectDialog(workspaceItem.id, project)">
+                                                    <Pencil class="size-4" />
+                                                </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>{{ t('workspaceProjects.edit') }}</TooltipContent>
+                                        </Tooltip>
+                                        <Tooltip>
+                                            <TooltipTrigger as-child>
+                                                <Button as-child size="icon-sm" variant="ghost">
+                                                    <Link :href="`/projects/${project.id}/statuses`"
+                                                        :aria-label="`${t('workspaceProjects.statuses')}: ${project.name}`">
+                                                        <Settings2 class="size-4" />
+                                                    </Link>
+                                                </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>{{ t('workspaceProjects.statuses') }}</TooltipContent>
+                                        </Tooltip>
+                                        <Tooltip v-if="project.can_archive">
+                                            <TooltipTrigger as-child>
+                                                <Button type="button" size="icon-sm" variant="ghost"
+                                                    class="text-muted-foreground hover:bg-destructive/10 hover:text-destructive focus-visible:text-destructive"
+                                                    :aria-label="`${t('workspaceProjects.archive')}: ${project.name}`"
+                                                    @click="confirmProjectAction(workspaceItem.id, project, 'archive')">
+                                                    <Archive class="size-4" />
+                                                </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>{{ t('workspaceProjects.archive') }}</TooltipContent>
+                                        </Tooltip>
+                                    </div>
+                                </TooltipProvider>
                             </div>
                         </div>
                         <p v-else class="rounded-lg border border-dashed px-4 py-5 text-sm text-muted-foreground">{{ t('workspaceProjects.empty') }}</p>
@@ -325,15 +356,24 @@ defineOptions({
                             <p class="text-xs text-muted-foreground">{{ archivedCount(props.archivedProjectsByWorkspace[workspaceItem.id]?.length ?? 0) }} · {{ t('workspaceProjects.archiveWarning') }}</p>
                         </div>
                         <div class="divide-y rounded-lg border bg-muted/20">
-                            <div v-for="project in props.archivedProjectsByWorkspace[workspaceItem.id]" :key="project.id" class="flex flex-wrap items-center gap-3 px-3 py-3 sm:px-4">
-                                <span class="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted"><Archive class="size-4 text-muted-foreground" /></span>
+                            <div v-for="project in props.archivedProjectsByWorkspace[workspaceItem.id]" :key="project.id" class="flex flex-wrap items-center gap-3 px-3 py-3 transition-colors hover:bg-muted/25 focus-within:bg-muted/25 sm:px-4">
+                                <ProjectIdentity :logo-url="project.logo_url" :icon="project.icon" :color="project.color" :type="project.type" class="opacity-60" />
                                 <div class="min-w-0 flex-1 space-y-1">
                                     <Link :href="`/projects/${project.id}`" class="break-words text-sm font-medium hover:underline">{{ project.name }}</Link>
                                     <p class="text-xs text-muted-foreground">{{ project.key }} · {{ project.type === 'application' ? t('stage2.application') : t('stage2.standard') }} · {{ t('stage3.archived') }}</p>
                                 </div>
-                                <Button v-if="project.can_archive" type="button" size="sm" variant="outline" @click="confirmProjectAction(workspaceItem.id, project, 'restore')">
-                                    <ArchiveRestore class="size-4" /> {{ t('workspaceProjects.restore') }}
-                                </Button>
+                                <TooltipProvider v-if="project.can_archive" :delay-duration="150">
+                                    <Tooltip>
+                                        <TooltipTrigger as-child>
+                                            <Button type="button" size="icon-sm" variant="ghost"
+                                                :aria-label="`${t('workspaceProjects.restore')}: ${project.name}`"
+                                                @click="confirmProjectAction(workspaceItem.id, project, 'restore')">
+                                                <ArchiveRestore class="size-4" />
+                                            </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>{{ t('workspaceProjects.restore') }}</TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
                             </div>
                         </div>
                       </section>
@@ -358,7 +398,7 @@ defineOptions({
             v-if="projectWorkspaceId !== null"
             v-model:open="projectDialogOpen"
             :workspace-id="projectWorkspaceId"
-            :project="editingProject"
+            :project="currentEditingProject"
         />
 
         <Dialog :open="confirmingProject !== null" @update:open="onProjectActionDialogChange">

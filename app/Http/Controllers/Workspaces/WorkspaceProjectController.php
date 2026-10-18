@@ -33,6 +33,8 @@ class WorkspaceProjectController extends Controller
             ProjectType::from((int) $validated['type']),
             ProjectVisibility::from((int) $validated['visibility']),
             $validated['description'] ?? null,
+            $validated['icon'] ?? null,
+            $validated['color'] ?? null,
         );
 
         // Keep the sidebar consistent with the workspace where the project was added.
@@ -60,6 +62,8 @@ class WorkspaceProjectController extends Controller
                 ? (trim($validated['description']) ?: null)
                 : null,
             'visibility' => ProjectVisibility::from((int) $validated['visibility']),
+            'icon' => array_key_exists('icon', $validated) ? $validated['icon'] : $project->icon,
+            'color' => array_key_exists('color', $validated) ? $validated['color'] : $project->color,
         ]);
 
         Inertia::flash('toast', [

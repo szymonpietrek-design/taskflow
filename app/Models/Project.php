@@ -24,6 +24,9 @@ use Illuminate\Support\Carbon;
  * @property ProjectType $type
  * @property ProjectVisibility $visibility
  * @property int $task_sequence
+ * @property string|null $icon
+ * @property string|null $color
+ * @property string|null $logo_path
  * @property Carbon|null $archived_at
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
@@ -35,6 +38,8 @@ use Illuminate\Support\Carbon;
     'slug',
     'key',
     'description',
+    'icon',
+    'color',
     'type',
     'visibility',
     'task_sequence',
