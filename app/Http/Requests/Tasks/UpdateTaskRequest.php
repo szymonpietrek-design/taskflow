@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Tasks;
 
 use App\Enums\TaskPriority;
+use App\Enums\TaskType;
 use App\Models\Project;
 use App\Models\Task;
 use App\Models\User;
@@ -33,6 +34,8 @@ class UpdateTaskRequest extends FormRequest
         return [
             'title' => ['required', 'string', 'max:200'],
             'description' => ['nullable', 'string', 'max:10000'],
+            // Optional for existing API consumers; when omitted, the original type is kept.
+            'type' => ['sometimes', 'required', Rule::in(array_column(TaskType::cases(), 'value'))],
             'priority' => ['required', Rule::in(array_column(TaskPriority::cases(), 'value'))],
             'assignee_id' => ['nullable', 'integer', Rule::exists('users', 'id')],
             'due_date' => ['nullable', 'date_format:Y-m-d'],

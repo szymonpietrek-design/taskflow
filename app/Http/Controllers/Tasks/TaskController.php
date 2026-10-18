@@ -296,6 +296,7 @@ class TaskController extends Controller
             TaskPriority::from((int) $data['priority']),
             isset($data['assignee_id']) ? User::query()->findOrFail($data['assignee_id']) : null,
             isset($data['due_date']) ? new \DateTimeImmutable($data['due_date']) : null,
+            isset($data['type']) ? TaskType::from((int) $data['type']) : null,
         );
 
         Inertia::flash('toast', [

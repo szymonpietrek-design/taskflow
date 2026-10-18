@@ -9,7 +9,7 @@ import {
     Download,
     X,
     Pencil,
-    Plus,
+    ListPlus,
     Send,
     Trash2,
     Link2,
@@ -19,7 +19,9 @@ import { toast } from 'vue-sonner';
 import InputError from '@/components/InputError.vue';
 import UserAvatar from '@/components/UserAvatar.vue';
 import TaskMarkdown from '@/components/tasks/TaskMarkdown.vue';
-import VisualMarkdownEditor from '@/components/tasks/VisualMarkdownEditor.vue';
+import TaskImagePreviewDialog from '@/components/tasks/TaskImagePreviewDialog.vue';
+import { AsyncVisualMarkdownEditor } from '@/components/tasks/AsyncVisualMarkdownEditor';
+import type VisualMarkdownEditorComponent from '@/components/tasks/VisualMarkdownEditor.vue';
 import { Button } from '@/components/ui/button';
 import {
     Card,
@@ -37,6 +39,12 @@ import {
     DialogTitle,
     DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
 import type { TaskAttachmentSummary, TaskMessageSummary } from '@/types/task';
 
 const props = defineProps<{
@@ -50,9 +58,11 @@ const props = defineProps<{
 const editingId = ref<number | null>(null);
 const deletingId = ref<number | null>(null);
 const messageBody = ref('');
-const newEditor = ref<InstanceType<typeof VisualMarkdownEditor> | null>(null);
-const editEditor = ref<InstanceType<typeof VisualMarkdownEditor> | null>(null);
+const newEditor = ref<InstanceType<typeof VisualMarkdownEditorComponent> | null>(null);
+const editEditor = ref<InstanceType<typeof VisualMarkdownEditorComponent> | null>(null);
 const composerKey = ref(0);
+// Reading a task never downloads the rich editor; start it only on demand.
+const composerActive = ref(false);
 const recentUploads = ref<TaskAttachmentSummary[]>([]);
 const library = computed(() => [
     ...props.availableAttachments,
@@ -83,7 +93,13 @@ const notifyError = () =>
     toast.error(t('fix.could_not_save_message'));
 
 function formattedDate(value: string): string {
-    return new Date(value).toLocaleString(locale.value === 'pl' ? 'pl-PL' : 'en-US');
+    return new Date(value).toLocaleString(locale.value === 'pl' ? 'pl-PL' : 'en-US', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+    });
 }
 const { t, locale } = useI18n();
 const attachmentUrl = (file: TaskAttachmentSummary, action: 'preview' | 'download') =>
@@ -91,6 +107,7 @@ const attachmentUrl = (file: TaskAttachmentSummary, action: 'preview' | 'downloa
 
 function resetComposer(): void {
     messageBody.value = '';
+    composerActive.value = false;
     selectedFiles.value = [];
     selectedExistingIds.value = [];
     showLibrary.value = false;
@@ -127,6 +144,12 @@ function onUploaded(attachment: TaskAttachmentSummary): void {
     // The file is in the task library immediately, even if the draft is discarded.
     router.reload({ only: ['attachments'] });
 }
+// Keep inserting attachments safe while the asynchronous editor is downloading.
+function appendAttachment(markdown: string, file: TaskAttachmentSummary, image: boolean): string {
+    const safeName = file.name.replace(/[\r\n]/g, ' ').replace(/[\\\[\]]/g, '\\$&');
+    return `${markdown}${markdown && !markdown.endsWith('\n') ? '\n' : ''}${image ? '!' : ''}[${safeName}](attachment:${file.id})\n`;
+}
+
 function insertExisting(file: TaskAttachmentSummary, image: boolean, mode: 'new' | 'edit'): void {
     if (mode === 'new' && !selectedExistingIds.value.includes(file.id)) {
         if (selectedExistingIds.value.length >= 20) {
@@ -135,8 +158,18 @@ function insertExisting(file: TaskAttachmentSummary, image: boolean, mode: 'new'
         }
         selectedExistingIds.value = [...selectedExistingIds.value, file.id];
     }
-    if (mode === 'new') newEditor.value?.insertAttachment(file, image);
-    else editEditor.value?.insertAttachment(file, image);
+    if (mode === 'new') {
+        if (!newEditor.value) {
+            messageBody.value = appendAttachment(messageBody.value, file, image);
+            composerActive.value = true;
+        } else {
+            newEditor.value.insertAttachment(file, image);
+        }
+    } else if (!editEditor.value) {
+        editingBody.value = appendAttachment(editingBody.value, file, image);
+    } else {
+        editEditor.value.insertAttachment(file, image);
+    }
 }
 
 function showInlineImage(url: string): void {
@@ -195,7 +228,7 @@ function unlink(messageId: number, attachmentId: number): void {
                     v-for="message in messages"
                     :id="`message-${message.id}`"
                     :key="message.id"
-                    class="flex items-start gap-3"
+                    class="flex scroll-mt-6 items-start gap-3 border-b pb-5 last:border-b-0 last:pb-0 target:rounded-md target:bg-muted/30"
                 >
                     <UserAvatar
                         v-if="message.author"
@@ -231,74 +264,105 @@ function unlink(messageId: number, attachmentId: number): void {
                                 >
                             </div>
                             <div
-                                v-if="message.can_update || message.can_delete"
-                                class="flex gap-1"
+                                v-if="(message.can_create_task && editingId !== message.id) || message.can_update || message.can_delete"
+                                class="flex shrink-0 items-center gap-1"
                             >
-                                <Button
-                                    v-if="message.can_update"
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    :aria-label="`Edit message by ${message.author?.name ?? 'user'}`"
-                                    @click="startEditing(message)"
-                                >
-                                    <Pencil class="size-3.5" /> {{ t('stage2.edit') }}
-                                </Button>
-                                <Dialog
-                                    v-if="message.can_delete"
-                                    :open="deletingId === message.id"
-                                    @update:open="
-                                        (value) =>
-                                            (deletingId = value
-                                                ? message.id
-                                                : null)
-                                    "
-                                >
-                                    <DialogTrigger as-child>
-                                        <Button
-                                            type="button"
-                                            variant="ghost"
-                                            size="sm"
-                                            :aria-label="`Delete message by ${message.author?.name ?? 'user'}`"
-                                        >
-                                            <Trash2 class="size-3.5" /> {{ t('stage2.delete') }}
-                                        </Button>
-                                    </DialogTrigger>
-                                    <DialogContent>
-                                        <DialogHeader>
-                                            <DialogTitle
-                                                >{{ t('stage2.delete_message') }}</DialogTitle
+                                <TooltipProvider :delay-duration="150">
+                                    <Tooltip v-if="message.can_create_task && editingId !== message.id">
+                                        <TooltipTrigger as-child>
+                                            <Button
+                                                as-child
+                                                variant="ghost"
+                                                size="icon-sm"
+                                                class="text-muted-foreground hover:text-foreground"
                                             >
-                                            <DialogDescription
-                                                >{{ t('audit.this_permanently_removes_your_message_from_the_discussion') }}</DialogDescription
-                                            >
-                                        </DialogHeader>
-                                        <DialogFooter>
-                                            <Form
-                                                :action="`${messagesUrl}/${message.id}`"
-                                                method="delete"
-                                                :options="stayOnTask"
-                                                @success="deletingId = null"
-                                                @error="notifyError"
-                                                v-slot="{ processing }"
-                                            >
-                                                <Button
-                                                    type="submit"
-                                                    variant="destructive"
-                                                    :disabled="processing"
-                                                    ><LoaderCircle
-                                                        v-if="processing"
-                                                        class="size-4 animate-spin"
-                                                    />{{
-                                                        processing
-                                                            ? t('fix.deleting')
-                                                            : t('fix.delete_message')
-                                                    }}</Button
+                                                <Link
+                                                    :href="`${messagesUrl}/${message.id}/create-task`"
+                                                    :aria-label="t('stage2.create_task')"
                                                 >
-                                            </Form>
-                                        </DialogFooter>
-                                    </DialogContent>
-                                </Dialog>
+                                                    <ListPlus class="size-4" aria-hidden="true" />
+                                                </Link>
+                                            </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="top">{{ t('stage2.create_task') }}</TooltipContent>
+                                    </Tooltip>
+                                    <Tooltip v-if="message.can_update">
+                                        <TooltipTrigger as-child>
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon-sm"
+                                                class="text-muted-foreground hover:text-foreground"
+                                                :aria-label="`${t('stage2.edit')} — ${message.author?.name ?? t('fix.deleted_user')}`"
+                                                @click="startEditing(message)"
+                                            >
+                                                <Pencil class="size-4" aria-hidden="true" />
+                                            </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="top">{{ t('stage2.edit') }}</TooltipContent>
+                                    </Tooltip>
+                                    <Dialog
+                                        v-if="message.can_delete"
+                                        :open="deletingId === message.id"
+                                        @update:open="
+                                            (value) =>
+                                                (deletingId = value
+                                                    ? message.id
+                                                    : null)
+                                        "
+                                    >
+                                        <Tooltip>
+                                            <TooltipTrigger as-child>
+                                                <DialogTrigger as-child>
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="icon-sm"
+                                                        class="text-muted-foreground hover:text-destructive"
+                                                        :aria-label="`${t('stage2.delete')} — ${message.author?.name ?? t('fix.deleted_user')}`"
+                                                    >
+                                                        <Trash2 class="size-4" aria-hidden="true" />
+                                                    </Button>
+                                                </DialogTrigger>
+                                            </TooltipTrigger>
+                                            <TooltipContent side="top">{{ t('stage2.delete') }}</TooltipContent>
+                                        </Tooltip>
+                                        <DialogContent>
+                                            <DialogHeader>
+                                                <DialogTitle
+                                                    >{{ t('stage2.delete_message') }}</DialogTitle
+                                                >
+                                                <DialogDescription
+                                                    >{{ t('audit.this_permanently_removes_your_message_from_the_discussion') }}</DialogDescription
+                                                >
+                                            </DialogHeader>
+                                            <DialogFooter>
+                                                <Form
+                                                    :action="`${messagesUrl}/${message.id}`"
+                                                    method="delete"
+                                                    :options="stayOnTask"
+                                                    @success="deletingId = null"
+                                                    @error="notifyError"
+                                                    v-slot="{ processing }"
+                                                >
+                                                    <Button
+                                                        type="submit"
+                                                        variant="destructive"
+                                                        :disabled="processing"
+                                                        ><LoaderCircle
+                                                            v-if="processing"
+                                                            class="size-4 animate-spin"
+                                                        />{{
+                                                            processing
+                                                                ? t('fix.deleting')
+                                                                : t('fix.delete_message')
+                                                        }}</Button
+                                                    >
+                                                </Form>
+                                            </DialogFooter>
+                                        </DialogContent>
+                                    </Dialog>
+                                </TooltipProvider>
                             </div>
                         </div>
                         <Form
@@ -312,7 +376,7 @@ function unlink(messageId: number, attachmentId: number): void {
                             v-slot="{ errors, processing }"
                         >
                             <input type="hidden" name="body" :value="editingBody" />
-                            <VisualMarkdownEditor
+                            <AsyncVisualMarkdownEditor
                                 ref="editEditor"
                                 v-model="editingBody"
                                 :project-id="projectId"
@@ -361,20 +425,6 @@ function unlink(messageId: number, attachmentId: number): void {
                                 <button v-if="message.can_update" type="button" :aria-label="t('messages.attachments.unlink')" class="rounded p-1 hover:bg-muted" @click="unlink(message.id, attachment.id)"><X class="size-3.5" /></button>
                             </div>
                         </div>
-                        <Button
-                            v-if="
-                                message.can_create_task &&
-                                editingId !== message.id
-                            "
-                            as-child
-                            size="sm"
-                            variant="outline"
-                        >
-                            <Link
-                                :href="`${messagesUrl}/${message.id}/create-task`"
-                                ><Plus class="size-3.5" /> {{ t('stage2.create_task') }}</Link
-                            >
-                        </Button>
                     </div>
                 </article>
             </div>
@@ -384,7 +434,17 @@ function unlink(messageId: number, attachmentId: number): void {
 
             <form v-if="canPost" class="space-y-3 border-t pt-5" @submit.prevent="submitMessage">
                 <label class="text-sm font-medium">{{ t('stage2.write_a_message') }}</label>
-                <VisualMarkdownEditor
+                <button
+                    v-if="!composerActive"
+                    type="button"
+                    class="flex min-h-36 w-full items-start rounded-md border border-input bg-background px-3 py-3 text-left text-sm text-muted-foreground transition-colors hover:border-ring hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                    :aria-label="t('stage2.write_a_message')"
+                    @click="composerActive = true"
+                >
+                    {{ t('stage2.share_an_update_a_question_or_a_decision') }}
+                </button>
+                <AsyncVisualMarkdownEditor
+                    v-else
                     :key="composerKey"
                     ref="newEditor"
                     v-model="messageBody"
@@ -431,11 +491,8 @@ function unlink(messageId: number, attachmentId: number): void {
         </CardContent>
     </Card>
 
-    <Dialog :open="imagePreview !== null" @update:open="(open) => { if (!open) imagePreview = null; }">
-        <DialogContent class="max-h-[90vh] overflow-y-auto sm:max-w-5xl">
-            <DialogHeader><DialogTitle class="break-all">{{ imagePreview?.name }}</DialogTitle></DialogHeader>
-            <img v-if="imagePreview" :src="attachmentUrl(imagePreview, 'preview')" :alt="imagePreview.name" class="mx-auto max-h-[70vh] max-w-full rounded-md object-contain" />
-            <a v-if="imagePreview" :href="attachmentUrl(imagePreview, 'download')" class="inline-flex items-center gap-2 text-sm underline underline-offset-4"><Download class="size-4" />{{ t('messages.attachments.download') }}</a>
-        </DialogContent>
-    </Dialog>
+    <TaskImagePreviewDialog
+        :project-id="projectId" :task-id="taskId"
+        :file="imagePreview" @close="imagePreview = null"
+    />
 </template>

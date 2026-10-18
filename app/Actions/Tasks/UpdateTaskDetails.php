@@ -4,6 +4,7 @@ namespace App\Actions\Tasks;
 
 use App\Enums\TaskActivityType;
 use App\Enums\TaskPriority;
+use App\Enums\TaskType;
 use App\Models\Task;
 use App\Models\User;
 use DateTimeInterface;
@@ -21,6 +22,7 @@ final class UpdateTaskDetails
         TaskPriority $priority,
         ?User $assignee,
         ?DateTimeInterface $dueDate,
+        ?TaskType $type = null,
     ): Task {
         Gate::forUser($actor)->authorize('update', $task);
 
@@ -32,7 +34,7 @@ final class UpdateTaskDetails
             throw new InvalidArgumentException(__('Task title cannot be empty.'));
         }
 
-        return DB::transaction(function () use ($actor, $task, $title, $description, $priority, $assignee, $dueDate): Task {
+        return DB::transaction(function () use ($actor, $task, $title, $description, $priority, $assignee, $dueDate, $type): Task {
             /** @var Task $lockedTask */
             $lockedTask = Task::query()
                 ->with(['project', 'assignee'])
@@ -49,6 +51,17 @@ final class UpdateTaskDetails
 
             $changes = [];
             $activities = [];
+
+            // Preserve the current type when an older client doesn't send the field.
+            $newType = $type ?? $lockedTask->type;
+            if ($lockedTask->type !== $newType) {
+                $changes['type'] = $newType;
+                $activities[] = [
+                    TaskActivityType::TYPE_CHANGED,
+                    ['value' => $lockedTask->type->value, 'name' => $lockedTask->type->name],
+                    ['value' => $newType->value, 'name' => $newType->name],
+                ];
+            }
 
             if ($lockedTask->title !== $title) {
                 $changes['title'] = $title;

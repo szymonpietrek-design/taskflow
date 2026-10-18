@@ -1,4 +1,6 @@
 export default {
+    'stage20.usedInDescription': 'W opisie',
+    'stage20.dropOrChoose': 'Przeciągnij pliki tutaj lub kliknij, aby wybrać.',
     'messages.attachments.title': 'Załączniki wiadomości',
     'messages.attachments.addFiles': 'Dodaj pliki',
     'messages.attachments.fromTask': 'Wybierz z załączników zadania',
@@ -347,7 +349,7 @@ export default {
     'stage2.description': "Opis",
     'stage2.details': "Szczegóły",
     'stage2.discussion': "Dyskusja",
-    'stage2.due_date': "Termin",
+    'stage2.due_date': "Termin wykonania",
     'stage2.edit': "Edytuj",
     'stage2.edit_message': "Edytuj wiadomość",
     'stage2.edit_status': "Edytuj status",

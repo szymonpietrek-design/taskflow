@@ -1,4 +1,6 @@
 export default {
+    'stage20.usedInDescription': 'In description',
+    'stage20.dropOrChoose': 'Drop files here or click to browse.',
     'messages.attachments.title': 'Message attachments',
     'messages.attachments.addFiles': 'Attach files',
     'messages.attachments.fromTask': 'Choose from task attachments',

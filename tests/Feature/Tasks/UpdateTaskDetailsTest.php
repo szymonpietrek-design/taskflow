@@ -7,6 +7,7 @@ use App\Actions\Tasks\CreateTask;
 use App\Actions\Tasks\UpdateTaskDetails;
 use App\Enums\TaskActivityType;
 use App\Enums\TaskPriority;
+use App\Enums\TaskType;
 use App\Enums\WorkspaceRole;
 use App\Models\Project;
 use App\Models\Task;
@@ -70,6 +71,53 @@ class UpdateTaskDetailsTest extends TestCase
         $this->assertSame('Initial task', $task->activities->firstWhere('type', TaskActivityType::TITLE_CHANGED)->data['from']);
         $this->assertSame('Updated title', $task->activities->firstWhere('type', TaskActivityType::TITLE_CHANGED)->data['to']);
         $this->assertSame(['id' => $owner->id, 'name' => $owner->name], $task->activities->firstWhere('type', TaskActivityType::ASSIGNEE_CHANGED)->data['to']);
+    }
+
+    public function test_type_can_be_changed_and_records_one_activity(): void
+    {
+        [$project, $owner, $task] = $this->taskWithOwner();
+        $this->assertSame(TaskType::TASK, $task->type);
+
+        $this->actingAs($owner)
+            ->patch(route('tasks.update', [$project, $task]), $this->payload([
+                'type' => TaskType::BUG->value,
+            ]))
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame(TaskType::BUG, $task->fresh()->type);
+        $this->assertSame(1, $task->activities()->count());
+        $activity = $task->activities()->firstOrFail();
+        $this->assertSame(TaskActivityType::TYPE_CHANGED, $activity->type);
+        $this->assertSame($owner->id, $activity->user_id);
+        $this->assertSame(TaskType::TASK->value, $activity->data['from']['value']);
+        $this->assertSame('TASK', $activity->data['from']['name']);
+        $this->assertSame(TaskType::BUG->value, $activity->data['to']['value']);
+        $this->assertSame('BUG', $activity->data['to']['name']);
+    }
+
+    public function test_type_update_rejects_unsupported_values_and_keeps_current_type(): void
+    {
+        [$project, $owner, $task] = $this->taskWithOwner();
+
+        $this->actingAs($owner)
+            ->patch(route('tasks.update', [$project, $task]), $this->payload(['type' => 999]))
+            ->assertSessionHasErrors('type');
+
+        $this->assertSame(TaskType::TASK, $task->fresh()->type);
+        $this->assertSame(0, $task->activities()->count());
+    }
+
+    public function test_type_update_with_same_value_does_not_create_activity(): void
+    {
+        [$project, $owner, $task] = $this->taskWithOwner();
+
+        $this->actingAs($owner)
+            ->patch(route('tasks.update', [$project, $task]), $this->payload([
+                'type' => TaskType::TASK->value,
+            ]))
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame(0, $task->activities()->count());
     }
 
     public function test_unchanged_details_do_not_create_activity(): void

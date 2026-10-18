@@ -34,6 +34,12 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
 import type { TaskWorklogPage, TaskWorklogSummary } from '@/types/task';
 
 const props = defineProps<{
@@ -287,59 +293,75 @@ const { t, locale, countLabel, formatText } = useI18n();
                         </div>
                         <div
                             v-if="entry.can_update || entry.can_delete"
-                            class="flex gap-1"
+                            class="flex shrink-0 items-center gap-1"
                         >
-                            <Button
-                                v-if="entry.can_update"
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                :disabled="form.processing"
-                                @click="editEntry(entry)"
-                            >
-                                <Pencil class="size-3.5" /> {{ t('stage2.edit') }}
-                            </Button>
-                            <Dialog
-                                v-if="entry.can_delete"
-                                :open="deletingId === entry.id"
-                                @update:open="
-                                    (open) =>
-                                        (deletingId = open ? entry.id : null)
-                                "
-                            >
-                                <DialogTrigger as-child
-                                    ><Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="sm"
-                                        ><Trash2 class="size-3.5" />
-                                        {{ t('stage2.delete') }}</Button
-                                    ></DialogTrigger
-                                >
-                                <DialogContent>
-                                    <DialogHeader
-                                        ><DialogTitle
-                                            >{{ t('stage2.delete_worklog_entry') }}</DialogTitle
-                                        ><DialogDescription
-                                            >{{ t('audit.this_will_permanently_remove_the_logged_time') }}</DialogDescription
-                                        ></DialogHeader
-                                    >
-                                    <DialogFooter
-                                        ><Button
+                            <TooltipProvider :delay-duration="150">
+                                <Tooltip v-if="entry.can_update">
+                                    <TooltipTrigger as-child>
+                                        <Button
                                             type="button"
-                                            variant="destructive"
-                                            :disabled="deleteForm.processing"
-                                            @click="removeEntry(entry)"
+                                            variant="ghost"
+                                            size="icon-sm"
+                                            class="text-muted-foreground hover:text-foreground"
+                                            :aria-label="`${t('stage2.edit')} — ${dateLabel(entry.work_date)}`"
+                                            :disabled="form.processing"
+                                            @click="editEntry(entry)"
                                         >
-                                            <LoaderCircle
-                                                v-if="deleteForm.processing"
-                                                class="size-4 animate-spin"
-                                            />
-                                            {{ t('stage2.delete_entry') }}
-                                        </Button></DialogFooter
-                                    >
-                                </DialogContent>
-                            </Dialog>
+                                            <Pencil class="size-4" aria-hidden="true" />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top">{{ t('stage2.edit') }}</TooltipContent>
+                                </Tooltip>
+                                <Dialog
+                                    v-if="entry.can_delete"
+                                    :open="deletingId === entry.id"
+                                    @update:open="
+                                        (open) =>
+                                            (deletingId = open ? entry.id : null)
+                                    "
+                                >
+                                    <Tooltip>
+                                        <TooltipTrigger as-child>
+                                            <DialogTrigger as-child>
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="icon-sm"
+                                                    class="text-muted-foreground hover:text-destructive"
+                                                    :aria-label="`${t('stage2.delete')} — ${dateLabel(entry.work_date)}`"
+                                                    :disabled="deleteForm.processing"
+                                                >
+                                                    <Trash2 class="size-4" aria-hidden="true" />
+                                                </Button>
+                                            </DialogTrigger>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="top">{{ t('stage2.delete') }}</TooltipContent>
+                                    </Tooltip>
+                                    <DialogContent>
+                                        <DialogHeader
+                                            ><DialogTitle
+                                                >{{ t('stage2.delete_worklog_entry') }}</DialogTitle
+                                            ><DialogDescription
+                                                >{{ t('audit.this_will_permanently_remove_the_logged_time') }}</DialogDescription
+                                            ></DialogHeader
+                                        >
+                                        <DialogFooter
+                                            ><Button
+                                                type="button"
+                                                variant="destructive"
+                                                :disabled="deleteForm.processing"
+                                                @click="removeEntry(entry)"
+                                            >
+                                                <LoaderCircle
+                                                    v-if="deleteForm.processing"
+                                                    class="size-4 animate-spin"
+                                                />
+                                                {{ t('stage2.delete_entry') }}
+                                            </Button></DialogFooter
+                                        >
+                                    </DialogContent>
+                                </Dialog>
+                            </TooltipProvider>
                         </div>
                     </div>
                     <p

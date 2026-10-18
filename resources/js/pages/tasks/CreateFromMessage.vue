@@ -2,6 +2,9 @@
 import { useI18n } from '@/composables/useI18n';
 import { Form, Head, Link } from '@inertiajs/vue3';
 import { ArrowLeft, MessageSquare, Plus } from '@lucide/vue';
+import { ref } from 'vue';
+import TaskTypeLabel from '@/components/tasks/TaskTypeLabel.vue';
+import type { TaskTypeValue } from '@/types/task';
 import InputError from '@/components/InputError.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -34,6 +37,7 @@ const sourceUrl = `/projects/${props.project.id}/tasks/${props.source_task.id}`;
 const submitUrl = `${sourceUrl}/messages/${props.message.id}/create-task`;
 const selectClass =
     'h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-xs';
+const selectedType = ref<TaskTypeValue>(1);
 
 defineOptions({
     layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }] },
@@ -125,16 +129,24 @@ const { t, formatText } = useI18n();
                     <div class="grid gap-4 sm:grid-cols-2">
                         <div class="space-y-1.5">
                             <Label for="message-task-type">{{ t('stage2.type') }}</Label>
-                            <select
-                                id="message-task-type"
-                                name="type"
-                                :class="selectClass"
-                            >
-                                <option value="1">{{ t('stage2.task') }}</option>
-                                <option value="2">{{ t('stage2.feature') }}</option>
-                                <option value="3">{{ t('stage2.improvement') }}</option>
-                                <option value="4">{{ t('stage2.bug') }}</option>
-                            </select>
+                            <div class="relative">
+                                <TaskTypeLabel
+                                    :type="selectedType"
+                                    icon-only
+                                    class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2"
+                                />
+                                <select
+                                    id="message-task-type"
+                                    v-model.number="selectedType"
+                                    name="type"
+                                    class="h-9 w-full rounded-md border border-input bg-background py-0 pr-3 pl-9 text-sm shadow-xs"
+                                >
+                                    <option :value="1">{{ t('stage2.task') }}</option>
+                                    <option :value="2">{{ t('stage2.feature') }}</option>
+                                    <option :value="3">{{ t('stage2.improvement') }}</option>
+                                    <option :value="4">{{ t('stage2.bug') }}</option>
+                                </select>
+                            </div>
                             <InputError :message="errors.type" />
                         </div>
                         <div class="space-y-1.5">

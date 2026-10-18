@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
 import { LoaderCircle, Plus } from '@lucide/vue';
-import { watch } from 'vue';
+import { computed, watch } from 'vue';
 import InputError from '@/components/InputError.vue';
+import TaskTypeLabel from '@/components/tasks/TaskTypeLabel.vue';
 import { Button } from '@/components/ui/button';
 import { DatePicker } from '@/components/ui/date-picker';
 import {
@@ -23,6 +24,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { useI18n } from '@/composables/useI18n';
+import type { TaskTypeValue } from '@/types/task';
 import type {
     TaskParentSummary,
     TaskStatusSummary,
@@ -50,6 +52,7 @@ const form = useForm({
     parent_id: 'none',
     due_date: '',
 });
+const selectedType = computed(() => Number(form.type) as TaskTypeValue);
 
 watch(() => props.open, (open) => {
     if (!open) return;
@@ -132,13 +135,14 @@ function submit(): void {
                         <Label for="create-task-type">{{ t('stage2.type') }}</Label>
                         <Select v-model="form.type" :disabled="form.processing">
                             <SelectTrigger id="create-task-type" class="w-full">
+                                <TaskTypeLabel :type="selectedType" icon-only />
                                 <SelectValue :placeholder="t('stage2.select_type')" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="1">{{ t('stage2.task') }}</SelectItem>
-                                <SelectItem value="2">{{ t('stage2.feature') }}</SelectItem>
-                                <SelectItem value="3">{{ t('stage2.improvement') }}</SelectItem>
-                                <SelectItem value="4">{{ t('stage2.bug') }}</SelectItem>
+                                <SelectItem value="1"><TaskTypeLabel :type="1" /></SelectItem>
+                                <SelectItem value="2"><TaskTypeLabel :type="2" /></SelectItem>
+                                <SelectItem value="3"><TaskTypeLabel :type="3" /></SelectItem>
+                                <SelectItem value="4"><TaskTypeLabel :type="4" /></SelectItem>
                             </SelectContent>
                         </Select>
                         <InputError :message="form.errors.type" />

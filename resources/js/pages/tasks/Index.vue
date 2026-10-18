@@ -4,10 +4,6 @@ import { Head, Link, router } from '@inertiajs/vue3';
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 import {
     ArrowLeft,
-    Bug,
-    ListTodo,
-    Sparkles,
-    Wrench,
     Clock3,
     ClipboardList,
     LoaderCircle,
@@ -17,6 +13,7 @@ import {
 } from '@lucide/vue';
 import CreateTaskDialog from '@/components/tasks/CreateTaskDialog.vue';
 import TaskStatusIcon from '@/components/tasks/TaskStatusIcon.vue';
+import TaskTypeLabel from '@/components/tasks/TaskTypeLabel.vue';
 import UserAvatar from '@/components/UserAvatar.vue';
 import { taskPriorityDotClass, taskStatusBadgeClass } from '@/lib/taskVisuals';
 import { Badge } from '@/components/ui/badge';
@@ -445,11 +442,7 @@ const { t, displayLabel, formatText } = useI18n();
                                                         >
                                                             {{ task.reference }}
                                                             ·
-                                                            <Bug v-if="task.type === 4" class="inline size-3 align-[-2px]" aria-hidden="true" />
-                                                            <Sparkles v-else-if="task.type === 2" class="inline size-3 align-[-2px]" aria-hidden="true" />
-                                                            <Wrench v-else-if="task.type === 3" class="inline size-3 align-[-2px]" aria-hidden="true" />
-                                                            <ListTodo v-else class="inline size-3 align-[-2px]" aria-hidden="true" />
-                                                            {{ displayLabel(task.type_label) }}
+                                                            <TaskTypeLabel :type="task.type" />
                                                             <template
                                                                 v-if="
                                                                     task.parent
