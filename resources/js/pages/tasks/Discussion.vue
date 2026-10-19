@@ -21,7 +21,6 @@ import UserAvatar from '@/components/UserAvatar.vue';
 import TaskMarkdown from '@/components/tasks/TaskMarkdown.vue';
 import TaskImagePreviewDialog from '@/components/tasks/TaskImagePreviewDialog.vue';
 import { AsyncVisualMarkdownEditor } from '@/components/tasks/AsyncVisualMarkdownEditor';
-import type VisualMarkdownEditorComponent from '@/components/tasks/VisualMarkdownEditor.vue';
 import { Button } from '@/components/ui/button';
 import {
     Card,
@@ -58,17 +57,26 @@ const props = defineProps<{
 const editingId = ref<number | null>(null);
 const deletingId = ref<number | null>(null);
 const messageBody = ref('');
-const newEditor = ref<InstanceType<typeof VisualMarkdownEditorComponent> | null>(null);
-const editEditor = ref<InstanceType<typeof VisualMarkdownEditorComponent> | null>(null);
+type AttachmentInsertRequest = { id: number; file: TaskAttachmentSummary; image: boolean };
+let insertSequence = 0;
+const newInsertRequests = ref<AttachmentInsertRequest[]>([]);
+const editInsertRequests = ref<AttachmentInsertRequest[]>([]);
 const composerKey = ref(0);
 // Reading a task never downloads the rich editor; start it only on demand.
 const composerActive = ref(false);
+const composerUploading = ref(false);
+const editingUploading = ref(false);
 const recentUploads = ref<TaskAttachmentSummary[]>([]);
 const library = computed(() => [
     ...props.availableAttachments,
     ...recentUploads.value.filter(a => !props.availableAttachments.some(b => b.id === a.id)),
 ]);
 const editingBody = ref('');
+// Only newly selected IDs are submitted when editing: existing links are kept
+// unless the user explicitly unlinks one with the separate attachment action.
+const editAddedIds = ref<number[]>([]);
+const editLibraryOpen = ref(false);
+const editingOriginalIds = ref<number[]>([]);
 const selectedFiles = ref<File[]>([]);
 const selectedExistingIds = ref<number[]>([]);
 const showLibrary = ref(false);
@@ -85,6 +93,8 @@ watch(
         editingId.value = null;
         deletingId.value = null;
         resetComposer();
+        recentUploads.value = [];
+        editAddedIds.value = [];
         imagePreview.value = null;
     },
 );
@@ -108,11 +118,13 @@ const attachmentUrl = (file: TaskAttachmentSummary, action: 'preview' | 'downloa
 function resetComposer(): void {
     messageBody.value = '';
     composerActive.value = false;
+    composerUploading.value = false;
     selectedFiles.value = [];
     selectedExistingIds.value = [];
     showLibrary.value = false;
     postError.value = '';
     composerKey.value += 1;
+    newInsertRequests.value = [];
     if (filePicker.value) filePicker.value.value = '';
 }
 function selectFiles(event: Event): void {
@@ -134,6 +146,31 @@ function toggleExisting(id: number, checked: boolean): void {
 function startEditing(message: TaskMessageSummary): void {
     editingId.value = message.id;
     editingBody.value = message.body;
+    editingOriginalIds.value = message.attachments.map(file => file.id);
+    editInsertRequests.value = [];
+    editAddedIds.value = [];
+    editLibraryOpen.value = false;
+    editingUploading.value = false;
+}
+function stopEditing(): void {
+    editingId.value = null;
+    editInsertRequests.value = [];
+    editAddedIds.value = [];
+    editLibraryOpen.value = false;
+}
+function onEditUploaded(attachment: TaskAttachmentSummary): void {
+    recentUploads.value.push(attachment);
+    addEditAttachment(attachment);
+    router.reload({ only: ['attachments'] });
+}
+function addEditAttachment(file: TaskAttachmentSummary): boolean {
+    if (editingOriginalIds.value.includes(file.id) || editAddedIds.value.includes(file.id)) return true;
+    if (editingOriginalIds.value.length + editAddedIds.value.length >= 20) {
+        toast.error(t('messages.markdown.maxFiles'));
+        return false;
+    }
+    editAddedIds.value.push(file.id);
+    return true;
 }
 
 function onUploaded(attachment: TaskAttachmentSummary): void {
@@ -144,43 +181,35 @@ function onUploaded(attachment: TaskAttachmentSummary): void {
     // The file is in the task library immediately, even if the draft is discarded.
     router.reload({ only: ['attachments'] });
 }
-// Keep inserting attachments safe while the asynchronous editor is downloading.
-function appendAttachment(markdown: string, file: TaskAttachmentSummary, image: boolean): string {
-    const safeName = file.name.replace(/[\r\n]/g, ' ').replace(/[\\\[\]]/g, '\\$&');
-    return `${markdown}${markdown && !markdown.endsWith('\n') ? '\n' : ''}${image ? '!' : ''}[${safeName}](attachment:${file.id})\n`;
-}
-
+// A reactive insertion request reaches the editor even while its async component
+// is still loading. Calling a method through a ref to the async Vue wrapper was
+// unreliable and could leave both attachment buttons seemingly inactive.
 function insertExisting(file: TaskAttachmentSummary, image: boolean, mode: 'new' | 'edit'): void {
-    if (mode === 'new' && !selectedExistingIds.value.includes(file.id)) {
-        if (selectedExistingIds.value.length >= 20) {
-            toast.error(t('messages.markdown.maxFiles'));
-            return;
-        }
-        selectedExistingIds.value = [...selectedExistingIds.value, file.id];
-    }
     if (mode === 'new') {
-        if (!newEditor.value) {
-            messageBody.value = appendAttachment(messageBody.value, file, image);
-            composerActive.value = true;
-        } else {
-            newEditor.value.insertAttachment(file, image);
+        if (!selectedExistingIds.value.includes(file.id)) {
+            if (selectedExistingIds.value.length >= 20) {
+                toast.error(t('messages.markdown.maxFiles'));
+                return;
+            }
+            selectedExistingIds.value = [...selectedExistingIds.value, file.id];
         }
-    } else if (!editEditor.value) {
-        editingBody.value = appendAttachment(editingBody.value, file, image);
+        composerActive.value = true;
+        newInsertRequests.value = [...newInsertRequests.value, { id: ++insertSequence, file, image }];
     } else {
-        editEditor.value.insertAttachment(file, image);
+        if (!addEditAttachment(file)) return;
+        editInsertRequests.value = [...editInsertRequests.value, { id: ++insertSequence, file, image }];
     }
 }
 
 function showInlineImage(url: string): void {
     const match = url.match(/\/attachments\/(\d+)\/preview$/);
     if (!match) return;
-    const file = props.availableAttachments.find(item => item.id === Number(match[1]));
+    const file = library.value.find(item => item.id === Number(match[1]));
     if (file?.is_image) imagePreview.value = file;
 }
 
 function submitMessage(): void {
-    if (!props.canPost || posting.value) return;
+    if (!props.canPost || posting.value || composerUploading.value) return;
     postError.value = '';
     router.post(messagesUrl.value, {
         body: messageBody.value,
@@ -372,28 +401,56 @@ function unlink(messageId: number, attachmentId: number): void {
                             :options="stayOnTask"
                             @error="notifyError"
                             class="space-y-2"
-                            @success="editingId = null"
+                            @success="stopEditing"
                             v-slot="{ errors, processing }"
                         >
                             <input type="hidden" name="body" :value="editingBody" />
+                            <input v-for="id in editAddedIds" :key="id" type="hidden" name="attachment_ids[]" :value="id" />
                             <AsyncVisualMarkdownEditor
-                                ref="editEditor"
+                                :insert-requests="editInsertRequests"
                                 v-model="editingBody"
                                 :project-id="projectId"
                                 :task-id="taskId"
-                                :attachments="message.attachments"
+                                :attachments="library"
                                 :disabled="processing"
                                 :placeholder="t('stage2.edit_message')"
+                                compact
+                                :can-upload="editingOriginalIds.length + editAddedIds.length < 20"
+                                @uploaded="onEditUploaded"
+                                @uploading="editingUploading = $event"
                             />
-                            <div v-if="message.attachments.length" class="flex flex-wrap gap-1.5">
-                                <template v-for="file in message.attachments" :key="file.id">
-                                    <Button v-if="file.is_image" type="button" size="sm" variant="outline" :disabled="processing" :title="t('messages.markdown.insertImage')" @click="insertExisting(file, true, 'edit')"><ImageIcon class="size-3.5" />{{ file.name }}</Button>
-                                    <Button type="button" size="sm" variant="outline" :disabled="processing" :title="t('messages.markdown.insertLink')" @click="insertExisting(file, false, 'edit')"><Link2 class="size-3.5" />{{ file.name }}</Button>
-                                </template>
+                            <div v-if="message.attachments.length" class="space-y-1 rounded-md border p-2">
+                                <div v-for="file in message.attachments" :key="file.id" class="flex min-w-0 flex-wrap items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted/40">
+                                    <ImageIcon v-if="file.is_image" class="size-4 shrink-0 text-muted-foreground" />
+                                    <Paperclip v-else class="size-4 shrink-0 text-muted-foreground" />
+                                    <span class="min-w-24 flex-1 truncate" :title="file.name">{{ file.name }}</span>
+                                    <div class="ml-auto flex flex-wrap items-center gap-1">
+                                        <Button v-if="file.is_image" type="button" size="sm" variant="ghost" :disabled="processing || editingUploading" @click.prevent="insertExisting(file, true, 'edit')"><ImageIcon class="size-3.5" />{{ t('messages.markdown.insertImage') }}</Button>
+                                        <Button type="button" size="sm" variant="ghost" :disabled="processing || editingUploading" @click.prevent="insertExisting(file, false, 'edit')"><Link2 class="size-3.5" />{{ t('messages.markdown.insertLink') }}</Button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="flex flex-wrap items-center gap-2">
+                                <Button type="button" size="sm" variant="outline" :disabled="processing || editingUploading" :aria-expanded="editLibraryOpen" @click="editLibraryOpen = !editLibraryOpen">
+                                    <Paperclip class="size-3.5" /> {{ t('messages.attachments.fromTask') }}
+                                </Button>
+                                <span v-if="editAddedIds.length" class="text-xs text-muted-foreground">{{ t('messages.attachments.selected') }}: {{ editAddedIds.length }}</span>
+                            </div>
+                            <div v-if="editLibraryOpen" class="max-h-48 space-y-1 overflow-y-auto rounded-md border p-2" :aria-label="t('messages.attachments.fromTask')">
+                                <div v-for="file in library" :key="file.id" class="flex min-w-0 flex-wrap items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted/40">
+                                    <ImageIcon v-if="file.is_image" class="size-4 shrink-0 text-muted-foreground" /><Paperclip v-else class="size-4 shrink-0 text-muted-foreground" />
+                                    <span class="min-w-24 flex-1 truncate" :title="file.name">{{ file.name }}</span>
+                                    <div class="ml-auto flex flex-wrap items-center gap-1">
+                                        <Button v-if="file.is_image" type="button" size="sm" variant="ghost" :disabled="processing || editingUploading" @click.prevent="insertExisting(file, true, 'edit')"><ImageIcon class="size-3.5" />{{ t('messages.markdown.insertImage') }}</Button>
+                                        <Button type="button" size="sm" variant="ghost" :disabled="processing || editingUploading" @click.prevent="insertExisting(file, false, 'edit')"><Link2 class="size-3.5" />{{ t('messages.markdown.insertLink') }}</Button>
+                                    </div>
+                                </div>
+                                <p v-if="!library.length" class="text-xs text-muted-foreground">{{ t('attachments.empty') }}</p>
                             </div>
                             <InputError :message="errors.body" />
+                            <InputError :message="errors.attachment_ids ?? errors['attachment_ids.0']" />
                             <div class="flex gap-2">
-                                <Button size="sm" :disabled="processing"
+                                <Button size="sm" :disabled="processing || editingUploading"
                                     ><LoaderCircle
                                         v-if="processing"
                                         class="size-4 animate-spin"
@@ -405,8 +462,8 @@ function unlink(messageId: number, attachmentId: number): void {
                                     type="button"
                                     size="sm"
                                     variant="outline"
-                                    :disabled="processing"
-                                    @click="editingId = null"
+                                    :disabled="processing || editingUploading"
+                                    @click="stopEditing"
                                     >{{ t('stage2.cancel') }}</Button
                                 >
                             </div>
@@ -446,15 +503,17 @@ function unlink(messageId: number, attachmentId: number): void {
                 <AsyncVisualMarkdownEditor
                     v-else
                     :key="composerKey"
-                    ref="newEditor"
+                    :insert-requests="newInsertRequests"
                     v-model="messageBody"
                     :project-id="projectId"
                     :task-id="taskId"
                     :attachments="library"
                     :disabled="posting"
                     :placeholder="t('stage2.share_an_update_a_question_or_a_decision')"
-                    can-upload
+                    compact
+                    :can-upload="selectedExistingIds.length < 20"
                     @uploaded="onUploaded"
+                    @uploading="composerUploading = $event"
                 />
                 <p class="text-xs text-muted-foreground">{{ t('messages.markdown.help') }}</p>
                 <input ref="filePicker" type="file" class="sr-only" multiple accept=".jpg,.jpeg,.png,.webp,.pdf,.txt,.json,.zip" :aria-label="t('messages.attachments.addFiles')" @change="selectFiles" />
@@ -468,18 +527,20 @@ function unlink(messageId: number, attachmentId: number): void {
                 </div>
                 <p v-if="selectedFiles.length" class="text-xs text-muted-foreground">{{ selectedFiles.map(file => file.name).join(', ') }}</p>
                 <div v-if="showLibrary" class="max-h-48 space-y-1 overflow-y-auto rounded-md border p-2" :aria-label="t('messages.attachments.fromTask')">
-                    <div v-for="attachment in library" :key="attachment.id" class="flex items-center gap-2 rounded px-2 py-1.5 text-xs hover:bg-muted">
+                    <div v-for="attachment in library" :key="attachment.id" class="flex min-w-0 flex-wrap items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted/40">
                         <input type="checkbox" :aria-label="attachment.name" :checked="selectedExistingIds.includes(attachment.id)" :disabled="posting || (selectedExistingIds.length >= 20 && !selectedExistingIds.includes(attachment.id))" @change="toggleExisting(attachment.id, ($event.target as HTMLInputElement).checked)" />
-                        <ImageIcon v-if="attachment.is_image" class="size-3.5 shrink-0" /><Paperclip v-else class="size-3.5 shrink-0" />
-                        <span class="min-w-0 flex-1 truncate">{{ attachment.name }}</span>
-                        <button v-if="attachment.is_image" type="button" class="shrink-0 rounded border px-2 py-1 hover:bg-background" :disabled="posting" :title="t('messages.markdown.insertImage')" @click.prevent="insertExisting(attachment, true, 'new')"><ImageIcon class="size-3.5" /></button>
-                        <button type="button" class="shrink-0 rounded border px-2 py-1 hover:bg-background" :disabled="posting" :title="t('messages.markdown.insertLink')" @click.prevent="insertExisting(attachment, false, 'new')"><Link2 class="size-3.5" /></button>
+                        <ImageIcon v-if="attachment.is_image" class="size-4 shrink-0 text-muted-foreground" /><Paperclip v-else class="size-4 shrink-0 text-muted-foreground" />
+                        <span class="min-w-24 flex-1 truncate" :title="attachment.name">{{ attachment.name }}</span>
+                        <div class="ml-auto flex flex-wrap items-center gap-1">
+                            <Button v-if="attachment.is_image" type="button" size="sm" variant="ghost" :disabled="posting || composerUploading" @click.prevent="insertExisting(attachment, true, 'new')"><ImageIcon class="size-3.5" />{{ t('messages.markdown.insertImage') }}</Button>
+                            <Button type="button" size="sm" variant="ghost" :disabled="posting || composerUploading" @click.prevent="insertExisting(attachment, false, 'new')"><Link2 class="size-3.5" />{{ t('messages.markdown.insertLink') }}</Button>
+                        </div>
                     </div>
                 </div>
                 <p v-if="selectedExistingIds.length" class="text-xs text-muted-foreground">{{ t('messages.attachments.selected') }}: {{ selectedExistingIds.length }}</p>
                 <p v-if="postError" role="alert" class="text-sm text-destructive">{{ postError }}</p>
                 <div class="flex justify-end">
-                    <Button type="submit" :disabled="posting || (!messageBody.trim() && !selectedFiles.length && !selectedExistingIds.length)">
+                    <Button type="submit" :disabled="posting || composerUploading || (!messageBody.trim() && !selectedFiles.length && !selectedExistingIds.length)">
                         <LoaderCircle v-if="posting" class="size-4 animate-spin" /><Send v-else class="size-4" />
                         {{ posting ? t('followup.posting') : t('followup.post') }}
                     </Button>

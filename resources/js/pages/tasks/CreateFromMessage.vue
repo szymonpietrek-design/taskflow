@@ -4,6 +4,7 @@ import { Form, Head, Link } from '@inertiajs/vue3';
 import { ArrowLeft, MessageSquare, Plus } from '@lucide/vue';
 import { ref } from 'vue';
 import TaskTypeLabel from '@/components/tasks/TaskTypeLabel.vue';
+import TaskPrioritySelect from '@/components/tasks/TaskPrioritySelect.vue';
 import type { TaskTypeValue } from '@/types/task';
 import InputError from '@/components/InputError.vue';
 import { Badge } from '@/components/ui/badge';
@@ -38,6 +39,7 @@ const submitUrl = `${sourceUrl}/messages/${props.message.id}/create-task`;
 const selectClass =
     'h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-xs';
 const selectedType = ref<TaskTypeValue>(1);
+const selectedPriority = ref('2');
 
 defineOptions({
     layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }] },
@@ -151,16 +153,13 @@ const { t, formatText } = useI18n();
                         </div>
                         <div class="space-y-1.5">
                             <Label for="message-task-priority">{{ t('stage2.priority') }}</Label>
-                            <select
+                            <input type="hidden" name="priority" :value="selectedPriority" />
+                            <TaskPrioritySelect
                                 id="message-task-priority"
-                                name="priority"
-                                :class="selectClass"
-                            >
-                                <option value="2">{{ t('stage2.normal') }}</option>
-                                <option value="1">{{ t('stage2.low') }}</option>
-                                <option value="3">{{ t('stage2.high') }}</option>
-                                <option value="4">{{ t('stage2.urgent') }}</option>
-                            </select>
+                                v-model="selectedPriority"
+                                :disabled="processing"
+                                :invalid="!!errors.priority"
+                            />
                             <InputError :message="errors.priority" />
                         </div>
                         <div class="space-y-1.5">

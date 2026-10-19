@@ -4,7 +4,7 @@ import { editorViewCtx } from '@milkdown/kit/core';
 import { TextSelection } from '@milkdown/kit/prose/state';
 import { setBlockType, toggleMark } from '@milkdown/kit/prose/commands';
 import { liftListItem, wrapInList } from '@milkdown/kit/prose/schema-list';
-import { insert, insertPos, replaceAll } from '@milkdown/kit/utils';
+import { insert, replaceAll } from '@milkdown/kit/utils';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { toast } from 'vue-sonner';
 import { useI18n } from '@/composables/useI18n';
@@ -24,23 +24,49 @@ const props = withDefaults(defineProps<{
     placeholder?: string;
     disabled?: boolean;
     canUpload?: boolean;
+    compact?: boolean;
     maxLength?: number;
-}>(), { placeholder: '', disabled: false, canUpload: false, maxLength: 10000 });
+    // Commands from parents are declarative, so refs to async wrappers are not needed.
+    insertRequests?: Array<{ id: number; file: TaskAttachmentSummary; image: boolean }>;
+}>(), { placeholder: '', disabled: false, canUpload: false, compact: false, maxLength: 10000 });
 
 const emit = defineEmits<{
     'update:modelValue': [value: string];
     uploaded: [attachment: TaskAttachmentSummary];
+    uploading: [value: boolean];
 }>();
 const { t } = useI18n();
 const root = ref<HTMLElement | null>(null);
 const imagePicker = ref<HTMLInputElement | null>(null);
 const uploadingImage = ref(false);
+let activeUploads = 0;
 const sourceMode = ref(false);
 const ready = ref(false);
 const localUploads = ref<TaskAttachmentSummary[]>([]);
 const allAttachments = computed(() => [...props.attachments, ...localUploads.value.filter(a => !props.attachments.some(b => b.id === a.id))]);
 let crepe: Crepe | null = null;
 let updatingFromSource = false;
+const queuedInsertions: Array<{ id: number; file: TaskAttachmentSummary; image: boolean }> = [];
+const handledInsertions = new Set<number>();
+
+function flushQueuedInsertions(): void {
+    if (!ready.value && !sourceMode.value) return;
+    while (queuedInsertions.length) {
+        const request = queuedInsertions.shift()!;
+        insertAttachment(request.file, request.image);
+    }
+}
+
+// The editor is loaded asynchronously. An insertion request can arrive before
+// Crepe is mounted: queue it and replay it once the editor is initialized.
+watch(() => props.insertRequests, requests => {
+    for (const request of requests ?? []) {
+        if (handledInsertions.has(request.id)) continue;
+        handledInsertions.add(request.id);
+        queuedInsertions.push(request);
+    }
+    flushQueuedInsertions();
+}, { immediate: true });
 
 type TextBlock = 'paragraph' | 'h1' | 'h2' | 'h3' | 'code';
 type EditorFormatting = {
@@ -164,21 +190,28 @@ function csrfToken(): Record<string, string> {
 }
 async function uploadImage(file: File): Promise<string> {
     if (!props.canUpload || props.disabled) throw new Error('Upload not permitted');
-    const payload = new FormData();
-    payload.append('file', file);
-    const response = await fetch(`${baseUrl.value}/inline`, {
-        method: 'POST', credentials: 'same-origin',
-        headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest', ...csrfToken() },
-        body: payload,
-    });
-    if (!response.ok) {
+    activeUploads += 1;
+    emit('uploading', true);
+    try {
+        const payload = new FormData();
+        payload.append('file', file);
+        const response = await fetch(`${baseUrl.value}/inline`, {
+            method: 'POST', credentials: 'same-origin',
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest', ...csrfToken() },
+            body: payload,
+        });
+        if (!response.ok) throw new Error(`Attachment upload failed: ${response.status}`);
+        const data: { attachment: TaskAttachmentSummary } = await response.json();
+        localUploads.value.push(data.attachment);
+        emit('uploaded', data.attachment);
+        return attachmentUrl(data.attachment.id, true);
+    } catch (error) {
         toast.error(t('visualEditor.uploadError'));
-        throw new Error(`Attachment upload failed: ${response.status}`);
+        throw error;
+    } finally {
+        activeUploads -= 1;
+        if (activeUploads === 0) emit('uploading', false);
     }
-    const data: { attachment: TaskAttachmentSummary } = await response.json();
-    localUploads.value.push(data.attachment);
-    emit('uploaded', data.attachment);
-    return attachmentUrl(data.attachment.id, true);
 }
 
 function setValue(value: string): void {
@@ -201,7 +234,8 @@ async function createEditor(): Promise<void> {
             // Crepe's built-in block menu is too wide for the task panel.
         },
         features: {
-            [Crepe.Feature.ImageBlock]: props.canUpload,
+            // Rendering existing images must not depend on upload permission.
+            [Crepe.Feature.ImageBlock]: true,
             [Crepe.Feature.BlockEdit]: false,
             [Crepe.Feature.Toolbar]: false,
             [Crepe.Feature.Latex]: false,
@@ -221,11 +255,13 @@ async function createEditor(): Promise<void> {
         await instance.create();
         instance.setReadonly(props.disabled);
         ready.value = true;
+        flushQueuedInsertions();
         attachSelectionListeners();
         scheduleFormatting();
     } catch {
         // Keep the source editor available if the rich editor cannot initialize.
         sourceMode.value = true;
+        flushQueuedInsertions();
         toast.error(t('visualEditor.loadError'));
     }
 }
@@ -415,14 +451,25 @@ function insertAttachment(file: TaskAttachmentSummary, image: boolean): void {
     const occurrences = (markdown: string): number => markdown.split(reference).length - 1;
 
     if (asImage) {
-        // Keep images outside the current list item, table cell or heading.
-        let position = 0;
-        crepe.editor.action(ctx => {
-            const view = ctx.get(editorViewCtx);
-            const $from = view.state.selection.$from;
-            position = $from.depth > 0 ? $from.after(1) : view.state.doc.content.size;
-        });
-        crepe.editor.action(insertPos(`${browserMarkdown}\n\n`, position));
+        // An image is a block, not inline text. insertPos() can throw when
+        // the current selection is inside an image, list or table; this used
+        // to make "Insert image" silently do nothing while links worked.
+        // Reparse the complete Markdown with a new top-level image block.
+        const withImage = `${before.trimEnd()}${before.trim() ? '\n\n' : ''}${source}\n`;
+        if (withImage.length > props.maxLength) {
+            toast.error(t('messages.markdown.tooLong'));
+            return;
+        }
+        try {
+            crepe.editor.action(replaceAll(toVisual(withImage), true));
+        } catch {
+            // Keep the newly inserted image and all previous content editable
+            // even if the visual parser encounters an unsupported block.
+            sourceMode.value = true;
+            setValue(withImage);
+            toast.error(t('visualEditor.loadError'));
+            return;
+        }
     } else {
         // A parsed Markdown link retains its href across editor transactions.
         crepe.editor.action(insert(browserMarkdown, true));
@@ -430,11 +477,19 @@ function insertAttachment(file: TaskAttachmentSummary, image: boolean): void {
 
     let result = toPortable(crepe.getMarkdown());
     if (occurrences(result) <= occurrences(before)) {
-        // If an editor plugin changed or removed the link, keep the actual
-        // reference rather than silently storing only the filename.
+        // Preserve the reference if a plugin stripped the image or link.
         const preserved = `${before.trimEnd()}${before.trim() ? '\n\n' : ''}${source}\n`;
-        crepe.editor.action(replaceAll(toVisual(preserved), true));
-        result = toPortable(crepe.getMarkdown());
+        if (preserved.length > props.maxLength) {
+            toast.error(t('messages.markdown.tooLong'));
+            return;
+        }
+        try {
+            crepe.editor.action(replaceAll(toVisual(preserved), true));
+            result = toPortable(crepe.getMarkdown());
+        } catch {
+            // The source editor is always available as a safe fallback.
+            result = before;
+        }
         if (occurrences(result) <= occurrences(before)) {
             sourceMode.value = true;
             setValue(preserved);
@@ -449,7 +504,7 @@ defineExpose({ insertAttachment });
 </script>
 
 <template>
-    <div class="visual-markdown-editor relative rounded-md border border-input" :aria-label="t('visualEditor.label')">
+    <div class="visual-markdown-editor relative rounded-md border border-input" :class="{ 'is-compact': compact }" :aria-label="t('visualEditor.label')">
         <div class="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-t-md border-b bg-muted/20 px-2 py-1.5">
             <span class="text-xs text-muted-foreground">{{ t('visualEditor.label') }}</span>
             <div class="flex items-center gap-1">
@@ -534,6 +589,11 @@ defineExpose({ insertAttachment });
     max-width: none;
     padding: 0.75rem 1rem 0.875rem;
     overflow: visible;
+}
+/* A message starts compact, but content grows naturally with the cursor.
+   The description editor retains its existing size and formatting. */
+.visual-markdown-editor.is-compact :deep(.milkdown .editor) {
+    min-height: 11rem;
 }
 @media (max-width: 540px) {
     .visual-markdown-editor :deep(.milkdown .editor) {

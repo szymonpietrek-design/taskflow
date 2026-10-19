@@ -95,6 +95,11 @@ watch(
 const hasStatusChange = computed(
     () => selectedStatus.value !== String(props.task.status.id),
 );
+function startDetailsEdit(): void {
+    // Hide any in-progress quick status editor when switching to the full form.
+    editingStatus.value = false;
+    editingDetails.value = true;
+}
 function startStatusEdit(): void {
     selectedStatus.value = String(props.task.status.id);
     editingStatus.value = true;
@@ -128,7 +133,7 @@ const { t, displayLabel, locale } = useI18n();
 <template>
     <Head :title="`${task.reference} · ${task.title}`" />
 
-    <div class="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 p-4 md:p-6">
+    <div class="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 p-4 md:p-6">
         <div>
             <Link
                 :href="`/projects/${project.id}/tasks`"
@@ -144,8 +149,8 @@ const { t, displayLabel, locale } = useI18n();
                     {{ t('followup.priority') }}: {{ displayLabel(task.priority_label) }}
                 </Badge>
             </div>
-            <div class="mt-3 flex items-start justify-between gap-4">
-                <h1 class="text-2xl font-semibold tracking-tight">
+            <div class="mt-3 flex flex-wrap items-start justify-between gap-4">
+                <h1 class="min-w-0 flex-1 break-words text-2xl font-semibold tracking-tight">
                     {{ task.title }}
                 </h1>
                 <Button
@@ -153,21 +158,144 @@ const { t, displayLabel, locale } = useI18n();
                     type="button"
                     size="sm"
                     variant="outline"
-                    @click="editingDetails = true"
+                    class="shrink-0"
+                    @click="startDetailsEdit"
                 >
                     <Pencil class="size-4" /> {{ t('stage2.edit_task') }}
                 </Button>
             </div>
         </div>
 
-        <div class="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_19rem]">
-            <div class="space-y-5">
+        <div
+            class="grid min-w-0 items-start gap-5 xl:gap-6"
+            :class="editingDetails && can_update ? 'grid-cols-1' : 'xl:grid-cols-[minmax(0,1fr)_18rem]'"
+        >
+            <aside
+                v-if="!editingDetails || !can_update"
+                class="min-w-0 xl:sticky xl:top-6 xl:col-start-2 xl:row-start-1"
+            >
+                <Card>
+                    <CardHeader class="pb-3">
+                        <CardTitle>{{ t('stage2.details') }}</CardTitle>
+                    </CardHeader>
+                    <CardContent class="text-sm">
+                        <div class="space-y-4">
+                            <section>
+                                <p class="mb-2 text-xs font-medium text-muted-foreground">{{ t('stage2.status') }}</p>
+                                <div class="flex min-h-8 flex-wrap items-center gap-2">
+                                    <Badge variant="outline" class="gap-1.5" :class="taskStatusBadgeClass(task.status.category)">
+                                        <TaskStatusIcon :category="task.status.category" />
+                                        {{ task.status.name }}
+                                    </Badge>
+                                    <Button
+                                        v-if="can_update && !editingStatus"
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon-sm"
+                                        class="size-7 text-muted-foreground hover:text-foreground"
+                                        :aria-label="t('stage2.edit_status')"
+                                        :title="t('stage2.edit_status')"
+                                        :aria-expanded="editingStatus"
+                                        aria-controls="task-status-editor"
+                                        @click="startStatusEdit"
+                                    >
+                                        <Pencil class="size-3.5" />
+                                    </Button>
+                                </div>
+                                <Form
+                                    v-if="can_update && editingStatus"
+                                    id="task-status-editor"
+                                    :action="statusUrl"
+                                    method="patch"
+                                    :options="stayOnTask"
+                                    @error="notifyError"
+                                    @success="finishStatusEdit"
+                                    class="mt-3 space-y-2 rounded-lg border border-border/60 bg-muted/20 p-3"
+                                    v-slot="{ errors, processing }"
+                                >
+                                    <input type="hidden" name="status_id" :value="selectedStatus" />
+                                    <Select v-model="selectedStatus" :disabled="processing">
+                                        <SelectTrigger :aria-label="t('stage2.task_status')" class="w-full">
+                                            <SelectValue :placeholder="t('stage2.select_status')" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem
+                                                v-for="status in statuses"
+                                                :key="status.id"
+                                                :value="String(status.id)"
+                                            >{{ status.name }}</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <InputError :message="errors.status_id" />
+                                    <div class="flex items-center gap-2">
+                                        <Button type="submit" size="sm" :disabled="processing || !hasStatusChange">
+                                            <LoaderCircle v-if="processing" class="size-4 animate-spin" />
+                                            {{ processing ? t('followup.updating') : t('common.save') }}
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            :disabled="processing"
+                                            @click="finishStatusEdit"
+                                        >{{ t('common.cancel') }}</Button>
+                                    </div>
+                                </Form>
+                            </section>
+
+                            <section v-if="task.release" class="border-t border-border/60 pt-4">
+                                <Label class="text-xs text-muted-foreground">{{ t('stage2.release') }}</Label>
+                                <p class="mt-1 font-medium">
+                                    <Link
+                                        :href="`/projects/${project.id}/releases/${task.release.id}`"
+                                        class="underline decoration-muted-foreground/40 underline-offset-4 hover:text-primary"
+                                    >v{{ task.release.version }}</Link>
+                                </p>
+                            </section>
+
+                            <section class="border-t border-border/60 pt-4">
+                                <Label class="text-xs text-muted-foreground">{{ t('stage2.assigned_to') }}</Label>
+                                <div v-if="task.assignee" class="mt-2 flex min-w-0 items-center gap-2.5">
+                                    <UserAvatar :user-id="task.assignee.id" :name="task.assignee.name" small />
+                                    <span class="min-w-0 break-words font-medium">{{ task.assignee.name }}</span>
+                                </div>
+                                <p v-else class="mt-1 text-muted-foreground">{{ t('fix.no_assignee') }}</p>
+                            </section>
+
+                            <section class="border-t border-border/60 pt-4">
+                                <Label class="text-xs text-muted-foreground">{{ t('stage2.created_by') }}</Label>
+                                <div class="mt-2 flex min-w-0 items-center gap-2.5">
+                                    <UserAvatar :user-id="task.creator.id" :name="task.creator.name" small />
+                                    <span class="min-w-0 break-words font-medium">{{ task.creator.name }}</span>
+                                </div>
+                            </section>
+
+                            <section class="border-t border-border/60 pt-4">
+                                <Label class="text-xs text-muted-foreground">{{ t('stage2.due_date') }}</Label>
+                                <p class="mt-1.5 inline-flex items-center gap-2">
+                                    <CalendarDays class="size-4 shrink-0 text-muted-foreground" />
+                                    <span>{{ dueDateLabel }}</span>
+                                </p>
+                            </section>
+                            <section v-if="task.completed_at" class="border-t border-border/60 pt-4">
+                                <p class="text-xs text-muted-foreground">{{ t('stage2.completed') }}</p>
+                                <p class="mt-1">
+                                    {{ new Date(task.completed_at).toLocaleString(locale === 'pl' ? 'pl-PL' : 'en-US') }}
+                                </p>
+                            </section>
+                        </div>
+                    </CardContent>
+                </Card>
+            </aside>
+
+            <div class="min-w-0 space-y-5 xl:col-start-1 xl:row-start-1">
                 <TaskDetailsForm
                     v-if="editingDetails && can_update"
                     :project-id="project.id"
                     :task="task"
                     :attachments="attachments"
                     :assignees="assignees"
+                    :statuses="statuses"
                     @saved="editingDetails = false"
                     @cancel="editingDetails = false"
                 />
@@ -175,7 +303,7 @@ const { t, displayLabel, locale } = useI18n();
                     <CardHeader>
                         <CardTitle>{{ t('stage2.description') }}</CardTitle>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent class="min-w-0">
                         <TaskMarkdown
                             v-if="task.description_html"
                             :html="task.description_html"
@@ -234,14 +362,6 @@ const { t, displayLabel, locale } = useI18n();
                     :can-create="can_create_subtask"
                 />
 
-                <TaskWorklog
-                    :project-id="project.id"
-                    :task-id="task.id"
-                    :entries="worklogs"
-                    :total-minutes="worklog_total_minutes"
-                    :can-log="can_log_work"
-                />
-
                 <TaskDiscussion
                     :project-id="project.id"
                     :task-id="task.id"
@@ -249,120 +369,15 @@ const { t, displayLabel, locale } = useI18n();
                     :available-attachments="attachments"
                     :can-post="can_post_message"
                 />
+
+                <TaskWorklog
+                    :project-id="project.id"
+                    :task-id="task.id"
+                    :entries="worklogs"
+                    :total-minutes="worklog_total_minutes"
+                    :can-log="can_log_work"
+                />
             </div>
-
-            <Card class="lg:sticky lg:top-6">
-                <CardHeader class="pb-3">
-                    <CardTitle>{{ t('stage2.details') }}</CardTitle>
-                </CardHeader>
-                <CardContent class="text-sm">
-                    <div class="space-y-4">
-                        <section>
-                            <p class="mb-2 text-xs font-medium text-muted-foreground">{{ t('stage2.status') }}</p>
-                            <div class="flex min-h-8 flex-wrap items-center gap-2">
-                                <Badge variant="outline" class="gap-1.5" :class="taskStatusBadgeClass(task.status.category)">
-                                    <TaskStatusIcon :category="task.status.category" />
-                                    {{ task.status.name }}
-                                </Badge>
-                                <Button
-                                    v-if="can_update && !editingStatus"
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon-sm"
-                                    class="size-7 text-muted-foreground hover:text-foreground"
-                                    :aria-label="t('stage2.edit_status')"
-                                    :title="t('stage2.edit_status')"
-                                    :aria-expanded="editingStatus"
-                                    aria-controls="task-status-editor"
-                                    @click="startStatusEdit"
-                                >
-                                    <Pencil class="size-3.5" />
-                                </Button>
-                            </div>
-                            <Form
-                                v-if="can_update && editingStatus"
-                                id="task-status-editor"
-                                :action="statusUrl"
-                                method="patch"
-                                :options="stayOnTask"
-                                @error="notifyError"
-                                @success="finishStatusEdit"
-                                class="mt-3 space-y-2 rounded-lg border border-border/60 bg-muted/20 p-3"
-                                v-slot="{ errors, processing }"
-                            >
-                                <input type="hidden" name="status_id" :value="selectedStatus" />
-                                <Select v-model="selectedStatus" :disabled="processing">
-                                    <SelectTrigger :aria-label="t('stage2.task_status')" class="w-full">
-                                        <SelectValue :placeholder="t('stage2.select_status')" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem
-                                            v-for="status in statuses"
-                                            :key="status.id"
-                                            :value="String(status.id)"
-                                        >{{ status.name }}</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                <InputError :message="errors.status_id" />
-                                <div class="flex items-center gap-2">
-                                    <Button type="submit" size="sm" :disabled="processing || !hasStatusChange">
-                                        <LoaderCircle v-if="processing" class="size-4 animate-spin" />
-                                        {{ processing ? t('followup.updating') : t('common.save') }}
-                                    </Button>
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="sm"
-                                        :disabled="processing"
-                                        @click="finishStatusEdit"
-                                    >{{ t('common.cancel') }}</Button>
-                                </div>
-                            </Form>
-                        </section>
-
-                        <section v-if="task.release" class="border-t border-border/60 pt-4">
-                            <Label class="text-xs text-muted-foreground">{{ t('stage2.release') }}</Label>
-                            <p class="mt-1 font-medium">
-                                <Link
-                                    :href="`/projects/${project.id}/releases/${task.release.id}`"
-                                    class="underline decoration-muted-foreground/40 underline-offset-4 hover:text-primary"
-                                >v{{ task.release.version }}</Link>
-                            </p>
-                        </section>
-
-                        <section class="border-t border-border/60 pt-4">
-                            <Label class="text-xs text-muted-foreground">{{ t('stage2.assigned_to') }}</Label>
-                            <div v-if="task.assignee" class="mt-2 flex min-w-0 items-center gap-2.5">
-                                <UserAvatar :user-id="task.assignee.id" :name="task.assignee.name" small />
-                                <span class="min-w-0 break-words font-medium">{{ task.assignee.name }}</span>
-                            </div>
-                            <p v-else class="mt-1 text-muted-foreground">{{ t('fix.no_assignee') }}</p>
-                        </section>
-
-                        <section class="border-t border-border/60 pt-4">
-                            <Label class="text-xs text-muted-foreground">{{ t('stage2.created_by') }}</Label>
-                            <div class="mt-2 flex min-w-0 items-center gap-2.5">
-                                <UserAvatar :user-id="task.creator.id" :name="task.creator.name" small />
-                                <span class="min-w-0 break-words font-medium">{{ task.creator.name }}</span>
-                            </div>
-                        </section>
-
-                        <section class="border-t border-border/60 pt-4">
-                            <Label class="text-xs text-muted-foreground">{{ t('stage2.due_date') }}</Label>
-                            <p class="mt-1.5 inline-flex items-center gap-2">
-                                <CalendarDays class="size-4 shrink-0 text-muted-foreground" />
-                                <span>{{ dueDateLabel }}</span>
-                            </p>
-                        </section>
-                        <section v-if="task.completed_at" class="border-t border-border/60 pt-4">
-                            <p class="text-xs text-muted-foreground">{{ t('stage2.completed') }}</p>
-                            <p class="mt-1">
-                                {{ new Date(task.completed_at).toLocaleString(locale === 'pl' ? 'pl-PL' : 'en-US') }}
-                            </p>
-                        </section>
-                    </div>
-                </CardContent>
-            </Card>
         </div>
         <TaskImagePreviewDialog
             :project-id="project.id"

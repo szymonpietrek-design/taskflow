@@ -31,12 +31,17 @@ class UpdateTaskRequest extends FormRequest
     /** @return array<string, array<int, mixed>> */
     public function rules(): array
     {
+        /** @var Project $project */
+        $project = $this->route('project');
+
         return [
             'title' => ['required', 'string', 'max:200'],
             'description' => ['nullable', 'string', 'max:10000'],
             // Optional for existing API consumers; when omitted, the original type is kept.
             'type' => ['sometimes', 'required', Rule::in(array_column(TaskType::cases(), 'value'))],
             'priority' => ['required', Rule::in(array_column(TaskPriority::cases(), 'value'))],
+            // The edit form may update status together with details; older clients may omit it.
+            'status_id' => ['sometimes', 'required', 'integer', Rule::exists('task_statuses', 'id')->where('project_id', $project->id)],
             'assignee_id' => ['nullable', 'integer', Rule::exists('users', 'id')],
             'due_date' => ['nullable', 'date_format:Y-m-d'],
         ];

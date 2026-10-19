@@ -7,10 +7,12 @@ use App\Actions\Tasks\CreateTask;
 use App\Actions\Tasks\UpdateTaskDetails;
 use App\Enums\TaskActivityType;
 use App\Enums\TaskPriority;
+use App\Enums\TaskStatusCategory;
 use App\Enums\TaskType;
 use App\Enums\WorkspaceRole;
 use App\Models\Project;
 use App\Models\Task;
+use App\Models\TaskStatus;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceMember;
@@ -255,6 +257,107 @@ class UpdateTaskDetailsTest extends TestCase
                 ->component('tasks/Show')
                 ->where('can_update', true)
                 ->where('assignees.0.id', $owner->id));
+    }
+
+    public function test_edit_form_updates_status_and_details_in_one_request(): void
+    {
+        [$project, $owner, $task] = $this->taskWithOwner();
+        $previousStatus = $task->status_id;
+        $done = TaskStatus::factory()->create([
+            'project_id' => $project->id,
+            'category' => TaskStatusCategory::DONE,
+        ]);
+
+        $this->actingAs($owner)
+            ->patch(route('tasks.update', [$project, $task]), $this->payload([
+                'title' => 'Ready for release',
+                'status_id' => $done->id,
+            ]))
+            ->assertSessionHasNoErrors();
+
+        $task->refresh();
+        $this->assertSame('Ready for release', $task->title);
+        $this->assertSame($done->id, $task->status_id);
+        $this->assertNotNull($task->completed_at);
+        $this->assertCount(2, $task->activities);
+        $this->assertEqualsCanonicalizing([
+            TaskActivityType::TITLE_CHANGED,
+            TaskActivityType::STATUS_CHANGED,
+        ], $task->activities->pluck('type')->all());
+        $activity = $task->activities->firstWhere('type', TaskActivityType::STATUS_CHANGED);
+        $this->assertSame($previousStatus, $activity->data['from']['id']);
+        $this->assertSame($done->id, $activity->data['to']['id']);
+    }
+
+    public function test_edit_form_can_reopen_completed_task_and_clears_completed_at(): void
+    {
+        [$project, $owner, $task] = $this->taskWithOwner();
+        $done = TaskStatus::factory()->create([
+            'project_id' => $project->id,
+            'category' => TaskStatusCategory::DONE,
+        ]);
+        $this->actingAs($owner)
+            ->patch(route('tasks.update', [$project, $task]), $this->payload(['status_id' => $done->id]))
+            ->assertSessionHasNoErrors();
+        $this->assertNotNull($task->fresh()->completed_at);
+
+        $this->actingAs($owner)
+            ->patch(route('tasks.update', [$project, $task]), $this->payload([
+                'status_id' => $project->taskStatuses()->where('category', TaskStatusCategory::TODO->value)->firstOrFail()->id,
+            ]))
+            ->assertSessionHasNoErrors();
+        $this->assertNull($task->fresh()->completed_at);
+        $this->assertSame(2, $task->activities()->where('type', TaskActivityType::STATUS_CHANGED)->count());
+    }
+
+    public function test_edit_form_rejects_status_from_another_project_without_updating_details(): void
+    {
+        [$project, $owner, $task] = $this->taskWithOwner();
+        [$otherProject] = $this->taskWithOwner('OTHER');
+        $otherStatus = $otherProject->taskStatuses()->firstOrFail();
+        $beforeStatus = $task->status_id;
+
+        $this->actingAs($owner)
+            ->patch(route('tasks.update', [$project, $task]), $this->payload([
+                'title' => 'Must not persist',
+                'status_id' => $otherStatus->id,
+            ]))
+            ->assertSessionHasErrors('status_id');
+
+        $this->assertSame('Initial task', $task->fresh()->title);
+        $this->assertSame($beforeStatus, $task->fresh()->status_id);
+        $this->assertSame(0, $task->activities()->count());
+    }
+
+    public function test_invalid_details_prevent_status_change_in_edit_form(): void
+    {
+        [$project, $owner, $task] = $this->taskWithOwner();
+        $done = TaskStatus::factory()->create([
+            'project_id' => $project->id,
+            'category' => TaskStatusCategory::DONE,
+        ]);
+        $beforeStatus = $task->status_id;
+
+        $this->actingAs($owner)
+            ->patch(route('tasks.update', [$project, $task]), $this->payload([
+                'title' => '',
+                'status_id' => $done->id,
+            ]))
+            ->assertSessionHasErrors('title');
+
+        $this->assertSame($beforeStatus, $task->fresh()->status_id);
+        $this->assertNull($task->completed_at);
+        $this->assertSame(0, $task->activities()->count());
+    }
+
+    public function test_edit_form_unchanged_status_does_not_create_activity(): void
+    {
+        [$project, $owner, $task] = $this->taskWithOwner();
+        $this->actingAs($owner)
+            ->patch(route('tasks.update', [$project, $task]), $this->payload(['status_id' => $task->status_id]))
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame(0, $task->activities()->count());
     }
 
     public function test_details_update_leaves_status_and_completed_at_untouched(): void

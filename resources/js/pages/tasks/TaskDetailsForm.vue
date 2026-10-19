@@ -13,6 +13,7 @@ import { computed, ref, shallowRef } from 'vue';
 import { AsyncVisualMarkdownEditor } from '@/components/tasks/AsyncVisualMarkdownEditor';
 import type VisualMarkdownEditorComponent from '@/components/tasks/VisualMarkdownEditor.vue';
 import TaskTypeLabel from '@/components/tasks/TaskTypeLabel.vue';
+import TaskPrioritySelect from '@/components/tasks/TaskPrioritySelect.vue';
 import { toast } from 'vue-sonner';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
@@ -39,12 +40,13 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import type { TaskAttachmentSummary, TaskDetail, TaskTypeValue, TaskUserSummary } from '@/types/task';
+import type { TaskAttachmentSummary, TaskDetail, TaskStatusSummary, TaskTypeValue, TaskUserSummary } from '@/types/task';
 
 const props = defineProps<{
     projectId: number;
     task: TaskDetail;
     assignees: TaskUserSummary[];
+    statuses: TaskStatusSummary[];
     attachments: TaskAttachmentSummary[];
 }>();
 
@@ -56,6 +58,7 @@ const updateUrl = computed(
 const editType = ref(String(props.task.type));
 const selectedType = computed(() => Number(editType.value) as TaskTypeValue);
 const editPriority = ref(String(props.task.priority));
+const editStatus = ref(String(props.task.status.id));
 const editDescription = ref(props.task.description ?? '');
 const descriptionEditor = ref<InstanceType<typeof VisualMarkdownEditorComponent> | null>(null);
 
@@ -83,22 +86,13 @@ const notifyError = () =>
     toast.error(t('fix.could_not_update_task'));
 const stayOnTask = { preserveScroll: true, preserveState: true };
 
-const priorities = [
-    { value: 1, label: 'Low' },
-    { value: 2, label: 'Normal' },
-    { value: 3, label: 'High' },
-    { value: 4, label: 'Urgent' },
-];
-const { t, locale, formatText, translateLiteral, displayLabel } = useI18n();
+const { t, locale, formatText, translateLiteral } = useI18n();
 </script>
 
 <template>
     <Card>
         <CardHeader>
-            <div class="flex flex-wrap items-center justify-between gap-2">
-                <CardTitle>{{ t('stage2.edit_task') }}</CardTitle>
-                <TaskTypeLabel :type="task.type" variant="badge" />
-            </div>
+            <CardTitle>{{ t('stage2.edit_task') }}</CardTitle>
             <CardDescription
                 >{{ t('audit.update_the_task_details_only_changed_fields_are_recorded_in_the_activity_history') }}</CardDescription
             >
@@ -121,6 +115,7 @@ const { t, locale, formatText, translateLiteral, displayLabel } = useI18n();
                         type="text"
                         required
                         maxlength="200"
+                        :aria-invalid="!!errors.title || undefined"
                         :default-value="task.title"
                         :disabled="processing"
                     />
@@ -131,7 +126,7 @@ const { t, locale, formatText, translateLiteral, displayLabel } = useI18n();
                         <Label for="task-edit-type">{{ t('stage2.type') }}</Label>
                         <input type="hidden" name="type" :value="editType" />
                         <Select v-model="editType" :disabled="processing">
-                            <SelectTrigger id="task-edit-type" class="w-full">
+                            <SelectTrigger id="task-edit-type" class="w-full" :aria-invalid="!!errors.type || undefined">
                                 <span class="flex min-w-0 flex-1 items-center gap-2 text-left">
                                     <TaskTypeLabel :type="selectedType" icon-only />
                                     <SelectValue class="min-w-0 flex-1 text-left" :placeholder="t('stage2.select_type')" />
@@ -153,25 +148,37 @@ const { t, locale, formatText, translateLiteral, displayLabel } = useI18n();
                             name="priority"
                             :value="editPriority"
                         />
-                        <Select v-model="editPriority" :disabled="processing">
-                            <SelectTrigger
-                                id="task-edit-priority"
-                                class="w-full"
-                                ><SelectValue :placeholder="t('stage2.select_priority')"
-                            /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem
-                                    v-for="priority in priorities"
-                                    :key="priority.value"
-                                    :value="String(priority.value)"
-                                    >{{ displayLabel(priority.label) }}</SelectItem
-                                >
-                            </SelectContent>
-                        </Select>
+                        <TaskPrioritySelect
+                            id="task-edit-priority"
+                            v-model="editPriority"
+                            :disabled="processing"
+                            :invalid="!!errors.priority"
+                        />
                         <InputError :message="errors.priority" />
                     </div>
                 </div>
                 <div class="grid gap-4 sm:grid-cols-2">
+                    <div class="space-y-2">
+                        <Label for="task-edit-status">{{ t('stage2.status') }}</Label>
+                        <input type="hidden" name="status_id" :value="editStatus" />
+                        <Select v-model="editStatus" :disabled="processing">
+                            <SelectTrigger
+                                id="task-edit-status"
+                                class="w-full"
+                                :aria-invalid="!!errors.status_id || undefined"
+                            >
+                                <SelectValue :placeholder="t('stage2.select_status')" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem
+                                    v-for="status in statuses"
+                                    :key="status.id"
+                                    :value="String(status.id)"
+                                >{{ status.name }}</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <InputError :message="errors.status_id" />
+                    </div>
                     <div class="space-y-2">
                         <Label for="task-edit-assignee"
                             >{{ t('stage2.assigned_to') }}
@@ -192,6 +199,7 @@ const { t, locale, formatText, translateLiteral, displayLabel } = useI18n();
                             <SelectTrigger
                                 id="task-edit-assignee"
                                 class="w-full"
+                                :aria-invalid="!!errors.assignee_id || undefined"
                                 ><SelectValue :placeholder="t('stage2.select_assignee')"
                             /></SelectTrigger>
                             <SelectContent>
@@ -220,6 +228,8 @@ const { t, locale, formatText, translateLiteral, displayLabel } = useI18n();
                         </Select>
                         <InputError :message="errors.assignee_id" />
                     </div>
+                </div>
+                <div class="grid gap-4 sm:grid-cols-2">
                     <div class="space-y-2">
                         <Label for="task-edit-date"
                             >{{ t('stage2.due_date') }}
@@ -237,6 +247,7 @@ const { t, locale, formatText, translateLiteral, displayLabel } = useI18n();
                                 <Button
                                     id="task-edit-date"
                                     type="button"
+                                    :aria-invalid="!!errors.due_date || undefined"
                                     variant="outline"
                                     class="w-full justify-between text-left font-normal"
                                     :class="!editDueDate && 'text-muted-foreground'"
@@ -325,20 +336,17 @@ const { t, locale, formatText, translateLiteral, displayLabel } = useI18n();
                     </div>
                     <InputError :message="errors.description" />
                 </div>
-                <div class="flex items-center gap-2">
-                    <Button type="submit" :disabled="processing"
-                        ><LoaderCircle
-                            v-if="processing"
-                            class="size-4 animate-spin"
-                        />{{ processing ? t('audit.saving') : t('audit.save_changes') }}</Button
-                    >
+                <div class="flex flex-wrap items-center justify-end gap-2 border-t pt-4">
                     <Button
                         type="button"
                         variant="outline"
                         :disabled="processing"
                         @click="emit('cancel')"
-                        >{{ t('stage2.cancel') }}</Button
-                    >
+                    >{{ t('stage2.cancel') }}</Button>
+                    <Button type="submit" :disabled="processing">
+                        <LoaderCircle v-if="processing" class="size-4 animate-spin" />
+                        {{ processing ? t('audit.saving') : t('audit.save_changes') }}
+                    </Button>
                 </div>
             </Form>
         </CardContent>

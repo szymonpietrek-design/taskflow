@@ -26,6 +26,7 @@ use App\Support\Tasks\TaskMessageMarkdown;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -283,21 +284,31 @@ class TaskController extends Controller
         Project $project,
         Task $task,
         UpdateTaskDetails $updateTaskDetails,
+        ChangeTaskStatus $changeTaskStatus,
     ): RedirectResponse {
         abort_unless($task->project_id === $project->id, 404);
 
         $data = $request->validated();
 
-        $updateTaskDetails->handle(
-            $request->user(),
-            $task,
-            $data['title'],
-            $data['description'] ?? null,
-            TaskPriority::from((int) $data['priority']),
-            isset($data['assignee_id']) ? User::query()->findOrFail($data['assignee_id']) : null,
-            isset($data['due_date']) ? new \DateTimeImmutable($data['due_date']) : null,
-            isset($data['type']) ? TaskType::from((int) $data['type']) : null,
-        );
+        // Keep the details and status changes atomic. Both actions record their
+        // normal activity entries and ChangeTaskStatus manages completed_at.
+        DB::transaction(function () use ($request, $project, $task, $data, $updateTaskDetails, $changeTaskStatus): void {
+            $updateTaskDetails->handle(
+                $request->user(),
+                $task,
+                $data['title'],
+                $data['description'] ?? null,
+                TaskPriority::from((int) $data['priority']),
+                isset($data['assignee_id']) ? User::query()->findOrFail($data['assignee_id']) : null,
+                isset($data['due_date']) ? new \DateTimeImmutable($data['due_date']) : null,
+                isset($data['type']) ? TaskType::from((int) $data['type']) : null,
+            );
+
+            if (isset($data['status_id'])) {
+                $status = $project->taskStatuses()->findOrFail($data['status_id']);
+                $changeTaskStatus->handle($request->user(), $task, $status);
+            }
+        });
 
         Inertia::flash('toast', [
             'type' => 'success',

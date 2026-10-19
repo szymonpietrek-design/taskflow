@@ -6,6 +6,8 @@ use App\Models\Project;
 use App\Models\Task;
 use App\Models\TaskMessage;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class UpdateTaskMessageRequest extends FormRequest
 {
@@ -24,11 +26,33 @@ class UpdateTaskMessageRequest extends FormRequest
         return $this->user() !== null && $this->user()->can('update', $message);
     }
 
-    /** @return array<string, array<int, string>> */
+    /** @return array<string, array<int, mixed>> */
     public function rules(): array
     {
+        $task = $this->route('task');
+
         return [
             'body' => ['required', 'string', 'max:10000'],
+            'attachment_ids' => ['sometimes', 'array', 'max:20'],
+            'attachment_ids.*' => [
+                'required', 'integer', 'distinct',
+                Rule::exists('task_attachments', 'id')->where('task_id', $task?->id),
+            ],
         ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            $message = $this->route('message');
+            $incoming = $this->input('attachment_ids', []);
+            if (! $message instanceof TaskMessage || ! is_array($incoming) || $validator->errors()->count() > 0) {
+                return;
+            }
+            $existing = $message->attachments()->pluck('task_attachments.id')->all();
+            if (count(array_unique(array_merge($existing, $incoming))) > 20) {
+                $validator->errors()->add('attachment_ids', __('validation.max.array', ['attribute' => __('validation.attributes.files'), 'max' => 20]));
+            }
+        });
     }
 }

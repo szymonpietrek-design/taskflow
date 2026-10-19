@@ -68,7 +68,15 @@ class TaskMessageController extends Controller
     ): RedirectResponse {
         $this->assertTaskBelongsToProject($project, $task, $message);
 
-        $message->update(['body' => trim($request->validated('body'))]);
+        $data = $request->validated();
+        DB::transaction(function () use ($message, $data): void {
+            $message->update(['body' => trim($data['body'])]);
+            // Edits add explicit files; existing links are removed only through
+            // the dedicated unlink action, never by an omitted form field.
+            if (! empty($data['attachment_ids'])) {
+                $message->attachments()->syncWithoutDetaching($data['attachment_ids']);
+            }
+        });
 
         Inertia::flash('toast', [
             'type' => 'success',

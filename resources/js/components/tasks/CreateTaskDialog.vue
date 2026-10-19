@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
 import { LoaderCircle, Plus } from '@lucide/vue';
-import { computed, watch } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
 import InputError from '@/components/InputError.vue';
 import TaskTypeLabel from '@/components/tasks/TaskTypeLabel.vue';
+import TaskPrioritySelect from '@/components/tasks/TaskPrioritySelect.vue';
 import { Button } from '@/components/ui/button';
 import { DatePicker } from '@/components/ui/date-picker';
 import {
@@ -53,6 +54,13 @@ const form = useForm({
     due_date: '',
 });
 const selectedType = computed(() => Number(form.type) as TaskTypeValue);
+const fieldsContainer = ref<HTMLElement | null>(null);
+
+function focusFirstError(): void {
+    void nextTick(() => {
+        fieldsContainer.value?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
+    });
+}
 
 watch(() => props.open, (open) => {
     if (!open) return;
@@ -78,6 +86,7 @@ function submit(): void {
         due_date: data.due_date || null,
     })).post(`/projects/${props.projectId}/tasks`, {
         preserveScroll: true,
+        onError: focusFirstError,
         onSuccess: () => {
             emit('update:open', false);
             form.reset();
@@ -90,149 +99,154 @@ function submit(): void {
 <template>
     <Dialog :open="open" @update:open="setOpen">
         <DialogContent
-            class="max-h-[min(90dvh,780px)] overflow-y-auto sm:max-w-[36rem]"
+            class="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-h-[min(90dvh,820px)] sm:max-w-[44rem]"
             :show-close-button="!form.processing"
         >
-            <DialogHeader>
+            <DialogHeader class="shrink-0 px-6 pb-4 pt-6 pr-12">
                 <DialogTitle class="flex items-center gap-2">
                     <Plus class="size-4" /> {{ t('stage2.new_task') }}
                 </DialogTitle>
                 <DialogDescription>{{ t('followup.task_numbers') }}</DialogDescription>
             </DialogHeader>
 
-            <form class="space-y-4" @submit.prevent="submit">
-                <div class="grid gap-2">
-                    <Label for="create-task-title">{{ t('stage2.title') }}</Label>
-                    <Input
-                        id="create-task-title"
-                        v-model="form.title"
-                        maxlength="200"
-                        required
-                        autofocus
-                        :disabled="form.processing"
-                        :placeholder="t('stage2.implement_dashboard')"
-                    />
-                    <InputError :message="form.errors.title" />
-                </div>
-                <div class="grid gap-2">
-                    <Label for="create-task-description">
-                        {{ t('stage2.description') }}
-                        <span class="font-normal text-muted-foreground">{{ t('stage2.optional') }}</span>
-                    </Label>
-                    <textarea
-                        id="create-task-description"
-                        v-model="form.description"
-                        rows="3"
-                        maxlength="10000"
-                        :disabled="form.processing"
-                        :placeholder="t('stage2.optional_details')"
-                        class="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
-                    />
-                    <InputError :message="form.errors.description" />
-                </div>
-                <div class="grid gap-3 sm:grid-cols-2">
-                    <div class="grid min-w-0 gap-2">
-                        <Label for="create-task-type">{{ t('stage2.type') }}</Label>
-                        <Select v-model="form.type" :disabled="form.processing">
-                            <SelectTrigger id="create-task-type" class="w-full">
-                                <TaskTypeLabel :type="selectedType" icon-only />
-                                <SelectValue :placeholder="t('stage2.select_type')" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="1"><TaskTypeLabel :type="1" /></SelectItem>
-                                <SelectItem value="2"><TaskTypeLabel :type="2" /></SelectItem>
-                                <SelectItem value="3"><TaskTypeLabel :type="3" /></SelectItem>
-                                <SelectItem value="4"><TaskTypeLabel :type="4" /></SelectItem>
-                            </SelectContent>
-                        </Select>
-                        <InputError :message="form.errors.type" />
+            <form class="flex min-h-0 flex-1 flex-col" :aria-busy="form.processing" @submit.prevent="submit">
+                <div ref="fieldsContainer" class="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 pb-5">
+                    <div class="grid gap-2">
+                        <Label for="create-task-title">{{ t('stage2.title') }}</Label>
+                        <Input
+                            id="create-task-title"
+                            v-model="form.title"
+                            maxlength="200"
+                            required
+                            :aria-invalid="!!form.errors.title || undefined"
+                            autofocus
+                            :disabled="form.processing"
+                            :placeholder="t('stage2.implement_dashboard')"
+                        />
+                        <InputError :message="form.errors.title" />
                     </div>
-                    <div class="grid min-w-0 gap-2">
-                        <Label for="create-task-priority">{{ t('stage2.priority') }}</Label>
-                        <Select v-model="form.priority" :disabled="form.processing">
-                            <SelectTrigger id="create-task-priority" class="w-full">
-                                <SelectValue :placeholder="t('stage2.select_priority')" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="1">{{ t('stage2.low') }}</SelectItem>
-                                <SelectItem value="2">{{ t('stage2.normal') }}</SelectItem>
-                                <SelectItem value="3">{{ t('stage2.high') }}</SelectItem>
-                                <SelectItem value="4">{{ t('stage2.urgent') }}</SelectItem>
-                            </SelectContent>
-                        </Select>
-                        <InputError :message="form.errors.priority" />
+                    <div class="grid gap-2">
+                        <Label for="create-task-description">
+                            {{ t('stage2.description') }}
+                            <span class="font-normal text-muted-foreground">{{ t('stage2.optional') }}</span>
+                        </Label>
+                        <textarea
+                            id="create-task-description"
+                            v-model="form.description"
+                            rows="3"
+                            maxlength="10000"
+                            :disabled="form.processing"
+                            :aria-invalid="!!form.errors.description || undefined"
+                            :placeholder="t('stage2.optional_details')"
+                            class="flex min-h-20 w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none transition-[color,box-shadow] placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 disabled:cursor-not-allowed disabled:opacity-50"
+                        />
+                        <InputError :message="form.errors.description" />
+                    </div>
+                    <div class="grid gap-4 sm:grid-cols-2">
+                        <div class="grid min-w-0 content-start gap-2">
+                            <Label for="create-task-type">{{ t('stage2.type') }}</Label>
+                            <Select v-model="form.type" :disabled="form.processing">
+                                <SelectTrigger id="create-task-type" class="w-full" :aria-invalid="!!form.errors.type || undefined">
+                                    <span class="flex min-w-0 flex-1 items-center gap-2 text-left">
+                                        <TaskTypeLabel :type="selectedType" icon-only />
+                                        <SelectValue class="min-w-0 flex-1 text-left" :placeholder="t('stage2.select_type')" />
+                                    </span>
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="1"><TaskTypeLabel :type="1" /></SelectItem>
+                                    <SelectItem value="2"><TaskTypeLabel :type="2" /></SelectItem>
+                                    <SelectItem value="3"><TaskTypeLabel :type="3" /></SelectItem>
+                                    <SelectItem value="4"><TaskTypeLabel :type="4" /></SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <InputError :message="form.errors.type" />
+                        </div>
+                        <div class="grid min-w-0 content-start gap-2">
+                            <Label for="create-task-priority">{{ t('stage2.priority') }}</Label>
+                            <TaskPrioritySelect
+                                id="create-task-priority"
+                                v-model="form.priority"
+                                :disabled="form.processing"
+                                :invalid="!!form.errors.priority"
+                            />
+                            <InputError :message="form.errors.priority" />
+                        </div>
+                    </div>
+                    <div class="grid gap-4 sm:grid-cols-2">
+                        <div class="grid min-w-0 content-start gap-2">
+                            <Label for="create-task-status">
+                                {{ t('stage2.status') }}
+                                <span class="font-normal text-muted-foreground">{{ t('stage2.optional') }}</span>
+                            </Label>
+                            <Select v-model="form.status_id" :disabled="form.processing">
+                                <SelectTrigger id="create-task-status" class="w-full" :aria-invalid="!!form.errors.status_id || undefined">
+                                    <SelectValue :placeholder="t('stage2.select_status')" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="default">{{ t('stage2.default_todo') }}</SelectItem>
+                                    <SelectItem v-for="status in statuses" :key="status.id" :value="String(status.id)">
+                                        {{ status.name }}
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <InputError :message="form.errors.status_id" />
+                        </div>
+                        <div class="grid min-w-0 content-start gap-2">
+                            <Label for="create-task-assignee">
+                                {{ t('stage2.assignee') }}
+                                <span class="font-normal text-muted-foreground">{{ t('stage2.optional') }}</span>
+                            </Label>
+                            <Select v-model="form.assignee_id" :disabled="form.processing">
+                                <SelectTrigger id="create-task-assignee" class="w-full" :aria-invalid="!!form.errors.assignee_id || undefined">
+                                    <SelectValue :placeholder="t('stage2.select_assignee')" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="unassigned">{{ t('stage2.unassigned') }}</SelectItem>
+                                    <SelectItem v-for="person in assignees" :key="person.id" :value="String(person.id)">
+                                        {{ person.name }}
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <InputError :message="form.errors.assignee_id" />
+                        </div>
+                    </div>
+                    <div class="grid gap-4 sm:grid-cols-2">
+                        <div class="grid min-w-0 content-start gap-2">
+                            <Label for="create-task-parent">
+                                {{ t('stage2.parent_task') }}
+                                <span class="font-normal text-muted-foreground">{{ t('stage2.optional') }}</span>
+                            </Label>
+                            <Select v-model="form.parent_id" :disabled="form.processing">
+                                <SelectTrigger id="create-task-parent" class="w-full" :aria-invalid="!!form.errors.parent_id || undefined">
+                                    <SelectValue :placeholder="t('stage2.select_parent_task')" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="none">{{ t('stage2.none_regular_task') }}</SelectItem>
+                                    <SelectItem v-for="task in parentTasks" :key="task.id" :value="String(task.id)">
+                                        {{ task.reference }} — {{ task.title }}
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <InputError :message="form.errors.parent_id" />
+                        </div>
+                        <div class="grid min-w-0 content-start gap-2">
+                            <Label for="create-task-due-date">
+                                {{ t('stage2.due_date') }}
+                                <span class="font-normal text-muted-foreground">{{ t('stage2.optional') }}</span>
+                            </Label>
+                            <DatePicker
+                                id="create-task-due-date"
+                                v-model="form.due_date"
+                                clearable
+                                :disabled="form.processing"
+                                :invalid="!!form.errors.due_date"
+                                :placeholder="t('followup.date')"
+                            />
+                            <InputError :message="form.errors.due_date" />
+                        </div>
                     </div>
                 </div>
-                <div class="grid gap-2">
-                    <Label for="create-task-status">
-                        {{ t('stage2.status') }}
-                        <span class="font-normal text-muted-foreground">{{ t('stage2.optional') }}</span>
-                    </Label>
-                    <Select v-model="form.status_id" :disabled="form.processing">
-                        <SelectTrigger id="create-task-status" class="w-full">
-                            <SelectValue :placeholder="t('stage2.select_status')" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="default">{{ t('stage2.default_todo') }}</SelectItem>
-                            <SelectItem v-for="status in statuses" :key="status.id" :value="String(status.id)">
-                                {{ status.name }}
-                            </SelectItem>
-                        </SelectContent>
-                    </Select>
-                    <InputError :message="form.errors.status_id" />
-                </div>
-                <div class="grid gap-2">
-                    <Label for="create-task-assignee">
-                        {{ t('stage2.assignee') }}
-                        <span class="font-normal text-muted-foreground">{{ t('stage2.optional') }}</span>
-                    </Label>
-                    <Select v-model="form.assignee_id" :disabled="form.processing">
-                        <SelectTrigger id="create-task-assignee" class="w-full">
-                            <SelectValue :placeholder="t('stage2.select_assignee')" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="unassigned">{{ t('stage2.unassigned') }}</SelectItem>
-                            <SelectItem v-for="person in assignees" :key="person.id" :value="String(person.id)">
-                                {{ person.name }}
-                            </SelectItem>
-                        </SelectContent>
-                    </Select>
-                    <InputError :message="form.errors.assignee_id" />
-                </div>
-                <div class="grid gap-2">
-                    <Label for="create-task-parent">
-                        {{ t('stage2.parent_task') }}
-                        <span class="font-normal text-muted-foreground">{{ t('stage2.optional') }}</span>
-                    </Label>
-                    <Select v-model="form.parent_id" :disabled="form.processing">
-                        <SelectTrigger id="create-task-parent" class="w-full">
-                            <SelectValue :placeholder="t('stage2.select_parent_task')" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="none">{{ t('stage2.none_regular_task') }}</SelectItem>
-                            <SelectItem v-for="task in parentTasks" :key="task.id" :value="String(task.id)">
-                                {{ task.reference }} — {{ task.title }}
-                            </SelectItem>
-                        </SelectContent>
-                    </Select>
-                    <InputError :message="form.errors.parent_id" />
-                </div>
-                <div class="grid gap-2">
-                    <Label for="create-task-due-date">
-                        {{ t('stage2.due_date') }}
-                        <span class="font-normal text-muted-foreground">{{ t('stage2.optional') }}</span>
-                    </Label>
-                    <DatePicker
-                        id="create-task-due-date"
-                        v-model="form.due_date"
-                        clearable
-                        :disabled="form.processing"
-                        :invalid="!!form.errors.due_date"
-                        :placeholder="t('followup.date')"
-                    />
-                    <InputError :message="form.errors.due_date" />
-                </div>
-                <DialogFooter class="gap-3 border-t pt-4 sm:gap-3">
+                <DialogFooter class="shrink-0 gap-2 border-t bg-background px-6 py-4 sm:gap-2">
                     <Button type="button" variant="outline" :disabled="form.processing" @click="setOpen(false)">
                         {{ t('stage2.cancel') }}
                     </Button>

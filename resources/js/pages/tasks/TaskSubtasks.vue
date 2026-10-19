@@ -17,6 +17,7 @@ import {
 import { toast } from 'vue-sonner';
 import { computed, ref, shallowRef } from 'vue';
 import InputError from '@/components/InputError.vue';
+import TaskPrioritySelect from '@/components/tasks/TaskPrioritySelect.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -195,20 +196,12 @@ const { t, locale, formatText, translateLiteral } = useI18n();
                             name="priority"
                             :value="subtaskPriority"
                         />
-                        <Select
+                        <TaskPrioritySelect
+                            id="subtask-priority"
                             v-model="subtaskPriority"
                             :disabled="processing"
-                        >
-                            <SelectTrigger id="subtask-priority" class="w-full"
-                                ><SelectValue :placeholder="t('stage2.select_priority')"
-                            /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="2">{{ t('stage2.normal') }}</SelectItem>
-                                <SelectItem value="1">{{ t('stage2.low') }}</SelectItem>
-                                <SelectItem value="3">{{ t('stage2.high') }}</SelectItem>
-                                <SelectItem value="4">{{ t('stage2.urgent') }}</SelectItem>
-                            </SelectContent>
-                        </Select>
+                            :invalid="!!errors.priority"
+                        />
                         <InputError :message="errors.priority" />
                     </div>
                     <div class="grid gap-1.5">
