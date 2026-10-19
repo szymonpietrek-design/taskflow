@@ -45,6 +45,11 @@ const form = useForm({
 });
 const previewIcon = computed<ProjectIcon>(() => form.icon ?? (form.type === 2 ? 'code-2' : 'folder-kanban'));
 const activeColor = computed<ProjectColor>(() => form.color ?? 'slate');
+// Keep the selected checkmark legible across both light and dark swatches.
+const darkCheckColors = new Set<ProjectColor>([
+    'blue', 'emerald', 'violet', 'amber', 'rose', 'cyan', 'orange',
+    'indigo', 'teal', 'lime', 'fuchsia', 'pink', 'red', 'sky',
+]);
 
 
 watch(() => [props.open, props.project?.id, props.workspaceId] as const, () => {
@@ -226,15 +231,16 @@ function submit(): void {
                     </div>
                     <div class="space-y-2">
                         <Label>{{ t('projectIdentity.color') }}</Label>
-                        <div class="flex flex-wrap gap-2" role="group" :aria-label="t('projectIdentity.color')">
+                        <div class="grid w-fit max-w-full grid-cols-6 gap-2 sm:grid-cols-8" role="group" :aria-label="t('projectIdentity.color')">
                             <button v-for="color in projectColorOptions" :key="color" type="button"
                                 class="flex size-8 items-center justify-center rounded-full border border-border transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                :class="activeColor === color ? 'ring-2 ring-ring/60 ring-offset-1 ring-offset-background' : undefined"
                                 :aria-label="t(`projectIdentity.colors.${color}`)"
                                 :aria-pressed="activeColor === color"
                                 :title="t(`projectIdentity.colors.${color}`)"
                                 @click="form.color = color">
                                 <span class="flex size-6 items-center justify-center rounded-full" :class="projectColors[color].dot">
-                                    <Check v-if="activeColor === color" class="size-4 text-white drop-shadow-sm" />
+                                    <Check v-if="activeColor === color" class="size-4 drop-shadow-sm" :class="darkCheckColors.has(color) ? 'text-slate-950' : 'text-white'" />
                                 </span>
                             </button>
                         </div>

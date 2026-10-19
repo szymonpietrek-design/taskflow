@@ -6,6 +6,7 @@ import {
     CheckCircle2,
     Circle,
     LoaderCircle,
+    ListTodo,
     Plus,
 } from '@lucide/vue';
 import type { DateValue } from '@internationalized/date';
@@ -80,11 +81,14 @@ const { t, locale, formatText, translateLiteral } = useI18n();
 </script>
 
 <template>
-    <Card>
+    <Card :class="!subtasks.length && !creating ? 'gap-3 py-4' : ''">
         <CardHeader>
             <div class="flex flex-wrap items-start justify-between gap-3">
                 <div class="space-y-1">
-                    <CardTitle>{{ t('stage2.subtasks') }}</CardTitle>
+                    <CardTitle class="flex items-center gap-2">
+                        <ListTodo class="size-4" aria-hidden="true" />
+                        {{ t('stage2.subtasks') }}
+                    </CardTitle>
                     <CardDescription v-if="progress.total">
                         {{ formatText('audit.count_completed', { completed: progress.done, total: progress.total }) }} ({{ percentage }}%)
                     </CardDescription>

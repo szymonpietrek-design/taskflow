@@ -33,6 +33,7 @@ class UpdateTaskMessageRequest extends FormRequest
 
         return [
             'body' => ['required', 'string', 'max:10000'],
+            'sync_attachments' => ['sometimes', 'boolean'],
             'attachment_ids' => ['sometimes', 'array', 'max:20'],
             'attachment_ids.*' => [
                 'required', 'integer', 'distinct',
@@ -49,9 +50,26 @@ class UpdateTaskMessageRequest extends FormRequest
             if (! $message instanceof TaskMessage || ! is_array($incoming) || $validator->errors()->count() > 0) {
                 return;
             }
-            $existing = $message->attachments()->pluck('task_attachments.id')->all();
-            if (count(array_unique(array_merge($existing, $incoming))) > 20) {
+            // Sync submits the complete final set; legacy add-only requests
+            // must still respect the combined existing + incoming limit.
+            $selected = $this->boolean('sync_attachments')
+                ? $incoming
+                : array_merge($message->attachments()->pluck('task_attachments.id')->all(), $incoming);
+            if (count(array_unique($selected)) > 20) {
                 $validator->errors()->add('attachment_ids', __('validation.max.array', ['attribute' => __('validation.attributes.files'), 'max' => 20]));
+            }
+
+            // Inline attachment references may only point to files linked to the message.
+            // Otherwise the safe Markdown renderer shows "Attachment unavailable".
+            $body = $this->input('body');
+            if (is_string($body) && preg_match_all('/attachment:([1-9][0-9]*)/i', $body, $matches)) {
+                $selectedIds = array_map('intval', $selected);
+                foreach (array_unique($matches[1]) as $referencedId) {
+                    if (! in_array((int) $referencedId, $selectedIds, true)) {
+                        $validator->errors()->add('attachment_ids', __('A file referenced in the message must remain attached.'));
+                        break;
+                    }
+                }
             }
         });
     }

@@ -16,5 +16,6 @@ final class ProjectIdentity
 
     public const COLORS = [
         'slate', 'blue', 'emerald', 'violet', 'amber', 'rose', 'cyan', 'orange',
+        'indigo', 'teal', 'lime', 'fuchsia', 'pink', 'red', 'sky', 'stone',
     ];
 }

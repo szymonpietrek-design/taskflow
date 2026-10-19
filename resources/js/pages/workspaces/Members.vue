@@ -14,7 +14,7 @@ import {
 } from '@lucide/vue';
 import { ref } from 'vue';
 import InputError from '@/components/InputError.vue';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import UserAvatar from '@/components/UserAvatar.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -87,19 +87,6 @@ const roleLabelKeys: Record<WorkspaceRole, string> = {
     member: 'stage2.member',
 };
 
-// Low-saturation tones, consistently derived from the *user* ID rather than membership ID.
-const avatarTones = [
-    'bg-[#eef1f4] text-[#526173] dark:bg-[#2a3540] dark:text-[#ced7e2]',
-    'bg-[#eeedf2] text-[#625e71] dark:bg-[#34313e] dark:text-[#d3cddd]',
-    'bg-[#edf1ed] text-[#53685b] dark:bg-[#2c3a33] dark:text-[#cfdbd1]',
-    'bg-[#f2efe9] text-[#776b59] dark:bg-[#3d382f] dark:text-[#ded5c4]',
-    'bg-[#edf0f1] text-[#58686d] dark:bg-[#2c373a] dark:text-[#d0dbdd]',
-] as const;
-
-function avatarTone(userId: number): string {
-    return avatarTones[Math.abs(userId) % avatarTones.length] ?? avatarTones[0];
-}
-
 function openAddMember(): void {
     addForm.reset();
     addForm.clearErrors();
@@ -155,15 +142,6 @@ function submitMemberAction(): void {
             options,
         );
     }
-}
-
-function initials(name: string): string {
-    const parts = name.trim().split(/\s+/).filter(Boolean);
-    const first = parts[0]?.charAt(0) ?? '';
-    const last =
-        parts.length > 1 ? (parts[parts.length - 1]?.charAt(0) ?? '') : '';
-
-    return (first + last).toLocaleUpperCase() || '?';
 }
 
 function formattedJoinDate(value: string): string {
@@ -266,18 +244,7 @@ const { t, locale, formatText } = useI18n();
                         :key="member.id"
                         class="flex items-center gap-3 px-4 py-4 transition-colors hover:bg-muted/30 sm:gap-4 sm:px-6"
                     >
-                        <Avatar
-                            class="size-11 ring-1 ring-border/60 sm:size-12"
-                        >
-                            <AvatarFallback
-                                :class="[
-                                    avatarTone(member.user_id),
-                                    'text-sm font-semibold tracking-tight',
-                                ]"
-                            >
-                                {{ initials(member.name) }}
-                            </AvatarFallback>
-                        </Avatar>
+                        <UserAvatar :user-id="member.user_id" :name="member.name" />
 
                         <div class="min-w-0 flex-1">
                             <div

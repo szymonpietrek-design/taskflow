@@ -5,7 +5,7 @@ import { computed, ref } from 'vue';
 import {
     Activity,
     Archive,
-    ArrowUpRight,
+    ArrowRight,
     CalendarDays,
     CheckCircle2,
     Clock3,
@@ -216,7 +216,7 @@ function activityLabel(kind: TimelineItem['kind']): string {
                     <CardHeader class="flex flex-row items-center justify-between gap-3 border-b py-4">
                         <CardTitle class="text-base">{{ t('overview.recentTasks') }}</CardTitle>
                         <Link :href="`${projectUrl}/tasks`" class="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground">
-                            {{ t('overview.viewAll') }} <ArrowUpRight class="size-3.5" />
+                            {{ t('overview.viewAll') }} <ArrowRight class="size-3.5" aria-hidden="true" />
                         </Link>
                     </CardHeader>
                     <CardContent class="px-0 py-1">
@@ -251,7 +251,7 @@ function activityLabel(kind: TimelineItem['kind']): string {
                     <CardContent class="py-5">
                         <div v-if="overview.latest_release" class="space-y-2">
                             <Link :href="`${projectUrl}/releases/${overview.latest_release.id}`" class="inline-flex items-center gap-1.5 text-lg font-semibold hover:underline">
-                                v{{ overview.latest_release.version }} <ArrowUpRight class="size-4 text-muted-foreground" />
+                                v{{ overview.latest_release.version }}
                             </Link>
                             <p v-if="overview.latest_release.name" class="text-sm">{{ overview.latest_release.name }}</p>
                             <p v-if="formatDate(overview.latest_release.released_at)" class="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -260,7 +260,7 @@ function activityLabel(kind: TimelineItem['kind']): string {
                         </div>
                         <p v-else class="text-sm text-muted-foreground">{{ t('overview.noRelease') }}</p>
                         <Link :href="`${projectUrl}/releases`" class="mt-3 inline-flex items-center gap-1 text-xs font-medium hover:underline">
-                            {{ t('overview.viewReleases') }} <ArrowUpRight class="size-3.5" />
+                            {{ t('overview.viewReleases') }} <ArrowRight class="size-3.5" aria-hidden="true" />
                         </Link>
                     </CardContent>
                 </Card>

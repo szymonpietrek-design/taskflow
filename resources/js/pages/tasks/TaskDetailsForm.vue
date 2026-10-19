@@ -8,16 +8,16 @@ import {
     parseDate,
     today,
 } from '@internationalized/date';
-import { CalendarDays, LoaderCircle, Image as ImageIcon, Link2, Paperclip, ChevronDown } from '@lucide/vue';
+import { CalendarDays, LoaderCircle, Paperclip, ChevronDown } from '@lucide/vue';
 import { computed, ref, shallowRef } from 'vue';
 import { AsyncVisualMarkdownEditor } from '@/components/tasks/AsyncVisualMarkdownEditor';
 import type VisualMarkdownEditorComponent from '@/components/tasks/VisualMarkdownEditor.vue';
+import TaskAttachmentLibraryPicker from '@/components/tasks/TaskAttachmentLibraryPicker.vue';
 import TaskTypeLabel from '@/components/tasks/TaskTypeLabel.vue';
 import TaskPrioritySelect from '@/components/tasks/TaskPrioritySelect.vue';
 import { toast } from 'vue-sonner';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import {
     Card,
     CardContent,
@@ -61,6 +61,7 @@ const editPriority = ref(String(props.task.priority));
 const editStatus = ref(String(props.task.status.id));
 const editDescription = ref(props.task.description ?? '');
 const descriptionEditor = ref<InstanceType<typeof VisualMarkdownEditorComponent> | null>(null);
+const descriptionLibraryOpen = ref(false);
 
 // Attachment actions also work while the rich editor chunk is still loading.
 function insertDescriptionAttachment(file: TaskAttachmentSummary, image: boolean): void {
@@ -86,7 +87,7 @@ const notifyError = () =>
     toast.error(t('fix.could_not_update_task'));
 const stayOnTask = { preserveScroll: true, preserveState: true };
 
-const { t, locale, formatText, translateLiteral } = useI18n();
+const { t, locale } = useI18n();
 </script>
 
 <template>
@@ -314,25 +315,36 @@ const { t, locale, formatText, translateLiteral } = useI18n();
                         can-upload
                         @uploaded="router.reload({ only: ['attachments'] })"
                     />
-                    <div v-if="attachments.length" class="flex flex-wrap gap-2">
-                        <DropdownMenu v-for="file in attachments" :key="file.id">
-                            <DropdownMenuTrigger as-child>
-                                <Button type="button" variant="outline" size="sm" :disabled="processing" class="max-w-full gap-1.5">
-                                    <ImageIcon v-if="file.is_image" class="size-3.5" />
-                                    <Paperclip v-else class="size-3.5" />
-                                    <span class="max-w-44 truncate">{{ file.name }}</span>
-                                    <ChevronDown class="size-3" />
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="start" class="min-w-40">
-                                <DropdownMenuItem v-if="file.is_image" @select="insertDescriptionAttachment(file, true)">
-                                    <ImageIcon class="size-4" /> {{ t('visualEditor.image') }}
-                                </DropdownMenuItem>
-                                <DropdownMenuItem @select="insertDescriptionAttachment(file, false)">
-                                    <Link2 class="size-4" /> {{ t('messages.markdown.insertLink') }}
-                                </DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
+                    <div v-if="attachments.length" class="space-y-2">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                :disabled="processing"
+                                :aria-expanded="descriptionLibraryOpen"
+                                @click="descriptionLibraryOpen = !descriptionLibraryOpen"
+                            >
+                                <Paperclip class="size-3.5" /> {{ t('messages.attachments.manage') }}
+                                <ChevronDown
+                                    class="size-3.5 text-muted-foreground transition-transform"
+                                    :class="descriptionLibraryOpen ? 'rotate-180' : ''"
+                                    aria-hidden="true"
+                                />
+                            </Button>
+                        </div>
+                        <TaskAttachmentLibraryPicker
+                            :project-id="projectId"
+                            :task-id="task.id"
+                            v-if="descriptionLibraryOpen"
+                            scope="description"
+                            :attachments="attachments"
+                            :selected-ids="[]"
+                            :disabled="processing"
+                            :selectable="false"
+                            help-key="messages.attachments.descriptionLibraryHelp"
+                            @insert="insertDescriptionAttachment"
+                        />
                     </div>
                     <InputError :message="errors.description" />
                 </div>

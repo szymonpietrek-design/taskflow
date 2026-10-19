@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useI18n } from '@/composables/useI18n';
 import { Form, Head, Link } from '@inertiajs/vue3';
-import { ArrowLeft, CalendarDays, LoaderCircle, Pencil } from '@lucide/vue';
+import { AlertTriangle, ArrowLeft, CalendarDays, FileText, LoaderCircle, Pencil } from '@lucide/vue';
 import { computed, ref, watch } from 'vue';
 import { toast } from 'vue-sonner';
 import { Badge } from '@/components/ui/badge';
@@ -109,6 +109,18 @@ function finishStatusEdit(): void {
     selectedStatus.value = String(props.task.status.id);
 }
 const stayOnTask = { preserveScroll: true, preserveState: true };
+// Compare calendar dates in the viewer's local timezone: a deadline is not
+// overdue until the day AFTER its due date. Completion/cancellation wins.
+const isOverdue = computed(() => {
+    if (!props.task.due_date || ['done', 'canceled'].includes(props.task.status.category)) return false;
+    const today = new Date();
+    const localDate = [
+        today.getFullYear(),
+        String(today.getMonth() + 1).padStart(2, '0'),
+        String(today.getDate()).padStart(2, '0'),
+    ].join('-');
+    return props.task.due_date.slice(0, 10) < localDate;
+});
 const dueDateLabel = computed(() => {
     if (!props.task.due_date) return t('fix.not_set');
     // Calendar-only dates must not be shifted by the browser's timezone.
@@ -133,42 +145,48 @@ const { t, displayLabel, locale } = useI18n();
 <template>
     <Head :title="`${task.reference} · ${task.title}`" />
 
-    <div class="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 p-4 md:p-6">
-        <div>
-            <Link
-                :href="`/projects/${project.id}/tasks`"
-                class="mb-3 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-            >
-                <ArrowLeft class="size-4" /> {{ project.name }} / {{ t('followup.tasks') }}
-            </Link>
-            <div class="flex flex-wrap items-center gap-2">
-                <Badge variant="secondary">{{ task.reference }}</Badge>
-                <TaskTypeLabel :type="task.type" variant="badge" />
-                <Badge variant="outline" class="gap-1.5">
-                    <span class="size-2 rounded-full" :class="taskPriorityDotClass(task.priority)" />
-                    {{ t('followup.priority') }}: {{ displayLabel(task.priority_label) }}
-                </Badge>
-            </div>
-            <div class="mt-3 flex flex-wrap items-start justify-between gap-4">
-                <h1 class="min-w-0 flex-1 break-words text-2xl font-semibold tracking-tight">
-                    {{ task.title }}
-                </h1>
-                <Button
-                    v-if="can_update && !editingDetails"
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    class="shrink-0"
-                    @click="startDetailsEdit"
+    <div class="mx-auto flex w-full max-w-[86rem] min-w-0 flex-1 flex-col gap-5 p-4 md:p-6">
+        <!-- Keep the title, actions and main cards on the same column grid. -->
+        <div
+            class="grid min-w-0 gap-5 xl:gap-6"
+            :class="editingDetails && can_update ? 'grid-cols-1' : 'xl:grid-cols-[minmax(0,1fr)_19rem]'"
+        >
+            <div class="min-w-0">
+                <Link
+                    :href="`/projects/${project.id}/tasks`"
+                    class="mb-3 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
                 >
-                    <Pencil class="size-4" /> {{ t('stage2.edit_task') }}
-                </Button>
+                    <ArrowLeft class="size-4" /> {{ project.name }} / {{ t('followup.tasks') }}
+                </Link>
+                <div class="flex flex-wrap items-center gap-2">
+                    <Badge variant="secondary">{{ task.reference }}</Badge>
+                    <TaskTypeLabel :type="task.type" variant="badge" />
+                    <Badge variant="outline" class="gap-1.5">
+                        <span class="size-2 rounded-full" :class="taskPriorityDotClass(task.priority)" />
+                        {{ t('followup.priority') }}: {{ displayLabel(task.priority_label) }}
+                    </Badge>
+                </div>
+                <div class="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+                    <h1 class="min-w-0 flex-1 basis-64 break-words text-2xl font-semibold tracking-tight">
+                        {{ task.title }}
+                    </h1>
+                    <Button
+                        v-if="can_update && !editingDetails"
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        class="shrink-0"
+                        @click="startDetailsEdit"
+                    >
+                        <Pencil class="size-4" /> {{ t('stage2.edit_task') }}
+                    </Button>
+                </div>
             </div>
         </div>
 
         <div
             class="grid min-w-0 items-start gap-5 xl:gap-6"
-            :class="editingDetails && can_update ? 'grid-cols-1' : 'xl:grid-cols-[minmax(0,1fr)_18rem]'"
+            :class="editingDetails && can_update ? 'grid-cols-1' : 'xl:grid-cols-[minmax(0,1fr)_19rem]'"
         >
             <aside
                 v-if="!editingDetails || !can_update"
@@ -272,9 +290,13 @@ const { t, displayLabel, locale } = useI18n();
 
                             <section class="border-t border-border/60 pt-4">
                                 <Label class="text-xs text-muted-foreground">{{ t('stage2.due_date') }}</Label>
-                                <p class="mt-1.5 inline-flex items-center gap-2">
+                                <p class="mt-1.5 flex min-w-0 items-center gap-2">
                                     <CalendarDays class="size-4 shrink-0 text-muted-foreground" />
-                                    <span>{{ dueDateLabel }}</span>
+                                    <span class="min-w-0">{{ dueDateLabel }}</span>
+                                </p>
+                                <p v-if="isOverdue" class="mt-2 flex items-center gap-1.5 text-xs font-medium text-destructive">
+                                    <AlertTriangle class="size-3.5 shrink-0" aria-hidden="true" />
+                                    <span>{{ t('audit.overdue') }}</span>
                                 </p>
                             </section>
                             <section v-if="task.completed_at" class="border-t border-border/60 pt-4">
@@ -301,12 +323,16 @@ const { t, displayLabel, locale } = useI18n();
                 />
                 <Card v-else>
                     <CardHeader>
-                        <CardTitle>{{ t('stage2.description') }}</CardTitle>
+                        <CardTitle class="flex items-center gap-2">
+                            <FileText class="size-4" aria-hidden="true" />
+                            {{ t('stage2.description') }}
+                        </CardTitle>
                     </CardHeader>
                     <CardContent class="min-w-0">
                         <TaskMarkdown
                             v-if="task.description_html"
                             :html="task.description_html"
+                            class="max-w-[90ch]"
                             zoom-images
                             @image-click="previewEmbeddedImage"
                         />

@@ -93,6 +93,28 @@ class ProjectIdentityTest extends TestCase
                 ->etc());
     }
 
+    public function test_new_project_colors_can_be_created_and_updated(): void
+    {
+        $owner = User::factory()->create();
+        $workspace = app(CreateWorkspace::class)->handle($owner, 'Studio');
+
+        $this->actingAs($owner)->post(route('workspaces.projects.store', $workspace), [
+            'name' => 'Colorful', 'key' => 'COLR', 'type' => ProjectType::STANDARD->value,
+            'visibility' => 1, 'icon' => 'palette', 'color' => 'indigo',
+        ])->assertSessionHasNoErrors();
+
+        $project = $workspace->projects()->where('key', 'COLR')->firstOrFail();
+        $this->assertSame('indigo', $project->color);
+
+        foreach (['teal', 'lime', 'fuchsia', 'pink', 'red', 'sky', 'stone'] as $color) {
+            $this->actingAs($owner)->patch(route('workspaces.projects.update', [$workspace, $project]), [
+                'name' => 'Colorful', 'visibility' => 1, 'color' => $color,
+            ])->assertSessionHasNoErrors();
+
+            $this->assertSame($color, $project->fresh()->color);
+        }
+    }
+
     public function test_invalid_icon_and_color_are_rejected_without_changes(): void
     {
         $owner = User::factory()->create();

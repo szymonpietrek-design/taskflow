@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { useI18n } from '@/composables/useI18n';
 import { Head, Link, usePage } from '@inertiajs/vue3';
-import { AppWindow, FolderKanban, LockKeyhole, Plus } from '@lucide/vue';
+import { FolderKanban, LockKeyhole, Plus } from '@lucide/vue';
 import { computed, ref, watch } from 'vue';
 import Heading from '@/components/Heading.vue';
+import ProjectIdentity from '@/components/ProjectIdentity.vue';
 import ProjectFormDialog from '@/components/ProjectFormDialog.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -62,10 +63,13 @@ defineOptions({
                 <Link v-for="project in projects" :key="project.id" :href="`/projects/${project.id}`" class="block">
                     <Card class="gap-0 py-4 transition-colors hover:bg-muted/30">
                         <CardContent class="flex items-center gap-4 px-5">
-                            <div class="flex size-10 shrink-0 items-center justify-center rounded-lg border bg-muted/50">
-                                <AppWindow v-if="project.type === 'application'" class="size-5 text-muted-foreground" />
-                                <FolderKanban v-else class="size-5 text-muted-foreground" />
-                            </div>
+                            <ProjectIdentity
+                                :logo-url="project.logo_url"
+                                :icon="project.icon"
+                                :color="project.color"
+                                :type="project.type"
+                                size="md"
+                            />
                             <div class="min-w-0 flex-1">
                                 <div class="flex flex-wrap items-center gap-2">
                                     <p class="min-w-0 break-words font-medium">{{ project.name }}</p>

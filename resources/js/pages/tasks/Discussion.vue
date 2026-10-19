@@ -13,12 +13,16 @@ import {
     Send,
     Trash2,
     Link2,
+    ChevronDown,
+    AlertTriangle,
 } from '@lucide/vue';
 import { computed, ref, watch } from 'vue';
 import { toast } from 'vue-sonner';
 import InputError from '@/components/InputError.vue';
 import UserAvatar from '@/components/UserAvatar.vue';
 import TaskMarkdown from '@/components/tasks/TaskMarkdown.vue';
+import TaskAttachmentLibraryPicker from '@/components/tasks/TaskAttachmentLibraryPicker.vue';
+import TaskSelectedAttachments from '@/components/tasks/TaskSelectedAttachments.vue';
 import TaskImagePreviewDialog from '@/components/tasks/TaskImagePreviewDialog.vue';
 import { AsyncVisualMarkdownEditor } from '@/components/tasks/AsyncVisualMarkdownEditor';
 import { Button } from '@/components/ui/button';
@@ -72,14 +76,32 @@ const library = computed(() => [
     ...recentUploads.value.filter(a => !props.availableAttachments.some(b => b.id === a.id)),
 ]);
 const editingBody = ref('');
-// Only newly selected IDs are submitted when editing: existing links are kept
-// unless the user explicitly unlinks one with the separate attachment action.
-const editAddedIds = ref<number[]>([]);
+// Edit all message attachments in one draft: unchecking takes effect only on Save.
+const editSelectedIds = ref<number[]>([]);
 const editLibraryOpen = ref(false);
-const editingOriginalIds = ref<number[]>([]);
 const selectedFiles = ref<File[]>([]);
 const selectedExistingIds = ref<number[]>([]);
 const showLibrary = ref(false);
+const editSelectedFiles = computed(() => editSelectedIds.value
+    .map(id => library.value.find(file => file.id === id))
+    .filter((file): file is TaskAttachmentSummary => file !== undefined));
+const newSelectedFiles = computed(() => selectedExistingIds.value
+    .map(id => library.value.find(file => file.id === id))
+    .filter((file): file is TaskAttachmentSummary => file !== undefined));
+// Attachment references in Markdown must always correspond to selected files.
+// Otherwise the server deliberately renders "Attachment unavailable".
+const unlinkedInlineIds = computed(() => {
+    const ids = new Set<number>();
+    const references = /(?:attachment:|\/attachments\/)(\d+)(?:\/(?:preview|download))?/gi;
+    for (const match of editingBody.value.matchAll(references)) {
+        const id = Number(match[1]);
+        if (id > 0 && !editSelectedIds.value.includes(id)) ids.add(id);
+    }
+    return [...ids];
+});
+const unlinkedInlineNames = computed(() => unlinkedInlineIds.value.map(id =>
+    library.value.find(file => file.id === id)?.name ?? `#${id}`,
+));
 const filePicker = ref<HTMLInputElement | null>(null);
 const posting = ref(false);
 const postError = ref('');
@@ -87,6 +109,15 @@ const imagePreview = ref<TaskAttachmentSummary | null>(null);
 const messagesUrl = computed(
     () => `/projects/${props.projectId}/tasks/${props.taskId}/messages`,
 );
+// Old messages may contain attachment:ID links after a file was unlinked.
+// Don't silently delete message content; offer its author a way to repair it.
+function hasBrokenAttachmentReferences(message: TaskMessageSummary): boolean {
+    const linked = new Set(message.attachments.map(file => file.id));
+    for (const match of message.body.matchAll(/\battachment:([1-9][0-9]*)\b/gi)) {
+        if (!linked.has(Number(match[1]))) return true;
+    }
+    return false;
+}
 watch(
     () => props.taskId,
     () => {
@@ -94,7 +125,7 @@ watch(
         deletingId.value = null;
         resetComposer();
         recentUploads.value = [];
-        editAddedIds.value = [];
+        editSelectedIds.value = [];
         imagePreview.value = null;
     },
 );
@@ -134,28 +165,42 @@ function selectFiles(event: Event): void {
     if (incoming.length > 5 || incoming.some(file => file.size > 20 * 1024 * 1024)) {
         postError.value = t('attachments.limits');
         selectedFiles.value = [];
+        input.value = '';
         return;
     }
     selectedFiles.value = incoming;
+    // The form submits selectedFiles, not the native input value.
+    // Clearing it lets users pick the same file again after removing it.
+    input.value = '';
+}
+function removeSelectedFile(index: number): void {
+    selectedFiles.value = selectedFiles.value.filter((_, position) => position !== index);
 }
 function toggleExisting(id: number, checked: boolean): void {
     selectedExistingIds.value = checked
         ? [...selectedExistingIds.value, id]
         : selectedExistingIds.value.filter(existing => existing !== id);
 }
+function toggleEditAttachment(id: number, checked: boolean): void {
+    if (checked) {
+        const file = library.value.find(attachment => attachment.id === id);
+        if (file) addEditAttachment(file);
+    } else {
+        editSelectedIds.value = editSelectedIds.value.filter(existing => existing !== id);
+    }
+}
 function startEditing(message: TaskMessageSummary): void {
     editingId.value = message.id;
     editingBody.value = message.body;
-    editingOriginalIds.value = message.attachments.map(file => file.id);
+    editSelectedIds.value = message.attachments.map(file => file.id);
     editInsertRequests.value = [];
-    editAddedIds.value = [];
     editLibraryOpen.value = false;
     editingUploading.value = false;
 }
 function stopEditing(): void {
     editingId.value = null;
     editInsertRequests.value = [];
-    editAddedIds.value = [];
+    editSelectedIds.value = [];
     editLibraryOpen.value = false;
 }
 function onEditUploaded(attachment: TaskAttachmentSummary): void {
@@ -164,12 +209,12 @@ function onEditUploaded(attachment: TaskAttachmentSummary): void {
     router.reload({ only: ['attachments'] });
 }
 function addEditAttachment(file: TaskAttachmentSummary): boolean {
-    if (editingOriginalIds.value.includes(file.id) || editAddedIds.value.includes(file.id)) return true;
-    if (editingOriginalIds.value.length + editAddedIds.value.length >= 20) {
+    if (editSelectedIds.value.includes(file.id)) return true;
+    if (editSelectedIds.value.length >= 20) {
         toast.error(t('messages.markdown.maxFiles'));
         return false;
     }
-    editAddedIds.value.push(file.id);
+    editSelectedIds.value.push(file.id);
     return true;
 }
 
@@ -230,12 +275,6 @@ function submitMessage(): void {
         },
     });
 }
-function unlink(messageId: number, attachmentId: number): void {
-    router.delete(`${messagesUrl.value}/${messageId}/attachments/${attachmentId}`, {
-        preserveScroll: true,
-        onError: () => toast.error(t('messages.attachments.unlinkError')),
-    });
-}
 </script>
 
 <template>
@@ -293,8 +332,10 @@ function unlink(messageId: number, attachmentId: number): void {
                                 >
                             </div>
                             <div
-                                v-if="(message.can_create_task && editingId !== message.id) || message.can_update || message.can_delete"
-                                class="flex shrink-0 items-center gap-1"
+                                v-if="((message.can_create_task || message.can_update) && editingId !== message.id) || message.can_delete"
+                                class="flex shrink-0 items-center gap-0.5 rounded-md p-0.5"
+                                role="group"
+                                :aria-label="t('messages.actions')"
                             >
                                 <TooltipProvider :delay-duration="150">
                                     <Tooltip v-if="message.can_create_task && editingId !== message.id">
@@ -302,12 +343,12 @@ function unlink(messageId: number, attachmentId: number): void {
                                             <Button
                                                 as-child
                                                 variant="ghost"
-                                                size="icon-sm"
-                                                class="text-muted-foreground hover:text-foreground"
+                                                size="icon-lg"
+                                                class="text-muted-foreground hover:bg-accent hover:text-foreground"
                                             >
                                                 <Link
                                                     :href="`${messagesUrl}/${message.id}/create-task`"
-                                                    :aria-label="t('stage2.create_task')"
+                                                    :aria-label="t('stage2.create_task_from_message')"
                                                 >
                                                     <ListPlus class="size-4" aria-hidden="true" />
                                                 </Link>
@@ -315,13 +356,13 @@ function unlink(messageId: number, attachmentId: number): void {
                                         </TooltipTrigger>
                                         <TooltipContent side="top">{{ t('stage2.create_task') }}</TooltipContent>
                                     </Tooltip>
-                                    <Tooltip v-if="message.can_update">
+                                    <Tooltip v-if="message.can_update && editingId !== message.id">
                                         <TooltipTrigger as-child>
                                             <Button
                                                 type="button"
                                                 variant="ghost"
-                                                size="icon-sm"
-                                                class="text-muted-foreground hover:text-foreground"
+                                                size="icon-lg"
+                                                class="text-muted-foreground hover:bg-accent hover:text-foreground"
                                                 :aria-label="`${t('stage2.edit')} — ${message.author?.name ?? t('fix.deleted_user')}`"
                                                 @click="startEditing(message)"
                                             >
@@ -346,8 +387,8 @@ function unlink(messageId: number, attachmentId: number): void {
                                                     <Button
                                                         type="button"
                                                         variant="ghost"
-                                                        size="icon-sm"
-                                                        class="text-muted-foreground hover:text-destructive"
+                                                        size="icon-lg"
+                                                        class="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                                                         :aria-label="`${t('stage2.delete')} — ${message.author?.name ?? t('fix.deleted_user')}`"
                                                     >
                                                         <Trash2 class="size-4" aria-hidden="true" />
@@ -405,7 +446,8 @@ function unlink(messageId: number, attachmentId: number): void {
                             v-slot="{ errors, processing }"
                         >
                             <input type="hidden" name="body" :value="editingBody" />
-                            <input v-for="id in editAddedIds" :key="id" type="hidden" name="attachment_ids[]" :value="id" />
+                            <input type="hidden" name="sync_attachments" value="1" />
+                            <input v-for="id in editSelectedIds" :key="id" type="hidden" name="attachment_ids[]" :value="id" />
                             <AsyncVisualMarkdownEditor
                                 :insert-requests="editInsertRequests"
                                 v-model="editingBody"
@@ -415,42 +457,47 @@ function unlink(messageId: number, attachmentId: number): void {
                                 :disabled="processing"
                                 :placeholder="t('stage2.edit_message')"
                                 compact
-                                :can-upload="editingOriginalIds.length + editAddedIds.length < 20"
+                                :can-upload="editSelectedIds.length < 20"
                                 @uploaded="onEditUploaded"
                                 @uploading="editingUploading = $event"
                             />
-                            <div v-if="message.attachments.length" class="space-y-1 rounded-md border p-2">
-                                <div v-for="file in message.attachments" :key="file.id" class="flex min-w-0 flex-wrap items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted/40">
-                                    <ImageIcon v-if="file.is_image" class="size-4 shrink-0 text-muted-foreground" />
-                                    <Paperclip v-else class="size-4 shrink-0 text-muted-foreground" />
-                                    <span class="min-w-24 flex-1 truncate" :title="file.name">{{ file.name }}</span>
-                                    <div class="ml-auto flex flex-wrap items-center gap-1">
-                                        <Button v-if="file.is_image" type="button" size="sm" variant="ghost" :disabled="processing || editingUploading" @click.prevent="insertExisting(file, true, 'edit')"><ImageIcon class="size-3.5" />{{ t('messages.markdown.insertImage') }}</Button>
-                                        <Button type="button" size="sm" variant="ghost" :disabled="processing || editingUploading" @click.prevent="insertExisting(file, false, 'edit')"><Link2 class="size-3.5" />{{ t('messages.markdown.insertLink') }}</Button>
-                                    </div>
-                                </div>
-                            </div>
                             <div class="flex flex-wrap items-center gap-2">
                                 <Button type="button" size="sm" variant="outline" :disabled="processing || editingUploading" :aria-expanded="editLibraryOpen" @click="editLibraryOpen = !editLibraryOpen">
-                                    <Paperclip class="size-3.5" /> {{ t('messages.attachments.fromTask') }}
+                                    <Paperclip class="size-3.5" /> {{ t('messages.attachments.manage') }}
+                                    <span v-if="editSelectedIds.length" class="rounded bg-muted px-1.5 text-xs tabular-nums">{{ editSelectedIds.length }}</span>
+                                    <ChevronDown class="size-3.5 text-muted-foreground transition-transform" :class="editLibraryOpen ? 'rotate-180' : ''" aria-hidden="true" />
                                 </Button>
-                                <span v-if="editAddedIds.length" class="text-xs text-muted-foreground">{{ t('messages.attachments.selected') }}: {{ editAddedIds.length }}</span>
                             </div>
-                            <div v-if="editLibraryOpen" class="max-h-48 space-y-1 overflow-y-auto rounded-md border p-2" :aria-label="t('messages.attachments.fromTask')">
-                                <div v-for="file in library" :key="file.id" class="flex min-w-0 flex-wrap items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted/40">
-                                    <ImageIcon v-if="file.is_image" class="size-4 shrink-0 text-muted-foreground" /><Paperclip v-else class="size-4 shrink-0 text-muted-foreground" />
-                                    <span class="min-w-24 flex-1 truncate" :title="file.name">{{ file.name }}</span>
-                                    <div class="ml-auto flex flex-wrap items-center gap-1">
-                                        <Button v-if="file.is_image" type="button" size="sm" variant="ghost" :disabled="processing || editingUploading" @click.prevent="insertExisting(file, true, 'edit')"><ImageIcon class="size-3.5" />{{ t('messages.markdown.insertImage') }}</Button>
-                                        <Button type="button" size="sm" variant="ghost" :disabled="processing || editingUploading" @click.prevent="insertExisting(file, false, 'edit')"><Link2 class="size-3.5" />{{ t('messages.markdown.insertLink') }}</Button>
-                                    </div>
+                            <TaskSelectedAttachments
+                                v-if="!editLibraryOpen"
+                                :files="editSelectedFiles"
+                                :disabled="processing || editingUploading"
+                                @remove="toggleEditAttachment($event, false)"
+                            />
+                            <TaskAttachmentLibraryPicker
+                                :project-id="projectId"
+                                :task-id="taskId"
+                                v-if="editLibraryOpen"
+                                scope="edit"
+                                editing
+                                :attachments="library"
+                                :selected-ids="editSelectedIds"
+                                :disabled="processing || editingUploading"
+                                @toggle="toggleEditAttachment"
+                                @insert="(file, image) => insertExisting(file, image, 'edit')"
+                            />
+                            <div v-if="unlinkedInlineNames.length" role="alert" class="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 p-3 text-sm">
+                                <AlertTriangle class="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+                                <div class="min-w-0 space-y-1">
+                                    <p class="font-medium">{{ t('messages.attachments.inlineWarningTitle') }}</p>
+                                    <p class="text-xs text-muted-foreground">{{ t('messages.attachments.inlineWarningHelp') }}</p>
+                                    <p class="break-words text-xs text-muted-foreground">{{ unlinkedInlineNames.join(', ') }}</p>
                                 </div>
-                                <p v-if="!library.length" class="text-xs text-muted-foreground">{{ t('attachments.empty') }}</p>
                             </div>
                             <InputError :message="errors.body" />
                             <InputError :message="errors.attachment_ids ?? errors['attachment_ids.0']" />
                             <div class="flex gap-2">
-                                <Button size="sm" :disabled="processing || editingUploading"
+                                <Button size="sm" :disabled="processing || editingUploading || unlinkedInlineNames.length > 0"
                                     ><LoaderCircle
                                         v-if="processing"
                                         class="size-4 animate-spin"
@@ -469,7 +516,25 @@ function unlink(messageId: number, attachmentId: number): void {
                             </div>
                         </Form>
                         <TaskMarkdown v-else-if="message.body_html" :html="message.body_html" zoom-images @image-click="showInlineImage" />
-                        <div v-if="message.attachments.length" class="flex flex-wrap items-center gap-2" :aria-label="t('messages.attachments.title')">
+                        <div
+                            v-if="editingId !== message.id && hasBrokenAttachmentReferences(message)"
+                            class="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-md border border-amber-500/25 bg-amber-500/5 px-3 py-2 text-xs"
+                            role="status"
+                        >
+                            <AlertTriangle class="size-4 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+                            <span class="min-w-0 flex-1 text-muted-foreground">{{ t('messages.attachments.repairHint') }}</span>
+                            <Button
+                                v-if="message.can_update"
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                class="shrink-0"
+                                @click="startEditing(message)"
+                            >
+                                <Pencil class="size-3.5" aria-hidden="true" /> {{ t('messages.attachments.repairAction') }}
+                            </Button>
+                        </div>
+                        <div v-if="editingId !== message.id && message.attachments.length" class="flex flex-wrap items-center gap-2" :aria-label="t('messages.attachments.title')">
                             <div v-for="attachment in message.attachments" :key="attachment.id" class="inline-flex min-w-0 max-w-full items-center gap-1 rounded-md border bg-muted/30 px-2 py-1.5 text-xs">
                                 <button v-if="attachment.is_image" type="button" class="inline-flex min-w-0 items-center gap-1.5 hover:underline" @click="imagePreview = attachment">
                                     <img :src="attachmentUrl(attachment, 'preview')" :alt="attachment.name" class="size-7 shrink-0 rounded object-cover" />
@@ -478,8 +543,12 @@ function unlink(messageId: number, attachmentId: number): void {
                                 <a v-else :href="attachmentUrl(attachment, 'download')" class="inline-flex min-w-0 items-center gap-1.5 hover:underline">
                                     <Paperclip class="size-3.5 shrink-0" /><span class="max-w-44 truncate">{{ attachment.name }}</span>
                                 </a>
-                                <a :href="attachmentUrl(attachment, 'download')" :aria-label="t('messages.attachments.download')" class="rounded p-1 hover:bg-muted"><Download class="size-3.5" /></a>
-                                <button v-if="message.can_update" type="button" :aria-label="t('messages.attachments.unlink')" class="rounded p-1 hover:bg-muted" @click="unlink(message.id, attachment.id)"><X class="size-3.5" /></button>
+                                <a
+                                    :href="attachmentUrl(attachment, 'download')"
+                                    :aria-label="`${t('messages.attachments.download')} — ${attachment.name}`"
+                                    :title="t('messages.attachments.download')"
+                                    class="inline-flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                                ><Download class="size-4" aria-hidden="true" /></a>
                             </div>
                         </div>
                     </div>
@@ -494,7 +563,7 @@ function unlink(messageId: number, attachmentId: number): void {
                 <button
                     v-if="!composerActive"
                     type="button"
-                    class="flex min-h-36 w-full items-start rounded-md border border-input bg-background px-3 py-3 text-left text-sm text-muted-foreground transition-colors hover:border-ring hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                    class="flex min-h-24 w-full items-start rounded-md border border-input bg-background px-3 py-3 text-left text-sm text-muted-foreground transition-colors hover:border-ring hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
                     :aria-label="t('stage2.write_a_message')"
                     @click="composerActive = true"
                 >
@@ -522,22 +591,37 @@ function unlink(messageId: number, attachmentId: number): void {
                         <Paperclip class="size-4" /> {{ t('messages.attachments.addFiles') }}
                     </Button>
                     <Button v-if="library.length" type="button" size="sm" variant="outline" :disabled="posting" :aria-expanded="showLibrary" @click="showLibrary = !showLibrary">
-                        <ImageIcon class="size-4" /> {{ t('messages.attachments.fromTask') }}
+                        <Paperclip class="size-4" /> {{ t('messages.attachments.manage') }}
+                        <span v-if="selectedExistingIds.length" class="rounded bg-muted px-1.5 text-xs tabular-nums">{{ selectedExistingIds.length }}</span>
+                        <ChevronDown class="size-3.5 text-muted-foreground transition-transform" :class="showLibrary ? 'rotate-180' : ''" aria-hidden="true" />
                     </Button>
                 </div>
-                <p v-if="selectedFiles.length" class="text-xs text-muted-foreground">{{ selectedFiles.map(file => file.name).join(', ') }}</p>
-                <div v-if="showLibrary" class="max-h-48 space-y-1 overflow-y-auto rounded-md border p-2" :aria-label="t('messages.attachments.fromTask')">
-                    <div v-for="attachment in library" :key="attachment.id" class="flex min-w-0 flex-wrap items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted/40">
-                        <input type="checkbox" :aria-label="attachment.name" :checked="selectedExistingIds.includes(attachment.id)" :disabled="posting || (selectedExistingIds.length >= 20 && !selectedExistingIds.includes(attachment.id))" @change="toggleExisting(attachment.id, ($event.target as HTMLInputElement).checked)" />
-                        <ImageIcon v-if="attachment.is_image" class="size-4 shrink-0 text-muted-foreground" /><Paperclip v-else class="size-4 shrink-0 text-muted-foreground" />
-                        <span class="min-w-24 flex-1 truncate" :title="attachment.name">{{ attachment.name }}</span>
-                        <div class="ml-auto flex flex-wrap items-center gap-1">
-                            <Button v-if="attachment.is_image" type="button" size="sm" variant="ghost" :disabled="posting || composerUploading" @click.prevent="insertExisting(attachment, true, 'new')"><ImageIcon class="size-3.5" />{{ t('messages.markdown.insertImage') }}</Button>
-                            <Button type="button" size="sm" variant="ghost" :disabled="posting || composerUploading" @click.prevent="insertExisting(attachment, false, 'new')"><Link2 class="size-3.5" />{{ t('messages.markdown.insertLink') }}</Button>
-                        </div>
+                <div v-if="selectedFiles.length" class="flex flex-wrap gap-2" :aria-label="t('messages.attachments.pendingFiles')">
+                    <div v-for="(file, index) in selectedFiles" :key="`${file.name}-${index}`" class="inline-flex max-w-full items-center gap-1.5 rounded-md border bg-muted/30 py-1 pl-2.5 pr-1 text-xs">
+                        <Paperclip class="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                        <span class="max-w-64 truncate" :title="file.name">{{ file.name }}</span>
+                        <Button type="button" variant="ghost" size="icon-sm" class="size-6 shrink-0" :disabled="posting" :aria-label="`${t('messages.attachments.removePendingFile')} — ${file.name}`" @click="removeSelectedFile(index)">
+                            <X class="size-3.5" aria-hidden="true" />
+                        </Button>
                     </div>
                 </div>
-                <p v-if="selectedExistingIds.length" class="text-xs text-muted-foreground">{{ t('messages.attachments.selected') }}: {{ selectedExistingIds.length }}</p>
+                <TaskSelectedAttachments
+                    v-if="!showLibrary"
+                    :files="newSelectedFiles"
+                    :disabled="posting || composerUploading"
+                    @remove="toggleExisting($event, false)"
+                />
+                <TaskAttachmentLibraryPicker
+                    :project-id="projectId"
+                    :task-id="taskId"
+                    v-if="showLibrary"
+                    scope="new"
+                    :attachments="library"
+                    :selected-ids="selectedExistingIds"
+                    :disabled="posting || composerUploading"
+                    @toggle="toggleExisting"
+                    @insert="(file, image) => insertExisting(file, image, 'new')"
+                />
                 <p v-if="postError" role="alert" class="text-sm text-destructive">{{ postError }}</p>
                 <div class="flex justify-end">
                     <Button type="submit" :disabled="posting || composerUploading || (!messageBody.trim() && !selectedFiles.length && !selectedExistingIds.length)">

@@ -53,6 +53,14 @@ export const projectColors: Record<ProjectColor, { background: string; foregroun
     rose:    { background: 'bg-rose-500/10 dark:bg-rose-400/15', foreground: 'text-rose-700 dark:text-rose-300', dot: 'bg-rose-500', accent: '#f43f5e' },
     cyan:    { background: 'bg-cyan-500/10 dark:bg-cyan-400/15', foreground: 'text-cyan-700 dark:text-cyan-300', dot: 'bg-cyan-500', accent: '#06b6d4' },
     orange:  { background: 'bg-orange-500/10 dark:bg-orange-400/15', foreground: 'text-orange-700 dark:text-orange-300', dot: 'bg-orange-500', accent: '#f97316' },
+    indigo:  { background: 'bg-indigo-500/10 dark:bg-indigo-400/15', foreground: 'text-indigo-700 dark:text-indigo-300', dot: 'bg-indigo-500', accent: '#6366f1' },
+    teal:    { background: 'bg-teal-500/10 dark:bg-teal-400/15', foreground: 'text-teal-700 dark:text-teal-300', dot: 'bg-teal-500', accent: '#14b8a6' },
+    lime:    { background: 'bg-lime-500/10 dark:bg-lime-400/15', foreground: 'text-lime-800 dark:text-lime-300', dot: 'bg-lime-500', accent: '#84cc16' },
+    fuchsia: { background: 'bg-fuchsia-500/10 dark:bg-fuchsia-400/15', foreground: 'text-fuchsia-700 dark:text-fuchsia-300', dot: 'bg-fuchsia-500', accent: '#d946ef' },
+    pink:    { background: 'bg-pink-500/10 dark:bg-pink-400/15', foreground: 'text-pink-700 dark:text-pink-300', dot: 'bg-pink-500', accent: '#ec4899' },
+    red:     { background: 'bg-red-500/10 dark:bg-red-400/15', foreground: 'text-red-700 dark:text-red-300', dot: 'bg-red-500', accent: '#ef4444' },
+    sky:     { background: 'bg-sky-500/10 dark:bg-sky-400/15', foreground: 'text-sky-700 dark:text-sky-300', dot: 'bg-sky-500', accent: '#0ea5e9' },
+    stone:   { background: 'bg-stone-500/10 dark:bg-stone-400/15', foreground: 'text-stone-700 dark:text-stone-300', dot: 'bg-stone-500', accent: '#78716c' },
 };
 export const projectColorOptions = Object.keys(projectColors) as ProjectColor[];
 

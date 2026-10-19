@@ -71,9 +71,12 @@ class TaskMessageController extends Controller
         $data = $request->validated();
         DB::transaction(function () use ($message, $data): void {
             $message->update(['body' => trim($data['body'])]);
-            // Edits add explicit files; existing links are removed only through
-            // the dedicated unlink action, never by an omitted form field.
-            if (! empty($data['attachment_ids'])) {
+            // The edit form submits the complete selection. An empty selection
+            // removes all links, without deleting files from the task library.
+            // Requests without the flag retain the add-only behavior.
+            if ($data['sync_attachments'] ?? false) {
+                $message->attachments()->sync($data['attachment_ids'] ?? []);
+            } elseif (! empty($data['attachment_ids'])) {
                 $message->attachments()->syncWithoutDetaching($data['attachment_ids']);
             }
         });

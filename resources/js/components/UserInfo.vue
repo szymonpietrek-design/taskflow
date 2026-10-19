@@ -2,6 +2,7 @@
 import { computed } from 'vue';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useInitials } from '@/composables/useInitials';
+import { userAvatarTone } from '@/lib/userAvatarTone';
 import type { User } from '@/types';
 
 type Props = {
@@ -22,9 +23,9 @@ const showAvatar = computed(
 </script>
 
 <template>
-    <Avatar class="h-8 w-8 overflow-hidden rounded-lg">
+    <Avatar class="size-8 overflow-hidden rounded-full ring-1 ring-border/60">
         <AvatarImage v-if="showAvatar" :src="user.avatar!" :alt="user.name" />
-        <AvatarFallback class="rounded-lg text-black dark:text-white">
+        <AvatarFallback class="rounded-full text-xs font-semibold" :class="userAvatarTone(user.id)">
             {{ getInitials(user.name) }}
         </AvatarFallback>
     </Avatar>

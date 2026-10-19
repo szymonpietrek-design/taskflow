@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Link, usePage } from '@inertiajs/vue3';
-import { ChevronDown, FileText, FolderKanban, LayoutDashboard, ListTodo, Package, Plus } from '@lucide/vue';
+import { FileText, FolderKanban, LayoutDashboard, ListTodo, Package, Plus } from '@lucide/vue';
 import { computed, ref, watch } from 'vue';
 import ProjectIdentity from '@/components/ProjectIdentity.vue';
 import { useI18n } from '@/composables/useI18n';
@@ -31,8 +31,8 @@ const activeProjectId = computed<number | null>(() => {
     return match ? Number(match[1]) : null;
 });
 
-// Only the chevron toggles the accordion. Project names are Inertia links.
-// Keep the expanded project independent of the project shown by the current URL.
+// Clicking the entire project row toggles its submenu without navigating.
+// Navigation remains available via the section links (including Overview).
 const { state: sidebarState, setOpen } = useSidebar();
 const expandedProjectId = ref<number | null>(activeProjectId.value);
 
@@ -44,11 +44,6 @@ watch(activeProjectId, (current, previous) => {
 
 function isProjectExpanded(projectId: number): boolean {
     return expandedProjectId.value === projectId;
-}
-
-function visitProject(projectId: number): void {
-    expandedProjectId.value = projectId;
-    if (sidebarState.value === 'collapsed') setOpen(true);
 }
 
 function toggleProjectNavigation(projectId: number): void {
@@ -93,58 +88,37 @@ function isSectionActive(projectId: number, section: ProjectSection): boolean {
                     v-for="project in projects"
                     :key="project.id"
                 >
-                    <!-- Keep navigation and accordion controls separate (no nested interactive elements). -->
-                    <div class="relative min-w-0">
-                        <SidebarMenuButton
-                            as-child
-                            size="lg"
-                            :is-active="isActive(project.id)"
-                            :tooltip="`${project.name} (${project.key})`"
-                            class="relative pr-10! transition-colors duration-150 data-[active=true]:bg-sidebar-accent/65 data-[active=true]:font-medium group-data-[collapsible=icon]:p-0!"
-                            :class="{ 'bg-sidebar-accent/35': isProjectExpanded(project.id) && !isActive(project.id) }"
-                        >
-                            <Link
-                                :href="`/projects/${project.id}`"
-                                class="min-w-0 gap-2 text-left"
-                                :aria-current="isSectionActive(project.id, 'overview') ? 'page' : undefined"
-                                @click="visitProject(project.id)"
-                            >
-                                <span
-                                    v-if="isActive(project.id)"
-                                    aria-hidden="true"
-                                    class="absolute top-2 bottom-2 left-0 w-0.5 rounded-full group-data-[collapsible=icon]:hidden"
-                                    :class="projectColors[project.color ?? 'slate'].dot"
-                                />
-                                <ProjectIdentity
-                                    :logo-url="project.logo_url"
-                                    :icon="project.icon"
-                                    :color="project.color"
-                                    :type="project.type"
-                                    size="sm"
-                                />
-                                <span class="flex min-w-0 flex-1 flex-col gap-0.5 leading-tight group-data-[collapsible=icon]:hidden">
-                                    <span class="truncate text-[13px] font-medium">{{ project.name }}</span>
-                                    <span class="truncate text-[11px] text-muted-foreground">{{ project.key }}</span>
-                                </span>
-                            </Link>
-                        </SidebarMenuButton>
-
-                        <button
-                            type="button"
-                            class="absolute top-1/2 right-1.5 z-1 flex size-7 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring group-data-[collapsible=icon]:hidden"
-                            :aria-expanded="isProjectExpanded(project.id)"
-                            :aria-controls="`project-subnav-${project.id}`"
-                            :aria-label="`${project.name} — ${isProjectExpanded(project.id) ? t('nav.collapseProjectNavigation') : t('nav.expandProjectNavigation')}`"
-                            :title="isProjectExpanded(project.id) ? t('nav.collapseProjectNavigation') : t('nav.expandProjectNavigation')"
-                            @click="toggleProjectNavigation(project.id)"
-                        >
-                            <ChevronDown
-                                aria-hidden="true"
-                                class="size-4 transition-transform duration-200 ease-out motion-reduce:transition-none"
-                                :class="{ '-rotate-90': !isProjectExpanded(project.id) }"
-                            />
-                        </button>
-                    </div>
+                    <!-- One accessible button handles the entire row. Submenu links navigate. -->
+                    <SidebarMenuButton
+                        type="button"
+                        size="lg"
+                        :is-active="isActive(project.id)"
+                        :tooltip="`${project.name} (${project.key})`"
+                        class="relative min-w-0 gap-2 text-left transition-colors duration-150 data-[active=true]:bg-sidebar-accent/65 data-[active=true]:font-medium group-data-[collapsible=icon]:p-0!"
+                        :class="{ 'bg-sidebar-accent/35': isProjectExpanded(project.id) && !isActive(project.id) }"
+                        :aria-expanded="isProjectExpanded(project.id)"
+                        :aria-controls="`project-subnav-${project.id}`"
+                        :aria-label="`${project.name} — ${isProjectExpanded(project.id) ? t('nav.collapseProjectNavigation') : t('nav.expandProjectNavigation')}`"
+                        @click="toggleProjectNavigation(project.id)"
+                    >
+                        <span
+                            v-if="isActive(project.id)"
+                            aria-hidden="true"
+                            class="absolute top-2 bottom-2 left-0 w-0.5 rounded-full group-data-[collapsible=icon]:hidden"
+                            :class="projectColors[project.color ?? 'slate'].dot"
+                        />
+                        <ProjectIdentity
+                            :logo-url="project.logo_url"
+                            :icon="project.icon"
+                            :color="project.color"
+                            :type="project.type"
+                            size="sm"
+                        />
+                        <span class="flex min-w-0 flex-1 flex-col gap-0.5 leading-tight group-data-[collapsible=icon]:hidden">
+                            <span class="truncate text-[13px] font-medium">{{ project.name }}</span>
+                            <span class="truncate text-[11px] text-muted-foreground">{{ project.key }}</span>
+                        </span>
+                    </SidebarMenuButton>
 
                     <!-- Grid rows animate from 0fr to 1fr, so variable submenu height works. -->
                     <Transition name="project-subnav-slide">

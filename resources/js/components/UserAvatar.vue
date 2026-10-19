@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { userAvatarTone } from '@/lib/userAvatarTone';
 
 const props = withDefaults(
     defineProps<{
@@ -19,17 +20,7 @@ const props = withDefaults(
     },
 );
 
-const tones = [
-    'bg-[#eef1f4] text-[#526173] dark:bg-[#2a3540] dark:text-[#ced7e2]',
-    'bg-[#eeedf2] text-[#625e71] dark:bg-[#34313e] dark:text-[#d3cddd]',
-    'bg-[#edf1ed] text-[#53685b] dark:bg-[#2c3a33] dark:text-[#cfdbd1]',
-    'bg-[#f2efe9] text-[#776b59] dark:bg-[#3d382f] dark:text-[#ded5c4]',
-    'bg-[#edf0f1] text-[#58686d] dark:bg-[#2c373a] dark:text-[#d0dbdd]',
-] as const;
-
-const tone = computed(
-    () => tones[Math.abs(props.userId) % tones.length] ?? tones[0],
-);
+const tone = computed(() => userAvatarTone(props.userId));
 const initials = computed(() => {
     const words = props.name.trim().split(/\s+/).filter(Boolean);
     const first = words[0]?.charAt(0) ?? '';

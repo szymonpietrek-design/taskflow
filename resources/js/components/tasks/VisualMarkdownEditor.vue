@@ -562,7 +562,7 @@ defineExpose({ insertAttachment });
         </div>
         <div ref="root" v-show="!sourceMode" class="visual-markdown-body" />
         <textarea v-if="sourceMode" :value="modelValue" :disabled="disabled" :maxlength="maxLength"
-            rows="8" class="block w-full resize-y bg-transparent px-3 py-2 font-mono text-sm outline-none"
+            :rows="compact ? 5 : 8" class="block w-full resize-y bg-transparent px-3 py-2 font-mono text-sm outline-none"
             @input="setValue(($event.target as HTMLTextAreaElement).value)" />
     </div>
 </template>
@@ -590,10 +590,10 @@ defineExpose({ insertAttachment });
     padding: 0.75rem 1rem 0.875rem;
     overflow: visible;
 }
-/* A message starts compact, but content grows naturally with the cursor.
-   The description editor retains its existing size and formatting. */
+/* A message starts compact and grows with its content; it does not jump
+   in height on focus. The description editor stays unchanged. */
 .visual-markdown-editor.is-compact :deep(.milkdown .editor) {
-    min-height: 11rem;
+    min-height: 6.5rem;
 }
 @media (max-width: 540px) {
     .visual-markdown-editor :deep(.milkdown .editor) {

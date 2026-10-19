@@ -197,6 +197,119 @@ class TaskMessageAttachmentsTest extends TestCase
         $this->assertSame(2, $message->attachments()->count());
     }
 
+    public function test_editing_cannot_unlink_an_image_still_referenced_in_message_body(): void
+    {
+        [$project, $owner, $task] = $this->taskWithOwner();
+        $this->actingAs($owner);
+        $this->post(route('tasks.attachments.store', [$project, $task]), [
+            'files' => [UploadedFile::fake()->createWithContent('photo.png', base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l1cAAAAASUVORK5CYII='))],
+        ])->assertSessionHasNoErrors();
+        $attachment = $task->attachments()->sole();
+        $body = "Screenshot\n\n![photo](attachment:{$attachment->id})";
+        $this->post(route('tasks.messages.store', [$project, $task]), [
+            'body' => $body,
+            'attachment_ids' => [$attachment->id],
+        ])->assertSessionHasNoErrors();
+        $message = $task->messages()->sole();
+
+        $this->patch(route('tasks.messages.update', [$project, $task, $message]), [
+            'body' => $body,
+            'sync_attachments' => '1',
+        ])->assertSessionHasErrors('attachment_ids');
+        $this->assertSame($body, $message->fresh()->body);
+        $this->assertSame(1, $message->attachments()->count());
+
+        // The old direct unlink route is protected as well.
+        $this->delete(route('tasks.messages.attachments.destroy', [$project, $task, $message, $attachment]))
+            ->assertSessionHasErrors('attachment');
+        $this->assertSame(1, $message->attachments()->count());
+
+        // Remove the inline reference first; now detaching is safe.
+        $this->patch(route('tasks.messages.update', [$project, $task, $message]), [
+            'body' => 'Screenshot removed',
+            'sync_attachments' => '1',
+        ])->assertSessionHasNoErrors();
+        $this->assertSame(0, $message->attachments()->count());
+        $this->assertSame(1, $task->attachments()->count());
+    }
+
+    public function test_editing_message_can_uncheck_attached_files_without_deleting_task_files(): void
+    {
+        [$project, $owner, $task] = $this->taskWithOwner();
+        $this->actingAs($owner);
+        $this->post(route('tasks.attachments.store', [$project, $task]), [
+            'files' => [
+                UploadedFile::fake()->create('first.pdf', 2, 'application/pdf'),
+                UploadedFile::fake()->create('second.pdf', 2, 'application/pdf'),
+                UploadedFile::fake()->create('third.pdf', 2, 'application/pdf'),
+            ],
+        ])->assertSessionHasNoErrors();
+        $files = $task->attachments()->orderBy('id')->get();
+
+        $this->post(route('tasks.messages.store', [$project, $task]), [
+            'body' => 'Original', 'attachment_ids' => [$files[0]->id, $files[1]->id],
+        ])->assertSessionHasNoErrors();
+        $message = $task->messages()->sole();
+
+        // The edit form sends the entire selection; first is unchecked,
+        // third is checked, and second stays checked.
+        $this->patch(route('tasks.messages.update', [$project, $task, $message]), [
+            'body' => 'Edited',
+            'sync_attachments' => '1',
+            'attachment_ids' => [$files[1]->id, $files[2]->id],
+        ])->assertSessionHasNoErrors();
+        $this->assertSame('Edited', $message->fresh()->body);
+        $this->assertEqualsCanonicalizing([$files[1]->id, $files[2]->id],
+            $message->attachments()->pluck('task_attachments.id')->all());
+
+        // No IDs in a sync request means the user unchecked all files.
+        $this->patch(route('tasks.messages.update', [$project, $task, $message]), [
+            'body' => 'Edited again', 'sync_attachments' => '1',
+        ])->assertSessionHasNoErrors();
+        $this->assertSame(0, $message->attachments()->count());
+        $this->assertSame(3, $task->attachments()->count());
+        foreach ($files as $file) {
+            Storage::disk('local')->assertExists($file->path);
+        }
+    }
+
+    public function test_replacing_last_file_of_full_message_is_allowed_but_adding_21st_is_rejected(): void
+    {
+        [$project, $owner, $task] = $this->taskWithOwner();
+        $this->actingAs($owner);
+        $files = [];
+        for ($i = 0; $i < 21; $i++) {
+            $files[] = $task->attachments()->create([
+                'uploaded_by' => $owner->id,
+                'original_name' => "file-{$i}.txt",
+                'path' => "task-attachments/{$task->id}/file-{$i}.txt",
+                'mime_type' => 'text/plain',
+                'size' => 5,
+            ]);
+        }
+        $this->post(route('tasks.messages.store', [$project, $task]), [
+            'body' => 'Original',
+            'attachment_ids' => array_map(fn ($file) => $file->id, array_slice($files, 0, 20)),
+        ])->assertSessionHasNoErrors();
+        $message = $task->messages()->sole();
+        $route = route('tasks.messages.update', [$project, $task, $message]);
+
+        // Replacing (not adding) one linked file should not exceed the limit.
+        // IDs 1 through 20 replace the original 0 through 19: exactly 20 distinct files.
+        $selection = array_map(fn ($file) => $file->id, array_slice($files, 1, 20));
+        $this->patch($route, [
+            'body' => 'Replaced', 'sync_attachments' => '1', 'attachment_ids' => $selection,
+        ])->assertSessionHasNoErrors();
+        $this->assertEqualsCanonicalizing($selection, $message->attachments()->pluck('task_attachments.id')->all());
+
+        $this->patch($route, [
+            'body' => 'Invalid', 'sync_attachments' => '1',
+            'attachment_ids' => array_map(fn ($file) => $file->id, $files),
+        ])->assertSessionHasErrors('attachment_ids');
+        $this->assertSame('Replaced', $message->fresh()->body);
+        $this->assertEqualsCanonicalizing($selection, $message->attachments()->pluck('task_attachments.id')->all());
+    }
+
     public function test_editing_message_cannot_link_file_from_another_task_or_exceed_limit(): void
     {
         [$project, $owner, $task] = $this->taskWithOwner();

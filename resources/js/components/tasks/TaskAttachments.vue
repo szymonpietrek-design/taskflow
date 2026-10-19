@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useI18n } from '@/composables/useI18n';
 import { router } from '@inertiajs/vue3';
-import { Download, FileArchive, FileJson, FileText, LoaderCircle, Paperclip, Plus, Trash2, CloudUpload, X } from '@lucide/vue';
+import { Download, FileArchive, FileJson, FileText, LoaderCircle, Paperclip, Plus, Trash2, CloudUpload, X, ZoomIn } from '@lucide/vue';
 import { computed, ref, watch } from 'vue';
 import { toast } from 'vue-sonner';
 import { Button } from '@/components/ui/button';
@@ -150,6 +150,13 @@ function removeAttachment(): void {
                         </div>
                     </div>
                     <div class="flex shrink-0 items-center gap-1">
+                        <button
+                            v-if="item.is_image" type="button"
+                            class="rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+                            :aria-label="formatText('attachments.preview', { name: item.name })"
+                            :title="formatText('attachments.preview', { name: item.name })"
+                            @click="imagePreview = item"
+                        ><ZoomIn class="size-4" /></button>
                         <a
                             :href="downloadUrl(item)"
                             class="rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"

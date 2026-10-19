@@ -134,7 +134,7 @@ const { t, locale, countLabel, formatText } = useI18n();
 </script>
 
 <template>
-    <Card id="worklog">
+    <Card id="worklog" :class="!entries.data.length && !editorOpen ? 'gap-3 py-4' : ''">
         <CardHeader>
             <div class="flex flex-wrap items-start justify-between gap-3">
                 <div class="space-y-1">
@@ -293,7 +293,7 @@ const { t, locale, countLabel, formatText } = useI18n();
                         </div>
                         <div
                             v-if="entry.can_update || entry.can_delete"
-                            class="flex shrink-0 items-center gap-1"
+                            class="flex shrink-0 items-center gap-0.5 rounded-md p-0.5"
                         >
                             <TooltipProvider :delay-duration="150">
                                 <Tooltip v-if="entry.can_update">
@@ -301,8 +301,8 @@ const { t, locale, countLabel, formatText } = useI18n();
                                         <Button
                                             type="button"
                                             variant="ghost"
-                                            size="icon-sm"
-                                            class="text-muted-foreground hover:text-foreground"
+                                            size="icon-lg"
+                                            class="text-muted-foreground hover:bg-accent hover:text-foreground"
                                             :aria-label="`${t('stage2.edit')} — ${dateLabel(entry.work_date)}`"
                                             :disabled="form.processing"
                                             @click="editEntry(entry)"
@@ -326,8 +326,8 @@ const { t, locale, countLabel, formatText } = useI18n();
                                                 <Button
                                                     type="button"
                                                     variant="ghost"
-                                                    size="icon-sm"
-                                                    class="text-muted-foreground hover:text-destructive"
+                                                    size="icon-lg"
+                                                    class="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                                                     :aria-label="`${t('stage2.delete')} — ${dateLabel(entry.work_date)}`"
                                                     :disabled="deleteForm.processing"
                                                 >

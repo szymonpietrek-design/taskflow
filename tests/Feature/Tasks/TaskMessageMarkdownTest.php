@@ -159,22 +159,33 @@ class TaskMessageMarkdownTest extends TestCase
         $this->postJson($url, ['body' => 'Archived'])->assertForbidden();
     }
 
-    public function test_unlinked_attachment_stops_rendering_as_inline_image(): void
+    public function test_inline_image_must_be_removed_from_message_before_attachment_can_be_unlinked(): void
     {
         [$project, $owner, $task] = $this->taskWithOwner();
         $image = $this->upload($project, $task, 'image.png', 'image/png');
+        $body = "![Image](attachment:{$image->id})";
         $this->post(route('tasks.messages.store', [$project, $task]), [
-            'body' => "![Image](attachment:{$image->id})", 'attachment_ids' => [$image->id],
+            'body' => $body, 'attachment_ids' => [$image->id],
         ])->assertSessionHasNoErrors();
         $message = $task->messages()->sole();
+        $unlinkUrl = route('tasks.messages.attachments.destroy', [$project, $task, $message, $image]);
 
-        $this->delete(route('tasks.messages.attachments.destroy', [$project, $task, $message, $image]))
-            ->assertSessionHasNoErrors();
+        // Detaching a referenced image must not break an existing message.
+        $this->delete($unlinkUrl)->assertSessionHasErrors('attachment');
+        $this->assertSame($body, $message->fresh()->body);
+        $this->assertSame(1, $message->attachments()->count());
+
+        // Once the Markdown reference is removed, the old direct unlink route works.
+        $this->patch(route('tasks.messages.update', [$project, $task, $message]), [
+            'body' => 'Image removed from message',
+        ])->assertSessionHasNoErrors();
+        $this->delete($unlinkUrl)->assertSessionHasNoErrors();
+        $this->assertSame(0, $message->attachments()->count());
         $this->get(route('tasks.show', [$project, $task]))
             ->assertInertia(fn (Assert $page) => $page
                 ->where('messages.0.body_html', fn (string $html): bool =>
                     ! str_contains($html, '/attachments/'.$image->id.'/')
-                    && str_contains($html, __('Attachment unavailable.'))));
+                    && ! str_contains($html, __('Attachment unavailable.'))));
         Storage::disk('local')->assertExists($image->path);
     }
 
