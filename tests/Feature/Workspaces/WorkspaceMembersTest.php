@@ -161,6 +161,103 @@ class WorkspaceMembersTest extends TestCase
                 ->etc());
     }
 
+    public function test_owner_searches_available_active_accounts_without_existing_members(): void
+    {
+        $owner = User::factory()->create();
+        $workspace = app(CreateWorkspace::class)->handle($owner, 'Product Team');
+        $available = User::factory()->create(['name' => 'Alicja Kowalska', 'email' => 'ala@example.test']);
+        $member = User::factory()->create(['name' => 'Alicja Existing', 'email' => 'existing@example.test']);
+        $blocked = User::factory()->create(['name' => 'Alicja Blocked', 'email' => 'blocked@example.test', 'disabled_at' => now()]);
+
+        WorkspaceMember::factory()->create([
+            'workspace_id' => $workspace->id,
+            'user_id' => $member->id,
+            'role' => WorkspaceRole::MEMBER,
+        ]);
+
+        $this->actingAs($owner)
+            ->getJson(route('workspaces.members.candidates', ['workspace' => $workspace, 'q' => 'ali']))
+            ->assertOk()
+            ->assertJsonPath('has_more', false)
+            ->assertJsonCount(1, 'users')
+            ->assertJsonPath('users.0.id', $available->id)
+            ->assertJsonPath('users.0.name', $available->name)
+            ->assertJsonPath('users.0.email', $available->email)
+            ->assertJsonMissing(['id' => $member->id])
+            ->assertJsonMissing(['id' => $blocked->id]);
+    }
+
+    public function test_candidate_search_accepts_explicitly_empty_query_on_initial_picker_load(): void
+    {
+        $owner = User::factory()->create();
+        $workspace = app(CreateWorkspace::class)->handle($owner, 'Product Team');
+        $available = User::factory()->create(['name' => 'Available Person']);
+
+        // Laravel's ConvertEmptyStringsToNull middleware turns ?q= into null.
+        // The picker must still show eligible accounts when opened without text.
+        $this->actingAs($owner)
+            ->getJson(route('workspaces.members.candidates', $workspace).'?q=')
+            ->assertOk()
+            ->assertJsonCount(1, 'users')
+            ->assertJsonPath('users.0.id', $available->id)
+            ->assertJsonPath('has_more', false);
+    }
+
+    public function test_candidate_search_is_limited_to_first_twelve_results(): void
+    {
+        $owner = User::factory()->create();
+        $workspace = app(CreateWorkspace::class)->handle($owner, 'Product Team');
+
+        User::factory()->count(14)->create(['name' => 'Candidate Name']);
+
+        $this->actingAs($owner)
+            ->getJson(route('workspaces.members.candidates', $workspace))
+            ->assertOk()
+            ->assertJsonCount(12, 'users')
+            ->assertJsonPath('has_more', true);
+    }
+
+    public function test_admin_can_search_candidates_but_member_outsider_and_guest_cannot(): void
+    {
+        $owner = User::factory()->create();
+        $workspace = app(CreateWorkspace::class)->handle($owner, 'Product Team');
+        $admin = User::factory()->create();
+        $member = User::factory()->create();
+        WorkspaceMember::factory()->create(['workspace_id' => $workspace->id, 'user_id' => $admin->id, 'role' => WorkspaceRole::ADMIN]);
+        WorkspaceMember::factory()->create(['workspace_id' => $workspace->id, 'user_id' => $member->id, 'role' => WorkspaceRole::MEMBER]);
+        $route = route('workspaces.members.candidates', $workspace);
+
+        $this->actingAs($admin)->getJson($route)->assertOk();
+        $this->actingAs($member)->getJson($route)->assertForbidden();
+        $this->actingAs(User::factory()->create())->getJson($route)->assertForbidden();
+        auth()->logout();
+        $this->get($route)->assertRedirect(route('login'));
+    }
+
+    public function test_candidate_search_rejects_invalid_queries(): void
+    {
+        $owner = User::factory()->create();
+        $workspace = app(CreateWorkspace::class)->handle($owner, 'Product Team');
+
+        $this->actingAs($owner)
+            ->getJson(route('workspaces.members.candidates', ['workspace' => $workspace, 'q' => str_repeat('x', 101)]))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('q');
+    }
+
+    public function test_disabled_account_cannot_be_added_even_by_manual_post(): void
+    {
+        $owner = User::factory()->create();
+        $workspace = app(CreateWorkspace::class)->handle($owner, 'Product Team');
+        $blocked = User::factory()->create(['disabled_at' => now()]);
+
+        $this->actingAs($owner)
+            ->post(route('workspaces.members.store', $workspace), ['email' => $blocked->email, 'role' => 'member'])
+            ->assertSessionHasErrors('email');
+
+        $this->assertDatabaseMissing('workspace_members', ['workspace_id' => $workspace->id, 'user_id' => $blocked->id]);
+    }
+
     public function test_owner_can_add_an_existing_user_as_member(): void
     {
         $owner = User::factory()->create();
@@ -266,6 +363,27 @@ class WorkspaceMembersTest extends TestCase
             ->where('workspace_id', $workspace->id)
             ->where('user_id', $person->id)
             ->count());
+    }
+
+    public function test_duplicate_membership_error_is_translated_for_polish_user(): void
+    {
+        $owner = User::factory()->create(['locale' => 'pl']);
+        $workspace = app(CreateWorkspace::class)->handle($owner, 'Product Team');
+        $person = User::factory()->create();
+        WorkspaceMember::factory()->create([
+            'workspace_id' => $workspace->id,
+            'user_id' => $person->id,
+            'role' => WorkspaceRole::MEMBER,
+        ]);
+
+        $this->actingAs($owner)
+            ->post(route('workspaces.members.store', $workspace), [
+                'email' => $person->email,
+                'role' => 'member',
+            ])
+            ->assertSessionHasErrors([
+                'email' => 'Ten użytkownik należy już do tej przestrzeni.',
+            ]);
     }
 
     public function test_missing_account_and_invalid_input_do_not_create_memberships(): void

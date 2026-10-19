@@ -9,10 +9,11 @@ import {
     MoreHorizontal,
     Plus,
     Search,
+    X,
     UserMinus,
     Users,
 } from '@lucide/vue';
-import { ref } from 'vue';
+import { onBeforeUnmount, ref } from 'vue';
 import InputError from '@/components/InputError.vue';
 import UserAvatar from '@/components/UserAvatar.vue';
 import { Badge } from '@/components/ui/badge';
@@ -56,6 +57,9 @@ type Member = {
     can_manage: boolean;
 };
 
+type Candidate = { id: number; name: string; email: string };
+type CandidateResponse = { users: Candidate[]; has_more: boolean };
+
 type MemberPage = {
     data: Member[];
     total: number;
@@ -81,6 +85,136 @@ const actionBusy = ref(false);
 const addForm = useForm({ email: '', role: 'member' });
 const baseUrl = `/workspaces/${props.workspaceItem.id}/members`;
 
+// The form posts the selected account email to the existing membership endpoint.
+const candidateQuery = ref('');
+const selectedCandidate = ref<Candidate | null>(null);
+const candidates = ref<Candidate[]>([]);
+const candidatesOpen = ref(false);
+const candidatesBusy = ref(false);
+const candidatesFailed = ref(false);
+const hasMoreCandidates = ref(false);
+const activeCandidate = ref(0);
+const pickerRoot = ref<HTMLElement | null>(null);
+let candidateTimer: ReturnType<typeof setTimeout> | null = null;
+let candidateAbort: AbortController | null = null;
+let candidateRequestId = 0;
+
+function cancelCandidateSearch(): void {
+    candidateRequestId += 1;
+    if (candidateTimer !== null) clearTimeout(candidateTimer);
+    candidateTimer = null;
+    candidateAbort?.abort();
+    candidateAbort = null;
+}
+
+async function fetchCandidates(query: string): Promise<void> {
+    const requestId = ++candidateRequestId;
+    candidateAbort?.abort();
+    const controller = new AbortController();
+    candidateAbort = controller;
+    candidatesBusy.value = true;
+    candidatesFailed.value = false;
+    try {
+        // An empty query means "show available accounts"; omit q rather than sending ?q=.
+        // Laravel converts empty query values to null before request validation.
+        const search = query.trim();
+        const url = `${baseUrl}/candidates${search ? `?q=${encodeURIComponent(search)}` : ''}`;
+        const response = await fetch(url, {
+            credentials: 'same-origin',
+            headers: { Accept: 'application/json' },
+            signal: controller.signal,
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const result = (await response.json()) as CandidateResponse;
+        if (requestId !== candidateRequestId) return;
+        candidates.value = result.users;
+        hasMoreCandidates.value = result.has_more;
+        activeCandidate.value = 0;
+    } catch {
+        if (requestId !== candidateRequestId || controller.signal.aborted) return;
+        candidatesFailed.value = true;
+        candidates.value = [];
+    } finally {
+        if (requestId === candidateRequestId) candidatesBusy.value = false;
+    }
+}
+
+function scheduleCandidates(query: string, immediate = false): void {
+    cancelCandidateSearch();
+    candidatesBusy.value = true;
+    candidatesFailed.value = false;
+    candidates.value = [];
+    candidateTimer = setTimeout(() => {
+        candidateTimer = null;
+        void fetchCandidates(query.trim());
+    }, immediate ? 0 : 250);
+}
+
+function updateCandidateQuery(value: string | number): void {
+    candidateQuery.value = String(value);
+    selectedCandidate.value = null;
+    addForm.email = '';
+    candidatesOpen.value = true;
+    activeCandidate.value = 0;
+    scheduleCandidates(candidateQuery.value);
+}
+
+function chooseCandidate(candidate: Candidate): void {
+    selectedCandidate.value = candidate;
+    addForm.email = candidate.email;
+    addForm.clearErrors('email');
+    candidatesOpen.value = false;
+    cancelCandidateSearch();
+}
+
+function clearCandidate(): void {
+    selectedCandidate.value = null;
+    addForm.email = '';
+    addForm.clearErrors('email');
+    candidateQuery.value = '';
+    candidatesOpen.value = true;
+    scheduleCandidates('', true);
+}
+
+function onPickerFocusOut(event: FocusEvent): void {
+    const next = event.relatedTarget;
+    if (next instanceof Node && pickerRoot.value?.contains(next)) return;
+    candidatesOpen.value = false;
+}
+
+function showCandidates(): void {
+    if (!addForm.processing) candidatesOpen.value = true;
+}
+
+function onCandidateKeydown(event: KeyboardEvent): void {
+    if (event.key === 'Escape' && candidatesOpen.value) {
+        event.preventDefault();
+        event.stopPropagation();
+        candidatesOpen.value = false;
+        return;
+    }
+    if (!candidatesOpen.value && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
+        event.preventDefault();
+        showCandidates();
+        activeCandidate.value = event.key === 'ArrowUp' ? Math.max(candidates.value.length - 1, 0) : 0;
+        return;
+    }
+    if (!candidatesOpen.value || !candidates.value.length) return;
+    if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        activeCandidate.value = (activeCandidate.value + 1) % candidates.value.length;
+    } else if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        activeCandidate.value = (activeCandidate.value - 1 + candidates.value.length) % candidates.value.length;
+    } else if (event.key === 'Enter') {
+        event.preventDefault();
+        const candidate = candidates.value[activeCandidate.value];
+        if (candidate) chooseCandidate(candidate);
+    }
+}
+
+onBeforeUnmount(cancelCandidateSearch);
+
 const roleLabelKeys: Record<WorkspaceRole, string> = {
     owner: 'audit.owner',
     admin: 'stage2.admin',
@@ -91,22 +225,36 @@ function openAddMember(): void {
     addForm.reset();
     addForm.clearErrors();
     addForm.role = 'member';
+    candidateQuery.value = '';
+    selectedCandidate.value = null;
+    // The dialog autofocuses the search field; offer available users immediately.
+    candidatesOpen.value = true;
     addOpen.value = true;
+    scheduleCandidates('', true);
 }
 
-function closeAddMember(): void {
-    if (addForm.processing) return;
+// Inertia calls onSuccess before it has necessarily cleared form.processing.
+// A successful save must always close the dialog, even during that callback.
+function finishAddMember(): void {
     addOpen.value = false;
+    cancelCandidateSearch();
+    candidatesOpen.value = false;
+    selectedCandidate.value = null;
     addForm.reset();
     addForm.clearErrors();
 }
 
-function saveMember(): void {
+function closeAddMember(): void {
     if (addForm.processing) return;
-    addForm.email = addForm.email.trim();
+    finishAddMember();
+}
+
+function saveMember(): void {
+    if (addForm.processing || !selectedCandidate.value) return;
+    addForm.email = selectedCandidate.value.email;
     addForm.post(baseUrl, {
         preserveScroll: true,
-        onSuccess: closeAddMember,
+        onSuccess: finishAddMember,
     });
 }
 
@@ -476,7 +624,7 @@ const { t, locale, formatText } = useI18n();
         >
             <DialogContent
                 :show-close-button="!addForm.processing"
-                class="sm:max-w-md"
+                class="sm:max-w-lg"
             >
                 <DialogHeader>
                     <DialogTitle>{{ t('stage2.add_member') }}</DialogTitle>
@@ -487,18 +635,89 @@ const { t, locale, formatText } = useI18n();
 
                 <form class="space-y-5" @submit.prevent="saveMember">
                     <div class="space-y-2">
-                        <Label for="new-member-email">{{ t('stage2.email_address') }}</Label>
-                        <Input
-                            id="new-member-email"
-                            v-model="addForm.email"
-                            type="email"
-                            autocomplete="email"
-                            placeholder="person@example.com"
-                            maxlength="255"
-                            :disabled="addForm.processing"
-                            :aria-invalid="Boolean(addForm.errors.email)"
-                            required
-                        />
+                        <Label :for="selectedCandidate ? undefined : 'new-member-search'">{{ t('membersPicker.chooseUser') }}</Label>
+                        <div v-if="selectedCandidate" class="flex items-center gap-3 rounded-md border bg-muted/20 px-3 py-2">
+                            <UserAvatar :user-id="selectedCandidate.id" :name="selectedCandidate.name" compact />
+                            <div class="min-w-0 flex-1">
+                                <p class="truncate text-sm font-medium">{{ selectedCandidate.name }}</p>
+                                <p class="truncate text-xs text-muted-foreground">{{ selectedCandidate.email }}</p>
+                            </div>
+                            <Button
+                                type="button"
+                                size="icon"
+                                variant="ghost"
+                                class="size-8 shrink-0"
+                                :disabled="addForm.processing"
+                                :aria-label="t('membersPicker.changeUser')"
+                                @click="clearCandidate"
+                            >
+                                <X class="size-4" />
+                            </Button>
+                        </div>
+                        <div v-else ref="pickerRoot" class="relative" @focusout="onPickerFocusOut">
+                            <Input
+                                id="new-member-search"
+                                :model-value="candidateQuery"
+                                role="combobox"
+                                aria-autocomplete="list"
+                                :aria-controls="candidatesOpen ? 'member-candidates-list' : undefined"
+                                :aria-expanded="candidatesOpen"
+                                :aria-activedescendant="candidatesOpen && candidates.length ? `candidate-option-${candidates[activeCandidate]?.id}` : undefined"
+                                :placeholder="t('membersPicker.searchPlaceholder')"
+                                autocomplete="off"
+                                maxlength="100"
+                                :disabled="addForm.processing"
+                                :aria-invalid="Boolean(addForm.errors.email)"
+                                @update:model-value="updateCandidateQuery"
+                                @focus="showCandidates"
+                                @click="showCandidates"
+                                @keydown="onCandidateKeydown"
+                            />
+                            <div
+                                v-if="candidatesOpen"
+                                id="member-candidates-list"
+                                role="listbox"
+                                :aria-label="t('membersPicker.availableUsers')"
+                                class="absolute inset-x-0 top-full z-50 mt-1 max-h-56 overflow-y-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-lg"
+                            >
+                                <p v-if="candidatesBusy" class="flex items-center gap-2 px-3 py-3 text-sm text-muted-foreground" role="status">
+                                    <LoaderCircle class="size-4 animate-spin" /> {{ t('membersPicker.loading') }}
+                                </p>
+                                <div v-else-if="candidatesFailed" class="space-y-2 px-3 py-3 text-sm">
+                                    <p class="text-destructive">{{ t('membersPicker.error') }}</p>
+                                    <Button type="button" variant="outline" size="sm" @click="scheduleCandidates(candidateQuery, true)">
+                                        {{ t('membersPicker.retry') }}
+                                    </Button>
+                                </div>
+                                <p v-else-if="!candidates.length" class="px-3 py-3 text-sm text-muted-foreground">
+                                    {{ t('membersPicker.noResults') }}
+                                </p>
+                                <template v-else>
+                                    <button
+                                        v-for="(candidate, index) in candidates"
+                                        :id="`candidate-option-${candidate.id}`"
+                                        :key="candidate.id"
+                                        type="button"
+                                        role="option"
+                                        :aria-selected="index === activeCandidate"
+                                        class="flex w-full items-center gap-3 rounded-sm px-2 py-2 text-left hover:bg-accent hover:text-accent-foreground"
+                                        :class="index === activeCandidate ? 'bg-accent text-accent-foreground' : ''"
+                                        @mouseenter="activeCandidate = index"
+                                        @click="chooseCandidate(candidate)"
+                                    >
+                                        <UserAvatar :user-id="candidate.id" :name="candidate.name" compact />
+                                        <span class="min-w-0 flex-1">
+                                            <span class="block truncate text-sm font-medium">{{ candidate.name }}</span>
+                                            <span class="block truncate text-xs text-muted-foreground">{{ candidate.email }}</span>
+                                        </span>
+                                    </button>
+                                    <p v-if="hasMoreCandidates" class="border-t px-3 py-2 text-xs text-muted-foreground">
+                                        {{ t('membersPicker.moreResults') }}
+                                    </p>
+                                </template>
+                            </div>
+                        </div>
+                        <p class="text-xs text-muted-foreground">{{ t('membersPicker.onlyExisting') }}</p>
                         <InputError :message="addForm.errors.email" />
                     </div>
 
@@ -546,7 +765,7 @@ const { t, locale, formatText } = useI18n();
                         <Button
                             type="submit"
                             :disabled="
-                                addForm.processing || !addForm.email.trim()
+                                addForm.processing || !selectedCandidate
                             "
                         >
                             <LoaderCircle

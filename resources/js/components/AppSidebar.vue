@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { Link } from '@inertiajs/vue3';
+import { Link, usePage } from '@inertiajs/vue3';
 import {
     Clock3,
     LayoutGrid,
     PanelsTopLeft,
+    UsersRound,
 } from '@lucide/vue';
 import { computed } from 'vue';
 import AppLogo from '@/components/AppLogo.vue';
@@ -25,6 +26,7 @@ import { dashboard } from '@/routes';
 import type { NavItem } from '@/types';
 
 const { t } = useI18n();
+const page = usePage();
 
 const mainNavItems = computed<NavItem[]>(() => [
     {
@@ -42,6 +44,11 @@ const mainNavItems = computed<NavItem[]>(() => [
         href: '/workspaces',
         icon: PanelsTopLeft,
     },
+    ...(page.props.auth.user?.is_system_admin ? [{
+        title: t('adminUsers.nav'),
+        href: '/admin/users',
+        icon: UsersRound,
+    }] : []),
 ]);
 
 </script>

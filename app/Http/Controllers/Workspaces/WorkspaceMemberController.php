@@ -9,6 +9,7 @@ use App\Models\ProjectMember;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceMember;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -68,14 +69,46 @@ class WorkspaceMemberController extends Controller
         ]);
     }
 
+    public function candidates(Request $request, Workspace $workspace): JsonResponse
+    {
+        Gate::forUser($request->user())->authorize('manageMembers', $workspace);
+
+        $data = $request->validate([
+            'q' => ['sometimes', 'nullable', 'string', 'max:100'],
+        ]);
+        $search = trim($data['q'] ?? '');
+
+        // This is a picker for existing accounts, not an account creation endpoint.
+        // Exclude all memberships, including suspended ones, to avoid duplicates.
+        $users = User::query()
+            ->select(['id', 'name', 'email'])
+            ->whereNull('disabled_at')
+            ->whereNotIn('id', WorkspaceMember::query()
+                ->select('user_id')
+                ->where('workspace_id', $workspace->id))
+            ->when($search !== '', fn ($query) => $query->where(function ($match) use ($search): void {
+                $match->where('name', 'like', '%'.$search.'%')
+                    ->orWhere('email', 'like', '%'.$search.'%');
+            }))
+            ->orderBy('name')
+            ->orderBy('id')
+            ->limit(13)
+            ->get();
+
+        return response()->json([
+            'users' => $users->take(12)->values(),
+            'has_more' => $users->count() > 12,
+        ]);
+    }
+
     public function store(StoreWorkspaceMemberRequest $request, Workspace $workspace): RedirectResponse
     {
         $data = $request->validated();
-        $user = User::query()->where('email', $data['email'])->first();
+        $user = User::query()->where('email', $data['email'])->whereNull('disabled_at')->first();
 
         if (! $user) {
             throw ValidationException::withMessages([
-                'email' => 'No TaskFlow account was found with this email address.',
+                'email' => __('No TaskFlow account was found with this email address.'),
             ]);
         }
 
@@ -90,13 +123,13 @@ class WorkspaceMemberController extends Controller
 
         if (! $membership->wasRecentlyCreated) {
             throw ValidationException::withMessages([
-                'email' => 'This user already belongs to this workspace.',
+                'email' => __('This user already belongs to this workspace.'),
             ]);
         }
 
         Inertia::flash('toast', [
             'type' => 'success',
-            'message' => 'Member added to workspace.',
+            'message' => __('Member added to workspace.'),
         ]);
 
         return back();

@@ -28,9 +28,9 @@ defineExpose({
         <Input
             v-focus="props.autofocus"
             ref="inputRef"
+            v-bind="$attrs"
             :type="showPassword ? 'text' : 'password'"
             :class="cn('pr-10', props.class)"
-            v-bind="$attrs"
         />
         <button
             type="button"
@@ -41,7 +41,6 @@ defineExpose({
                 )
             "
             :aria-label="t(showPassword ? 'fix.hide_password' : 'fix.show_password')"
-            :tabindex="-1"
         >
             <EyeOff v-if="showPassword" class="size-4" />
             <Eye v-else class="size-4" />

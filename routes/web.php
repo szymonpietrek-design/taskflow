@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\SystemUserController;
 use App\Http\Controllers\Projects\ProjectController;
 use App\Http\Controllers\Projects\ProjectLogoController;
 use App\Http\Controllers\Releases\GenerateReleaseChangelogController;
@@ -34,7 +35,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Validation\Rule;
 
-Route::inertia('/', 'Welcome')->name('home');
+// Internal application: never expose the Laravel starter welcome / registration landing page.
+Route::get('/', fn () => redirect()->route(auth()->check() ? 'dashboard' : 'login'))->name('home');
 
 // Guests can choose their UI language before logging in; authenticated users keep their account preference.
 Route::post('ui-locale', function (Request $request): RedirectResponse {
@@ -51,6 +53,15 @@ Route::get('r/{report}/{token}', PublicReportController::class)
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::inertia('dashboard', 'Dashboard')->name('dashboard');
+
+    Route::middleware('can:manage-system-users')->prefix('admin/users')->group(function () {
+        Route::get('/', [SystemUserController::class, 'index'])->name('admin.users.index');
+        Route::post('/', [SystemUserController::class, 'store'])->middleware('throttle:15,1')->name('admin.users.store');
+        Route::patch('{user}', [SystemUserController::class, 'update'])->name('admin.users.update');
+        Route::put('{user}/password', [SystemUserController::class, 'password'])->middleware('throttle:10,1')->name('admin.users.password');
+        Route::patch('{user}/status', [SystemUserController::class, 'status'])->name('admin.users.status');
+        Route::patch('{user}/role', [SystemUserController::class, 'role'])->name('admin.users.role');
+    });
 
     Route::get('worklogs', [WorklogController::class, 'index'])->name('worklogs.index');
     Route::get('worklogs/projects/{project}/tasks', [WorklogController::class, 'tasks'])->name('worklogs.tasks');
@@ -145,6 +156,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::patch('workspaces/{workspace}/projects/{project}/archive', [WorkspaceProjectController::class, 'archive'])->name('workspaces.projects.archive');
     Route::patch('workspaces/{workspace}/projects/{project}/restore', [WorkspaceProjectController::class, 'restore'])->name('workspaces.projects.restore');
     Route::get('workspaces/{workspace}/members', [WorkspaceMemberController::class, 'index'])->name('workspaces.members.index');
+    Route::get('workspaces/{workspace}/members/candidates', [WorkspaceMemberController::class, 'candidates'])
+        ->middleware('throttle:60,1')->name('workspaces.members.candidates');
     Route::post('workspaces/{workspace}/members', [WorkspaceMemberController::class, 'store'])
         ->middleware('throttle:20,1')->name('workspaces.members.store');
     Route::patch('workspaces/{workspace}/members/{member}/suspend', [WorkspaceMemberController::class, 'suspend'])
