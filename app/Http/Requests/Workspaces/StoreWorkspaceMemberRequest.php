@@ -2,7 +2,6 @@
 
 namespace App\Http\Requests\Workspaces;
 
-use App\Enums\WorkspaceRole;
 use App\Models\Workspace;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -29,15 +28,9 @@ class StoreWorkspaceMemberRequest extends FormRequest
      */
     public function rules(): array
     {
-        $workspace = $this->route('workspace');
-        $isOwner = $workspace instanceof Workspace
-            && $this->user()?->workspaceMemberships()
-                ->where('workspace_id', $workspace->id)
-                ->first()?->role === WorkspaceRole::OWNER;
-
         return [
             'email' => ['required', 'string', 'email', 'max:255'],
-            'role' => ['required', 'string', Rule::in($isOwner ? ['member', 'admin'] : ['member'])],
+            'role' => ['required', 'string', Rule::in(['admin'])],
         ];
     }
 }

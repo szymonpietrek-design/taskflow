@@ -118,22 +118,14 @@ class TaskDiscussionTest extends TestCase
         $this->assertSame('Member opinion', $message->fresh()->body);
     }
 
-    public function test_read_only_workspace_member_can_read_discussion_but_cannot_post(): void
+    public function test_unassigned_workspace_member_cannot_read_or_post_messages(): void
     {
         [$project, $owner, $task] = $this->taskWithOwner();
         $viewer = $this->workspaceMember($project);
         $message = TaskMessage::factory()->create(['task_id' => $task->id, 'user_id' => $owner->id, 'body' => 'Visible context']);
 
         $this->actingAs($viewer)
-            ->get(route('tasks.show', [$project, $task]))
-            ->assertOk()
-            ->assertInertia(fn (Assert $page) => $page
-                ->component('tasks/Show')
-                ->where('can_post_message', false)
-                ->where('messages.0.id', $message->id)
-                ->where('messages.0.can_update', false)
-                ->where('messages.0.can_delete', false),
-            );
+            ->get(route('tasks.show', [$project, $task]))->assertForbidden();
 
         $this->actingAs($viewer)
             ->post(route('tasks.messages.store', [$project, $task]), ['body' => 'Blocked'])

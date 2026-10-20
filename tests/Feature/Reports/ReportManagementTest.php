@@ -4,8 +4,10 @@ namespace Tests\Feature\Reports;
 
 use App\Enums\ProjectVisibility;
 use App\Enums\ReportFormat;
+use App\Enums\ProjectRole;
 use App\Enums\WorkspaceRole;
 use App\Models\Project;
+use App\Models\ProjectMember;
 use App\Models\Report;
 use App\Models\Task;
 use App\Models\TaskActivity;
@@ -325,9 +327,9 @@ class ReportManagementTest extends TestCase
         $owner = User::findOrFail($project->created_by);
         $teamReport = $this->report($project, $owner);
         $reader = User::factory()->create();
-        WorkspaceMember::factory()->create([
-            'workspace_id' => $project->workspace_id, 'user_id' => $reader->id,
-            'role' => WorkspaceRole::MEMBER,
+        ProjectMember::factory()->create([
+            'project_id' => $project->id, 'user_id' => $reader->id,
+            'role' => ProjectRole::MEMBER,
         ]);
 
         $this->actingAs($reader)->get(route('reports.index', $project))
@@ -353,9 +355,9 @@ class ReportManagementTest extends TestCase
     {
         [$owner, $project] = $this->fixtures();
         $colleague = User::factory()->create();
-        WorkspaceMember::factory()->create([
-            'workspace_id' => $project->workspace_id, 'user_id' => $colleague->id,
-            'role' => WorkspaceRole::MEMBER,
+        ProjectMember::factory()->create([
+            'project_id' => $project->id, 'user_id' => $colleague->id,
+            'role' => ProjectRole::MEMBER,
         ]);
         $external = User::factory()->create();
         $this->actingAs($owner)->post(route('reports.store', $project), $this->payload([

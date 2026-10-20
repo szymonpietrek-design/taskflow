@@ -16,7 +16,9 @@ class WorkspacePolicy
 
     public function view(User $user, Workspace $workspace): bool
     {
-        return $this->membership($user, $workspace) !== null;
+        return in_array($this->membership($user, $workspace)?->role, [WorkspaceRole::OWNER, WorkspaceRole::ADMIN], true)
+            || $user->projectMemberships()->whereHas('project', fn ($projects) => $projects
+                ->where('workspace_id', $workspace->id))->exists();
     }
 
     public function create(User $user): bool

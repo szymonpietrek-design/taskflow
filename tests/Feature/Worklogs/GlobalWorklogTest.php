@@ -37,6 +37,13 @@ class GlobalWorklogTest extends TestCase
         $user = User::factory()->create();
         $first = $this->makeProject($user);
         $second = $this->makeProject($user);
+        foreach ([$first, $second] as $project) {
+            ProjectMember::factory()->create([
+                'project_id' => $project->id,
+                'user_id' => $user->id,
+                'role' => ProjectRole::MEMBER,
+            ]);
+        }
         $taskA = $this->makeTask($first);
         $taskB = $this->makeTask($second);
         $date = '2026-05-12';
@@ -103,6 +110,11 @@ class GlobalWorklogTest extends TestCase
         $this->joinWorkspace($user, $workspace, WorkspaceRole::MEMBER);
         $public = $this->makeProject($user, $workspace);
         $private = $this->makeProject($user, $workspace, ProjectVisibility::PRIVATE);
+        ProjectMember::factory()->create([
+            'project_id' => $public->id,
+            'user_id' => $user->id,
+            'role' => ProjectRole::MEMBER,
+        ]);
         $publicTask = $this->makeTask($public);
         $privateTask = $this->makeTask($private);
 
@@ -129,8 +141,13 @@ class GlobalWorklogTest extends TestCase
         $this->actingAs($user)->get($url)->assertOk()->assertInertia(fn (Assert $page) => $page
             ->where('visible_minutes', 60)->where('entries.total', 1));
 
-        // Losing the workspace membership hides even workspace-visible project details.
+        // Removing the old workspace membership does not change project access.
         WorkspaceMember::query()->where('user_id', $user->id)->where('workspace_id', $workspace->id)->delete();
+        $this->actingAs($user)->get($url)->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->where('visible_minutes', 60)->where('entries.total', 1));
+
+        // Revoking the explicit project grant hides details while keeping historic totals.
+        ProjectMember::query()->where('user_id', $user->id)->where('project_id', $public->id)->delete();
         $this->actingAs($user)->get($url)->assertOk()->assertInertia(fn (Assert $page) => $page
             ->where('total_minutes', 180)
             ->where('visible_minutes', 0)
@@ -157,6 +174,11 @@ class GlobalWorklogTest extends TestCase
     {
         $user = User::factory()->create();
         $project = $this->makeProject($user);
+        ProjectMember::factory()->create([
+            'project_id' => $project->id,
+            'user_id' => $user->id,
+            'role' => ProjectRole::MEMBER,
+        ]);
         $task = $this->makeTask($project);
         for ($i = 0; $i < 18; $i++) {
             $this->log($task, $user, '2026-05-12', 10);
@@ -202,6 +224,11 @@ class GlobalWorklogTest extends TestCase
         $this->joinWorkspace($user, $workspace, WorkspaceRole::MEMBER);
         $public = $this->makeProject($user, $workspace);
         $private = $this->makeProject($user, $workspace, ProjectVisibility::PRIVATE);
+        ProjectMember::factory()->create([
+            'project_id' => $public->id,
+            'user_id' => $user->id,
+            'role' => ProjectRole::MEMBER,
+        ]);
         $this->log($this->makeTask($public), $user, '2026-05-11', 60);
         $this->log($this->makeTask($private), $user, '2026-05-12', 125);
         $this->log($this->makeTask($public), $user, '2026-05-12', 45);

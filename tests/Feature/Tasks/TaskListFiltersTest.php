@@ -163,7 +163,7 @@ class TaskListFiltersTest extends TestCase
         ]))->assertSessionHasErrors(['priority', 'sort', 'status_id']);
     }
 
-    public function test_workspace_viewer_can_filter_visible_tasks_but_private_projects_stay_inaccessible(): void
+    public function test_unassigned_workspace_member_cannot_read_tasks_regardless_of_visibility(): void
     {
         [$project, $owner] = $this->projectWithOwner();
         app(CreateTask::class)->handle($owner, $project, 'Assigned', assignee: $owner);
@@ -173,10 +173,7 @@ class TaskListFiltersTest extends TestCase
             'role' => WorkspaceRole::MEMBER,
         ]);
 
-        $this->actingAs($viewer)->get(route('tasks.index', ['project' => $project, 'assignee_id' => $owner->id]))
-            ->assertOk()->assertInertia(fn (Assert $page) => $page
-            ->where('can_create', false)->has('tasks', 1)
-            ->has('filter_assignees', 1)->has('assignees', 0)->has('parent_tasks', 0));
+        $this->actingAs($viewer)->get(route('tasks.index', ['project' => $project, 'assignee_id' => $owner->id]))->assertForbidden();
 
         $project->forceFill(['visibility' => ProjectVisibility::PRIVATE])->save();
         $this->actingAs($viewer)->get(route('tasks.index', $project))->assertForbidden();

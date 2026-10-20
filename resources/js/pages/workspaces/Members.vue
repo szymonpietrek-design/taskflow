@@ -50,7 +50,7 @@ type Member = {
     user_id: number;
     name: string;
     email: string;
-    role: WorkspaceRole;
+    role: Exclude<WorkspaceRole, 'member'>;
     joined_at: string | null;
     is_you: boolean;
     is_suspended: boolean;
@@ -82,7 +82,7 @@ type MemberAction = 'suspend' | 'restore' | 'remove';
 const actionTarget = ref<Member | null>(null);
 const memberAction = ref<MemberAction>('suspend');
 const actionBusy = ref(false);
-const addForm = useForm({ email: '', role: 'member' });
+const addForm = useForm({ email: '', role: 'admin' });
 const baseUrl = `/workspaces/${props.workspaceItem.id}/members`;
 
 // The form posts the selected account email to the existing membership endpoint.
@@ -215,16 +215,15 @@ function onCandidateKeydown(event: KeyboardEvent): void {
 
 onBeforeUnmount(cancelCandidateSearch);
 
-const roleLabelKeys: Record<WorkspaceRole, string> = {
+const roleLabelKeys: Record<Member['role'], string> = {
     owner: 'audit.owner',
     admin: 'stage2.admin',
-    member: 'stage2.member',
 };
 
 function openAddMember(): void {
     addForm.reset();
     addForm.clearErrors();
-    addForm.role = 'member';
+    addForm.role = 'admin';
     candidateQuery.value = '';
     selectedCandidate.value = null;
     // The dialog autofocuses the search field; offer available users immediately.
@@ -332,7 +331,7 @@ const { t, locale, formatText } = useI18n();
                 </Link>
             </Button>
             <div>
-                <h1 class="text-2xl font-semibold tracking-tight">{{ t('stage2.members') }}</h1>
+                <h1 class="text-2xl font-semibold tracking-tight">{{ t('team.workspaceAdmins') }}</h1>
                 <p class="mt-1 text-sm text-muted-foreground">
                     {{ formatText('audit.workspace_people', { workspace: workspaceItem.name }) }}
                 </p>
@@ -376,11 +375,12 @@ const { t, locale, formatText } = useI18n();
                         </Button>
                     </form>
                     <Button
+                        v-if="can_assign_admin"
                         type="button"
                         class="shrink-0"
                         @click="openAddMember"
                     >
-                        <Plus class="size-4" /> {{ t('stage2.add_member') }}
+                        <Plus class="size-4" /> {{ t('team.workspaceAdmins') }}
                     </Button>
                 </div>
             </CardHeader>
@@ -615,6 +615,7 @@ const { t, locale, formatText } = useI18n();
             </DialogContent>
         </Dialog>
         <Dialog
+            v-if="can_assign_admin"
             :open="addOpen"
             @update:open="
                 (open) => {
@@ -627,9 +628,9 @@ const { t, locale, formatText } = useI18n();
                 class="sm:max-w-lg"
             >
                 <DialogHeader>
-                    <DialogTitle>{{ t('stage2.add_member') }}</DialogTitle>
+                    <DialogTitle>{{ t('team.workspaceAdmins') }}</DialogTitle>
                     <DialogDescription>
-                        {{ formatText('audit.workspace_invitation', { workspace: workspaceItem.name }) }}
+                        {{ formatText('team.workspaceInvitation', { workspace: workspaceItem.name }) }}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -717,7 +718,7 @@ const { t, locale, formatText } = useI18n();
                                 </template>
                             </div>
                         </div>
-                        <p class="text-xs text-muted-foreground">{{ t('membersPicker.onlyExisting') }}</p>
+                        <p class="text-xs text-muted-foreground">{{ t('team.onlyExistingAdmins') }}</p>
                         <InputError :message="addForm.errors.email" />
                     </div>
 
@@ -735,19 +736,12 @@ const { t, locale, formatText } = useI18n();
                                 <SelectValue :placeholder="t('stage2.choose_role')" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="member">{{ t('stage2.member') }}</SelectItem>
-                                <SelectItem
-                                    v-if="can_assign_admin"
-                                    value="admin"
-                                    >{{ t('stage2.admin') }}</SelectItem
-                                >
+                                <SelectItem value="admin">{{ t('stage2.admin') }}</SelectItem>
                             </SelectContent>
                         </Select>
                         <p class="text-xs text-muted-foreground">
                             {{
-                                can_assign_admin
-                                    ? t('audit.members_can_collaborate_admins_can_also_manage_workspace_members')
-                                    : t('audit.you_can_add_regular_members_only_the_owner_can_appoint_admins')
+                                t('team.ownerControlsAdmins')
                             }}
                         </p>
                         <InputError :message="addForm.errors.role" />
@@ -772,7 +766,7 @@ const { t, locale, formatText } = useI18n();
                                 v-if="addForm.processing"
                                 class="size-4 animate-spin"
                             />
-                            {{ t('stage2.add_member') }}
+                            {{ t('team.workspaceAdmins') }}
                         </Button>
                     </DialogFooter>
                 </form>

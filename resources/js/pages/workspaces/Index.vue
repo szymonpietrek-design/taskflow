@@ -267,7 +267,7 @@ defineOptions({
                                 as-child
                             >
                                 <Link :href="`/workspaces/${workspaceItem.id}/members`">
-                                    <Users class="size-4" /> {{ t('stage2.members') }}
+                                    <Users class="size-4" /> {{ t('team.workspaceAdmins') }}
                                 </Link>
                             </Button>
 
@@ -305,8 +305,8 @@ defineOptions({
                                     <Link :href="`/projects/${project.id}`" class="break-words text-sm font-medium hover:underline">{{ project.name }}</Link>
                                     <p class="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
                                         <span>{{ project.key }}</span><span>·</span>
-                                        <span>{{ project.type === 'application' ? t('stage2.application') : t('stage2.standard') }}</span><span>·</span>
-                                        <span>{{ project.visibility === 'private' ? t('stage2.private') : t('stage2.workspace') }}</span>
+                                        <span>{{ project.type === 'application' ? t('stage2.application') : t('stage2.standard') }}</span>
+
                                     </p>
                                 </div>
                                 <TooltipProvider v-if="project.can_edit" :delay-duration="150">

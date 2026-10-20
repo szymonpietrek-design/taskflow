@@ -20,13 +20,13 @@ class TaskPolicyTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_workspace_member_can_view_workspace_project_tasks_but_cannot_contribute_without_project_membership(): void
+    public function test_legacy_workspace_member_without_project_grant_cannot_view_tasks(): void
     {
         [$project, $owner] = $this->projectWithOwner(ProjectVisibility::WORKSPACE);
         $task = app(CreateTask::class)->handle($owner, $project, 'Visible task');
         $viewer = $this->addWorkspaceMember($project->workspace, WorkspaceRole::MEMBER);
 
-        $this->assertTrue($viewer->can('view', $task));
+        $this->assertFalse($viewer->can('view', $task));
         $this->assertFalse($viewer->can('create', [Task::class, $project]));
         $this->assertFalse($viewer->can('update', $task));
         $this->assertFalse($viewer->can('delete', $task));

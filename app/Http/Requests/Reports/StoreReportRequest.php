@@ -58,7 +58,7 @@ class StoreReportRequest extends FormRequest
                 } elseif (is_array($requested)) {
                     $eligible = User::query()->whereIn('id', $requested)
                         ->where(fn ($query) => $query
-                            ->whereHas('workspaceMemberships', fn ($q) => $q->where('workspace_id', $project->workspace_id))
+                            ->whereHas('workspaceMemberships', fn ($q) => $q->where('workspace_id', $project->workspace_id)->whereNull('suspended_at')->whereIn('role', [1, 2]))
                             ->orWhereHas('projectMemberships', fn ($q) => $q->where('project_id', $project->id)))
                         ->pluck('id')->all();
                     if (count($eligible) !== count($requested)) {

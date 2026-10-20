@@ -17,14 +17,14 @@ class ProjectPolicyTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_workspace_members_can_view_workspace_visible_projects(): void
+    public function test_legacy_workspace_member_role_alone_does_not_grant_project_access(): void
     {
         [$project, $user] = $this->projectForWorkspaceMember(
             WorkspaceRole::MEMBER,
             ProjectVisibility::WORKSPACE,
         );
 
-        $this->assertTrue($user->can('view', $project));
+        $this->assertFalse($user->can('view', $project));
         $this->assertFalse($user->can('update', $project));
         $this->assertFalse($user->can('delete', $project));
         $this->assertFalse($user->can('archive', $project));

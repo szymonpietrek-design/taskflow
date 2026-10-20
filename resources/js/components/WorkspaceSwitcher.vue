@@ -141,7 +141,7 @@ function switchWorkspace(workspaceId: number): void {
                             class="cursor-pointer"
                         >
                             <Users class="size-4" />
-                            {{ t('workspace.members') }}
+                            {{ t('team.workspaceAdmins') }}
                         </Link>
                     </DropdownMenuItem>
 

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useI18n } from '@/composables/useI18n';
 import { Head, Link, usePage } from '@inertiajs/vue3';
-import { FolderKanban, LockKeyhole, Plus } from '@lucide/vue';
+import { FolderKanban, Plus } from '@lucide/vue';
 import { computed, ref, watch } from 'vue';
 import Heading from '@/components/Heading.vue';
 import ProjectIdentity from '@/components/ProjectIdentity.vue';
@@ -25,9 +25,6 @@ watch(() => page.url, (url) => {
 
 function typeLabel(type: ProjectSummary['type']): string {
     return type === 'application' ? t('stage2.application') : t('stage2.standard');
-}
-function visibilityLabel(visibility: ProjectSummary['visibility']): string {
-    return visibility === 'private' ? t('stage2.private') : t('stage2.workspace');
 }
 const projectCount = computed(() => {
     const count = projects.value.length;
@@ -76,11 +73,7 @@ defineOptions({
                                     <Badge variant="secondary">{{ project.key }}</Badge>
                                 </div>
                                 <div class="mt-1 flex flex-wrap gap-2 text-sm text-muted-foreground">
-                                    <span>{{ typeLabel(project.type) }}</span><span>·</span>
-                                    <span class="inline-flex items-center gap-1">
-                                        <LockKeyhole v-if="project.visibility === 'private'" class="size-3.5" />
-                                        {{ visibilityLabel(project.visibility) }}
-                                    </span>
+                                    <span>{{ typeLabel(project.type) }}</span>
                                 </div>
                             </div>
                         </CardContent>

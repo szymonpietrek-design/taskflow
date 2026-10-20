@@ -138,10 +138,10 @@ class ReleaseLifecycleTest extends TestCase
     {
         [, $project, $release] = $this->fixtures();
         $reader = User::factory()->create();
-        WorkspaceMember::factory()->create([
-            'workspace_id' => $project->workspace_id,
+        ProjectMember::factory()->create([
+            'project_id' => $project->id,
             'user_id' => $reader->id,
-            'role' => WorkspaceRole::MEMBER,
+            'role' => ProjectRole::MEMBER,
         ]);
 
         $this->actingAs($reader)->get(route('releases.show', [$project, $release]))

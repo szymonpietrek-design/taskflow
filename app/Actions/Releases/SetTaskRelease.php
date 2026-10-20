@@ -16,6 +16,9 @@ final class SetTaskRelease
 {
     public function handle(User $actor, Task $task, ?Release $release): Task
     {
+        // Managing a release is a project-management operation, even when
+        // regular project members are allowed to edit task details.
+        Gate::forUser($actor)->authorize('update', $task->project);
         Gate::forUser($actor)->authorize('update', $task);
 
         if ($task->project->type !== ProjectType::APPLICATION || $task->project->archived_at !== null) {

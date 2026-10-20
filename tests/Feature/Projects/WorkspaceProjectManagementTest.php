@@ -20,7 +20,7 @@ class WorkspaceProjectManagementTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_workspace_listing_groups_projects_and_hides_other_peoples_private_projects(): void
+    public function test_workspace_listing_shows_only_explicitly_assigned_projects(): void
     {
         $owner = User::factory()->create();
         $member = User::factory()->create();
@@ -41,9 +41,7 @@ class WorkspaceProjectManagementTest extends TestCase
         $this->actingAs($member)->get(route('workspaces.index'))
             ->assertOk()->assertInertia(fn (Assert $page) => $page
                 ->component('workspaces/Index')
-                ->has("projectsByWorkspace.{$workspace->id}", 1)
-                ->where("projectsByWorkspace.{$workspace->id}.0.id", $shared->id)
-                ->where("projectsByWorkspace.{$workspace->id}.0.can_edit", false)
+                ->missing("projectsByWorkspace.{$workspace->id}")
                 ->etc());
 
         $this->actingAs($owner)->get(route('workspaces.index'))
@@ -59,7 +57,8 @@ class WorkspaceProjectManagementTest extends TestCase
         ]);
         $this->actingAs($member)->get(route('workspaces.index'))
             ->assertOk()->assertInertia(fn (Assert $page) => $page
-                ->has("projectsByWorkspace.{$workspace->id}", 2)
+                ->has("projectsByWorkspace.{$workspace->id}", 1)
+                ->where("projectsByWorkspace.{$workspace->id}.0.id", $private->id)
                 ->where("projectsByWorkspace.{$workspace->id}.0.can_edit", true)
                 ->etc());
     }

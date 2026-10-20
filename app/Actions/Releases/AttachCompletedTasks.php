@@ -27,7 +27,7 @@ final class AttachCompletedTasks
     public function handle(User $actor, Release $release): int
     {
         $project = $release->project;
-        Gate::forUser($actor)->authorize('create', [Task::class, $project]);
+        Gate::forUser($actor)->authorize('update', $project);
 
         return DB::transaction(function () use ($actor, $project, $release): int {
             $release->refresh();

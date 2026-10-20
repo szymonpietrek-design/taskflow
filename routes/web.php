@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\SystemUserController;
 use App\Http\Controllers\Projects\ProjectController;
 use App\Http\Controllers\Projects\ProjectLogoController;
+use App\Http\Controllers\Projects\ProjectMemberController;
 use App\Http\Controllers\Releases\GenerateReleaseChangelogController;
 use App\Http\Controllers\Releases\ReleaseChangelogController;
 use App\Http\Controllers\Releases\ReleaseController;
@@ -72,6 +73,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('projects', [ProjectController::class, 'index'])->name('projects.index');
     Route::post('projects', [ProjectController::class, 'store'])->name('projects.store');
     Route::get('projects/{project}', [ProjectController::class, 'show'])->name('projects.show');
+    Route::get('projects/{project}/members', [ProjectMemberController::class, 'index'])->name('projects.members.index');
+    Route::get('projects/{project}/members/candidates', [ProjectMemberController::class, 'candidates'])->middleware('throttle:60,1')->name('projects.members.candidates');
+    Route::post('projects/{project}/members', [ProjectMemberController::class, 'store'])->middleware('throttle:20,1')->name('projects.members.store');
+    Route::patch('projects/{project}/members/{member}', [ProjectMemberController::class, 'update'])->name('projects.members.update');
+    Route::delete('projects/{project}/members/{member}', [ProjectMemberController::class, 'destroy'])->name('projects.members.destroy');
     Route::get('projects/{project}/logo', [ProjectLogoController::class, 'show'])->name('projects.logo.show');
     Route::post('projects/{project}/logo', [ProjectLogoController::class, 'store'])->middleware('throttle:15,1')->name('projects.logo.store');
     Route::delete('projects/{project}/logo', [ProjectLogoController::class, 'destroy'])->name('projects.logo.destroy');

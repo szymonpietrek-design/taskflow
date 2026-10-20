@@ -2,12 +2,14 @@
 
 namespace Tests\Feature\Releases;
 
+use App\Enums\ProjectRole;
 use App\Enums\ProjectType;
 use App\Enums\ReleaseStatus;
 use App\Enums\TaskActivityType;
 use App\Enums\TaskStatusCategory;
 use App\Enums\WorkspaceRole;
 use App\Models\Project;
+use App\Models\ProjectMember;
 use App\Models\Release;
 use App\Models\Task;
 use App\Models\TaskStatus;
@@ -116,17 +118,21 @@ class AttachCompletedTasksTest extends TestCase
         $this->assertDatabaseCount('task_activities', 0);
     }
 
-    public function test_members_without_contributor_rights_cannot_bulk_attach(): void
+    public function test_regular_project_member_cannot_bulk_attach_completed_tasks(): void
     {
-        [, $project, $release] = $this->fixtures();
-        $reader = User::factory()->create();
-        WorkspaceMember::factory()->create([
-            'workspace_id' => $project->workspace_id,
-            'user_id' => $reader->id,
-            'role' => WorkspaceRole::MEMBER,
+        [$owner, $project, $release] = $this->fixtures();
+        $task = $this->task($project, $owner, $this->createTaskStatus($project, TaskStatusCategory::DONE), now());
+        $member = User::factory()->create();
+        ProjectMember::factory()->create([
+            'project_id' => $project->id,
+            'user_id' => $member->id,
+            'role' => ProjectRole::MEMBER,
         ]);
-        $this->actingAs($reader)->post(route('releases.tasks.attach-completed', [$project, $release]))
+
+        $this->assertTrue($member->can('create', [Task::class, $project]));
+        $this->actingAs($member)->post(route('releases.tasks.attach-completed', [$project, $release]))
             ->assertForbidden();
+        $this->assertNull($task->fresh()->release_id);
     }
 
     public function test_closed_foreign_and_archived_releases_cannot_bulk_attach(): void

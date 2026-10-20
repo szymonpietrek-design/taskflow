@@ -269,7 +269,7 @@ class TaskWorklogTest extends TestCase
         $this->assertDatabaseMissing('task_worklogs', ['id' => $worklog->id]);
     }
 
-    public function test_reader_can_view_worklogs_but_cannot_create_them(): void
+    public function test_unassigned_workspace_member_cannot_read_or_create_worklogs(): void
     {
         [$project, $owner, $task] = $this->taskWithOwner();
         $reader = $this->workspaceReader($project);
@@ -278,12 +278,7 @@ class TaskWorklogTest extends TestCase
             'description' => 'Prepared release', 'is_creative' => false,
         ]);
 
-        $this->actingAs($reader)->get(route('tasks.show', [$project, $task]))->assertOk()
-            ->assertInertia(fn (Assert $page) => $page
-                ->where('can_log_work', false)
-                ->where('worklog_total_minutes', 75)
-                ->where('worklogs.data.0.can_update', false)
-                ->where('worklogs.data.0.can_delete', false));
+        $this->actingAs($reader)->get(route('tasks.show', [$project, $task]))->assertForbidden();
 
         $this->actingAs($reader)->post(route('tasks.worklogs.store', [$project, $task]),
             $this->entry('2026-05-13', 1, 0, 'No access'))

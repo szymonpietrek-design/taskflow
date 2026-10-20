@@ -174,7 +174,7 @@ class ManageTaskStatusesTest extends TestCase
         $this->assertSame(TaskStatusCategory::TODO, $todo->fresh()->category);
     }
 
-    public function test_viewer_can_read_visible_workflow_but_cannot_modify_it(): void
+    public function test_unassigned_workspace_member_cannot_access_task_statuses(): void
     {
         [$project] = $this->projectWithOwner();
         $viewer = User::factory()->create();
@@ -184,8 +184,7 @@ class ManageTaskStatusesTest extends TestCase
             'role' => WorkspaceRole::MEMBER,
         ]);
 
-        $this->actingAs($viewer)->get(route('projects.statuses.index', $project))
-            ->assertOk()->assertInertia(fn (Assert $page) => $page->where('can_manage', false));
+        $this->actingAs($viewer)->get(route('projects.statuses.index', $project))->assertForbidden();
         $this->actingAs($viewer)->post(route('projects.statuses.store', $project), [
             'name' => 'Forbidden', 'category' => 1,
         ])->assertForbidden();

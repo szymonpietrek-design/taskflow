@@ -12,18 +12,22 @@ import {
     FileText,
     History,
     ListTodo,
-    LockKeyhole,
     MessageSquare,
     Package,
     Plus,
+    Users,
+    UserRoundPlus,
 } from '@lucide/vue';
 import CreateTaskDialog from '@/components/tasks/CreateTaskDialog.vue';
+import AddProjectMemberDialog from '@/components/projects/AddProjectMemberDialog.vue';
+import UserAvatar from '@/components/UserAvatar.vue';
 import ProjectIdentity from '@/components/ProjectIdentity.vue';
 import TaskStatusIcon from '@/components/tasks/TaskStatusIcon.vue';
 import { taskStatusBadgeClass } from '@/lib/taskVisuals';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useSidebar } from '@/components/ui/sidebar';
 import type { ProjectDetail } from '@/types';
 import type { TaskParentSummary, TaskStatusSummary, TaskUserSummary } from '@/types/task';
@@ -67,7 +71,16 @@ type ProjectOverview = {
 const props = defineProps<{
     project: ProjectDetail;
     can_create_task: boolean;
+    can_manage_team: boolean;
+    can_manage_managers: boolean;
     overview: ProjectOverview;
+    team_preview: {
+        members: { id: number; name: string; role: 'owner' | 'admin' | 'manager' | 'member' }[];
+        overflow_members: { id: number; name: string; role: 'owner' | 'admin' | 'manager' | 'member' }[];
+        remaining: number;
+        unlisted_count: number;
+        total: number;
+    };
     task_form: {
         statuses: TaskStatusSummary[];
         assignees: TaskUserSummary[];
@@ -81,10 +94,11 @@ defineOptions({
     },
 });
 
-const { t, locale, displayLabel } = useI18n();
+const { t, locale, displayLabel, formatText } = useI18n();
 const { isMobile, state: sidebarState } = useSidebar();
 const showQuickNavigation = computed(() => isMobile.value || sidebarState.value === 'collapsed');
 const isCreateDialogOpen = ref(false);
+const isAddMemberDialogOpen = ref(false);
 const projectUrl = computed(() => `/projects/${props.project.id}`);
 const taskUrl = (id: number) => `${projectUrl.value}/tasks/${id}`;
 const progress = computed(() => Math.min(100, Math.max(0, props.overview.stats.progress_percent)));
@@ -97,9 +111,6 @@ function typeLabel(type: ProjectDetail['type']): string {
     return type === 'application' ? t('stage2.application') : t('stage2.standard');
 }
 
-function visibilityLabel(visibility: ProjectDetail['visibility']): string {
-    return visibility === 'private' ? t('stage2.private') : t('stage2.workspace');
-}
 
 function formatMinutes(total: number): string {
     const hours = Math.floor(total / 60);
@@ -139,20 +150,67 @@ function activityLabel(kind: TimelineItem['kind']): string {
                         <div class="mt-2 flex flex-wrap items-center gap-1.5">
                             <Badge variant="secondary">{{ project.key }}</Badge>
                             <Badge variant="outline">{{ typeLabel(project.type) }}</Badge>
-                            <Badge variant="outline" class="gap-1">
-                                <LockKeyhole v-if="project.visibility === 'private'" class="size-3" />
-                                {{ visibilityLabel(project.visibility) }}
-                            </Badge>
                         </div>
                     </div>
                     <p class="max-w-3xl text-sm leading-relaxed text-muted-foreground">
                         {{ project.description || t('stage2.no_project_description_yet') }}
                     </p>
+                    <TooltipProvider :delay-duration="180">
+                        <Link
+                            :href="`${projectUrl}/members`"
+                            :aria-label="`${t('team.title')} (${team_preview.total})`"
+                            class="group inline-flex min-h-10 max-w-full items-center rounded-sm py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                        >
+                            <span v-if="team_preview.members.length" class="flex items-center -space-x-2 overflow-visible" aria-hidden="true">
+                                <Tooltip v-for="member in team_preview.members" :key="member.id">
+                                    <TooltipTrigger as-child>
+                                        <span
+                                            class="relative z-0 inline-flex shrink-0 rounded-full transition-transform duration-150 ease-out hover:z-20 hover:-translate-y-1"
+                                        >
+                                            <UserAvatar :user-id="member.id" :name="member.name" compact stacked />
+                                        </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top" :side-offset="9" class="px-3 py-2 text-left shadow-lg">
+                                        <p class="font-semibold">{{ member.name }}</p>
+                                        <p class="mt-0.5 text-[11px] opacity-75">{{ t(`teamPreview.role.${member.role}`) }}</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                                <Tooltip v-if="team_preview.remaining > 0">
+                                    <TooltipTrigger as-child>
+                                        <span
+                                            class="relative z-0 inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground ring-2 ring-background transition-[transform,background-color] duration-150 ease-out hover:z-20 hover:-translate-y-1 hover:bg-accent"
+                                        >
+                                            +{{ team_preview.remaining }}
+                                        </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="bottom" align="end" :side-offset="9" class="w-60 max-w-[calc(100vw-2rem)] space-y-2 p-3 text-left shadow-xl">
+                                        <p class="font-semibold">{{ t('teamPreview.otherMembers') }}</p>
+                                        <div v-for="person in team_preview.overflow_members" :key="person.id" class="flex items-center gap-2">
+                                            <UserAvatar :user-id="person.id" :name="person.name" small />
+                                            <div class="min-w-0 flex-1">
+                                                <p class="truncate font-medium">{{ person.name }}</p>
+                                                <p class="truncate text-[11px] opacity-75">{{ t(`teamPreview.role.${person.role}`) }}</p>
+                                            </div>
+                                        </div>
+                                        <p v-if="team_preview.unlisted_count > 0" class="border-t border-background/20 pt-2 opacity-80">
+                                            {{ formatText('teamPreview.andMore', { count: team_preview.unlisted_count }) }}
+                                        </p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </span>
+                            <Users v-else class="size-4 text-muted-foreground" aria-hidden="true" />
+                        </Link>
+                    </TooltipProvider>
                 </div>
             </div>
-            <Button v-if="can_create_task && !project.is_archived && task_form" type="button" class="shrink-0 self-start" @click="isCreateDialogOpen = true">
-                <Plus class="size-4" /> {{ t('overview.newTask') }}
-            </Button>
+            <div class="flex shrink-0 flex-wrap items-center gap-2 self-start sm:justify-end">
+                <Button v-if="can_manage_team" type="button" variant="outline" class="shrink-0" @click="isAddMemberDialogOpen = true">
+                    <UserRoundPlus class="size-4" /> {{ t('team.add') }}
+                </Button>
+                <Button v-if="can_create_task && !project.is_archived && task_form" type="button" class="shrink-0" @click="isCreateDialogOpen = true">
+                    <Plus class="size-4" /> {{ t('overview.newTask') }}
+                </Button>
+            </div>
         </section>
 
         <!-- On desktop the same navigation is already available in the expanded sidebar. -->
@@ -296,6 +354,12 @@ function activityLabel(kind: TimelineItem['kind']): string {
             </Card>
         </div>
 
+        <AddProjectMemberDialog
+            v-if="can_manage_team"
+            v-model:open="isAddMemberDialogOpen"
+            :project-id="project.id"
+            :can-manage-managers="can_manage_managers"
+        />
         <CreateTaskDialog
             v-if="can_create_task && !project.is_archived && task_form"
             v-model:open="isCreateDialogOpen"

@@ -96,7 +96,7 @@ final class DemoSeeder extends Seeder
 
         // Read the original timestamp: running the seeder next week must not recreate messages.
         $base = $workspace->created_at->toImmutable();
-        foreach (['owner' => WorkspaceRole::OWNER, 'developer' => WorkspaceRole::ADMIN, 'reviewer' => WorkspaceRole::MEMBER] as $key => $role) {
+        foreach (['owner' => WorkspaceRole::OWNER, 'developer' => WorkspaceRole::ADMIN] as $key => $role) {
             $this->once(WorkspaceMember::class, ['workspace_id' => $workspace->id, 'user_id' => $users[$key]->id], [
                 'role' => $role,
                 'joined_at' => $base->addDay()->addMinutes(match ($key) {
@@ -111,7 +111,7 @@ final class DemoSeeder extends Seeder
         $website = $this->project($workspace, $users['owner'], 'studio-website', 'Studio Website', 'STUDIO', ProjectType::STANDARD, 'An editorial website with design, content, and performance work.', $base->addDays(4));
 
         foreach ([$application, $website] as $project) {
-            foreach (['owner' => ProjectRole::MANAGER, 'developer' => ProjectRole::MEMBER, 'reviewer' => ProjectRole::MEMBER] as $key => $role) {
+            foreach (['reviewer' => ProjectRole::MEMBER] as $key => $role) {
                 $this->once(ProjectMember::class, ['project_id' => $project->id, 'user_id' => $users[$key]->id], [
                     'role' => $role,
                     'created_at' => $project->created_at->addMinutes(match ($key) {

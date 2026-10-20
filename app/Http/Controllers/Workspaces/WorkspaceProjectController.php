@@ -31,7 +31,7 @@ class WorkspaceProjectController extends Controller
             $validated['name'],
             $validated['key'],
             ProjectType::from((int) $validated['type']),
-            ProjectVisibility::from((int) $validated['visibility']),
+            ProjectVisibility::PRIVATE,
             $validated['description'] ?? null,
             $validated['icon'] ?? null,
             $validated['color'] ?? null,
@@ -61,7 +61,6 @@ class WorkspaceProjectController extends Controller
             'description' => isset($validated['description'])
                 ? (trim($validated['description']) ?: null)
                 : null,
-            'visibility' => ProjectVisibility::from((int) $validated['visibility']),
             'icon' => array_key_exists('icon', $validated) ? $validated['icon'] : $project->icon,
             'color' => array_key_exists('color', $validated) ? $validated['color'] : $project->color,
         ]);

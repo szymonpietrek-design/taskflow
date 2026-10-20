@@ -2,7 +2,6 @@
 
 namespace App\Support\Projects;
 
-use App\Enums\ProjectVisibility;
 use App\Enums\WorkspaceRole;
 use App\Models\Project;
 use App\Support\Projects\ProjectLogo;
@@ -38,24 +37,13 @@ final class ProjectContext
             ->whereNull('suspended_at')
             ->first();
 
-        if ($workspaceMembership === null) {
-            return [
-                'items' => [],
-                'can_create' => false,
-            ];
-        }
-
         $query = Project::query()
             ->where('workspace_id', $workspaceId)
             ->whereNull('archived_at');
 
-        if (! in_array($workspaceMembership->role, [WorkspaceRole::OWNER, WorkspaceRole::ADMIN], true)) {
-            $query->where(function (Builder $query) use ($user): void {
-                $query
-                    ->where('visibility', ProjectVisibility::WORKSPACE->value)
-                    ->orWhereHas('memberships', fn (Builder $memberships): Builder => $memberships
-                        ->where('user_id', $user->id));
-            });
+        if (! in_array($workspaceMembership?->role, [WorkspaceRole::OWNER, WorkspaceRole::ADMIN], true)) {
+            $query->whereHas('memberships', fn (Builder $memberships) => $memberships
+                ->where('user_id', $user->id));
         }
 
         $items = $query
@@ -75,7 +63,7 @@ final class ProjectContext
             ->values()
             ->all();
 
-        $workspace = $user->workspaces()->whereKey($workspaceId)->first();
+        $workspace = \App\Models\Workspace::find($workspaceId);
 
         return [
             'items' => $items,

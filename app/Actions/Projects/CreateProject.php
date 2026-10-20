@@ -3,7 +3,6 @@
 namespace App\Actions\Projects;
 
 use App\Actions\Tasks\EnsureDefaultTaskStatuses;
-use App\Enums\ProjectRole;
 use App\Enums\ProjectType;
 use App\Enums\ProjectVisibility;
 use App\Enums\WorkspaceRole;
@@ -28,7 +27,7 @@ final class CreateProject
         string $name,
         string $key,
         ProjectType $type = ProjectType::STANDARD,
-        ProjectVisibility $visibility = ProjectVisibility::WORKSPACE,
+        ProjectVisibility $visibility = ProjectVisibility::PRIVATE,
         ?string $description = null,
         ?string $icon = null,
         ?string $color = null,
@@ -85,11 +84,6 @@ final class CreateProject
                 'type' => $type,
                 'visibility' => $visibility,
                 'task_sequence' => 0,
-            ]);
-
-            $project->memberships()->create([
-                'user_id' => $creator->id,
-                'role' => ProjectRole::MANAGER,
             ]);
 
             $this->ensureDefaultTaskStatuses->handle($project);

@@ -100,7 +100,7 @@ class TaskSubtaskDetailsTest extends TestCase
         $this->assertSame(2, $project->tasks()->count());
     }
 
-    public function test_reader_sees_subtasks_without_creation_privileges(): void
+    public function test_unassigned_workspace_member_cannot_view_or_create_subtasks(): void
     {
         [$project, $owner] = $this->projectWithOwner();
         $parent = app(CreateTask::class)->handle($owner, $project, 'Parent');
@@ -112,11 +112,7 @@ class TaskSubtaskDetailsTest extends TestCase
             'role' => WorkspaceRole::MEMBER,
         ]);
 
-        $this->actingAs($reader)->get(route('tasks.show', [$project, $parent]))
-            ->assertOk()
-            ->assertInertia(fn (Assert $page) => $page
-                ->where('can_create_subtask', false)
-                ->has('task.subtasks', 1));
+        $this->actingAs($reader)->get(route('tasks.show', [$project, $parent]))->assertForbidden();
 
         $this->actingAs($reader)->post(route('tasks.store', $project), [
             'parent_id' => $parent->id,

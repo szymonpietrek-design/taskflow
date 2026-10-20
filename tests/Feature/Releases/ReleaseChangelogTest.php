@@ -7,8 +7,10 @@ use App\Actions\Releases\SaveReleaseChangelog;
 use App\Enums\ProjectType;
 use App\Enums\ProjectVisibility;
 use App\Enums\ReleaseStatus;
+use App\Enums\ProjectRole;
 use App\Enums\WorkspaceRole;
 use App\Models\Project;
+use App\Models\ProjectMember;
 use App\Models\Release;
 use App\Models\ReleaseChangelog;
 use App\Models\User;
@@ -142,10 +144,10 @@ class ReleaseChangelogTest extends TestCase
         app(SaveReleaseChangelog::class)->handle($owner, $release, 'Private changes');
 
         $reader = User::factory()->create();
-        WorkspaceMember::factory()->create([
-            'workspace_id' => $project->workspace_id,
+        ProjectMember::factory()->create([
+            'project_id' => $project->id,
             'user_id' => $reader->id,
-            'role' => WorkspaceRole::MEMBER,
+            'role' => ProjectRole::MEMBER,
         ]);
         $this->actingAs($reader)->get(route('releases.show', [$project, $release]))
             ->assertOk()->assertInertia(fn (Assert $page) => $page

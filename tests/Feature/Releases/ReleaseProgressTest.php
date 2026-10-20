@@ -5,8 +5,10 @@ namespace Tests\Feature\Releases;
 use App\Enums\ProjectType;
 use App\Enums\ReleaseStatus;
 use App\Enums\TaskStatusCategory;
+use App\Enums\ProjectRole;
 use App\Enums\WorkspaceRole;
 use App\Models\Project;
+use App\Models\ProjectMember;
 use App\Models\Release;
 use App\Models\Task;
 use App\Models\TaskStatus;
@@ -67,10 +69,10 @@ class ReleaseProgressTest extends TestCase
     {
         [$owner, $project, $release] = $this->fixtures();
         $member = User::factory()->create();
-        WorkspaceMember::factory()->create([
-            'workspace_id' => $project->workspace_id,
+        ProjectMember::factory()->create([
+            'project_id' => $project->id,
             'user_id' => $member->id,
-            'role' => WorkspaceRole::MEMBER,
+            'role' => ProjectRole::MEMBER,
         ]);
 
         $this->actingAs($member)->get(route('releases.show', [$project, $release]))

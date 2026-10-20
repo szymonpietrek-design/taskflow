@@ -101,7 +101,7 @@ class ReportController extends Controller
     {
         return User::query()
             ->where(fn ($query) => $query
-                ->whereHas('workspaceMemberships', fn ($q) => $q->where('workspace_id', $project->workspace_id))
+                ->whereHas('workspaceMemberships', fn ($q) => $q->where('workspace_id', $project->workspace_id)->whereNull('suspended_at')->whereIn('role', [1, 2]))
                 ->orWhereHas('projectMemberships', fn ($q) => $q->where('project_id', $project->id)))
             ->orderBy('name')->limit(100)->get(['id', 'name'])
             ->map(fn (User $user): array => ['id' => $user->id, 'name' => $user->name])->all();

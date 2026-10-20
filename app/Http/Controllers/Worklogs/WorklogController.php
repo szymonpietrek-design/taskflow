@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Worklogs;
 
 use App\Actions\Tasks\SaveTaskWorklog;
-use App\Enums\ProjectVisibility;
 use App\Enums\WorkspaceRole;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Worklogs\SaveGlobalWorklogRequest;
@@ -54,16 +53,14 @@ class WorklogController extends Controller
         $daily = TaskWorklog::query()->where('user_id', $userId)->whereDate('work_date', $date);
         $totalMinutes = (int) (clone $daily)->sum('duration_minutes');
 
-        // Match ProjectPolicy::view in SQL, without leaking private project details.
+        // Match ProjectPolicy::view: workspace owner/admin or explicit project membership.
         $visible = (clone $daily)->whereHas('task.project', function (Builder $projects) use ($userId): void {
-            $projects->whereHas('workspace.memberships', fn (Builder $members) => $members->where('user_id', $userId)->whereNull('suspended_at'))
-                ->where(function (Builder $accessible) use ($userId): void {
-                    $accessible->where('visibility', ProjectVisibility::WORKSPACE->value)
-                        ->orWhereHas('memberships', fn (Builder $members) => $members->where('user_id', $userId))
-                        ->orWhereHas('workspace.memberships', fn (Builder $members) => $members
-                            ->where('user_id', $userId)
-                            ->whereIn('role', [WorkspaceRole::OWNER->value, WorkspaceRole::ADMIN->value]));
-                });
+            $projects->where(fn (Builder $access) => $access
+                ->whereHas('memberships', fn (Builder $members) => $members->where('user_id', $userId))
+                ->orWhereHas('workspace.memberships', fn (Builder $members) => $members
+                    ->where('user_id', $userId)
+                    ->whereNull('suspended_at')
+                    ->whereIn('role', [WorkspaceRole::OWNER->value, WorkspaceRole::ADMIN->value])));
         });
 
         $visibleMinutes = (int) (clone $visible)->sum('duration_minutes');
@@ -71,7 +68,6 @@ class WorklogController extends Controller
         // Only contributing members/admins of non-archived projects may create or edit entries.
         $writableProjects = Project::query()
             ->whereNull('archived_at')
-            ->whereHas('workspace.memberships', fn (Builder $members) => $members->where('user_id', $userId)->whereNull('suspended_at'))
             ->where(function (Builder $projects) use ($userId): void {
                 $projects->whereHas('memberships', fn (Builder $members) => $members->where('user_id', $userId))
                     ->orWhereHas('workspace.memberships', fn (Builder $members) => $members

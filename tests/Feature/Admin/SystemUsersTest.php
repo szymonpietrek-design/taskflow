@@ -4,9 +4,10 @@ namespace Tests\Feature\Admin;
 
 use App\Models\User;
 use App\Models\Workspace;
+use App\Enums\WorkspaceRole;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
-use Inertia\Testing\AssertableJson as Assert;
+use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
 class SystemUsersTest extends TestCase
@@ -35,7 +36,7 @@ class SystemUsersTest extends TestCase
     {
         $user = User::factory()->create();
         $workspace = Workspace::factory()->create();
-        $workspace->members()->attach($user->id, ['role' => 'owner', 'joined_at' => now()]);
+        $workspace->members()->attach($user->id, ['role' => WorkspaceRole::OWNER->value, 'joined_at' => now()]);
 
         $this->get('/admin/users')->assertRedirect('/login');
         $this->actingAs($user)->get('/admin/users')->assertForbidden();
@@ -51,7 +52,7 @@ class SystemUsersTest extends TestCase
     {
         $owner = User::factory()->create();
         $workspace = Workspace::factory()->create();
-        $workspace->members()->attach($owner->id, ['role' => 'owner', 'joined_at' => now()]);
+        $workspace->members()->attach($owner->id, ['role' => WorkspaceRole::OWNER->value, 'joined_at' => now()]);
         $target = User::factory()->create();
         $this->actingAs($owner)->patch("/admin/users/{$target->id}", [
             'name' => 'Hijacked', 'email' => 'other@example.com', 'locale' => 'pl',
@@ -167,7 +168,7 @@ class SystemUsersTest extends TestCase
         $this->post('/login', ['email' => $target->email, 'password' => 'password']);
         $this->assertGuest();
 
-        $this->actingAs($target)->get('/dashboard')->assertRedirect('/login');
+        $this->actingAs($target->fresh())->get('/dashboard')->assertRedirect('/login');
         $this->assertGuest();
     }
 

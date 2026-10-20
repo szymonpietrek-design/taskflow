@@ -13,11 +13,11 @@ class WorkspacePolicyTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_workspace_members_can_view_the_workspace(): void
+    public function test_legacy_workspace_member_role_alone_cannot_view_workspace(): void
     {
         [$workspace, $user] = $this->workspaceWithMember(WorkspaceRole::MEMBER);
 
-        $this->assertTrue($user->can('view', $workspace));
+        $this->assertFalse($user->can('view', $workspace));
         $this->assertFalse($user->can('update', $workspace));
         $this->assertFalse($user->can('delete', $workspace));
         $this->assertFalse($user->can('manageMembers', $workspace));

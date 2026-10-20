@@ -93,13 +93,14 @@ class TaskFromMessageController extends Controller
     private function assigneeOptions(Project $project): array
     {
         return User::query()
-            ->whereHas('workspaceMemberships', fn ($query) => $query->where('workspace_id', $project->workspace_id))
+            ->whereNull('disabled_at')
             ->where(function ($query) use ($project): void {
                 $query->whereHas('workspaceMemberships', function ($memberships) use ($project): void {
                     $memberships->where('workspace_id', $project->workspace_id)
-                        ->whereIn('role', [WorkspaceRole::OWNER->value, WorkspaceRole::ADMIN->value]);
+                    ->whereNull('suspended_at')
+                    ->whereIn('role', [WorkspaceRole::OWNER->value, WorkspaceRole::ADMIN->value]);
                 })->orWhereHas('projectMemberships', fn ($memberships) => $memberships->where('project_id', $project->id));
-            })
+                })
             ->orderBy('name')
             ->get(['id', 'name'])
             ->map(fn (User $user): array => ['id' => $user->id, 'name' => $user->name])

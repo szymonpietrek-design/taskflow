@@ -3,11 +3,13 @@
 namespace Tests\Feature\Projects;
 
 use App\Enums\ProjectType;
+use App\Enums\ProjectRole;
 use App\Enums\ReleaseStatus;
 use App\Enums\TaskActivityType;
 use App\Enums\TaskStatusCategory;
 use App\Enums\WorkspaceRole;
 use App\Models\Project;
+use App\Models\ProjectMember;
 use App\Models\Release;
 use App\Models\Task;
 use App\Models\TaskActivity;
@@ -84,6 +86,8 @@ class ProjectOverviewTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page
                 ->component('projects/Show')
                 ->where('can_create_task', true)
+                ->where('can_manage_team', true)
+                ->where('can_manage_managers', true)
                 ->where('overview.stats.total', 4)
                 ->where('overview.stats.in_progress', 1)
                 ->where('overview.stats.completed', 1)
@@ -93,6 +97,94 @@ class ProjectOverviewTest extends TestCase
                 ->has('overview.activity', 3)
                 ->where('overview.latest_release.version', '1.2.0'),
             );
+    }
+
+    public function test_team_preview_shows_active_administrators_and_project_members_without_duplicates(): void
+    {
+        [$owner, $project] = $this->makeProject();
+        $admin = User::factory()->create(['name' => 'Admin User']);
+        WorkspaceMember::factory()->create([
+            'workspace_id' => $project->workspace_id,
+            'user_id' => $admin->id,
+            'role' => WorkspaceRole::ADMIN,
+        ]);
+
+        // Legacy duplicate grants must not make inherited admins appear twice.
+        ProjectMember::factory()->create([
+            'project_id' => $project->id,
+            'user_id' => $admin->id,
+            'role' => ProjectRole::MANAGER,
+        ]);
+
+        $suspended = User::factory()->create();
+        WorkspaceMember::factory()->create([
+            'workspace_id' => $project->workspace_id,
+            'user_id' => $suspended->id,
+            'role' => WorkspaceRole::ADMIN,
+            'suspended_at' => now(),
+        ]);
+        ProjectMember::factory()->create([
+            'project_id' => $project->id,
+            'user_id' => $suspended->id,
+            'role' => ProjectRole::MEMBER,
+        ]);
+
+        $disabled = User::factory()->create();
+        $disabled->forceFill(['disabled_at' => now()])->save();
+        ProjectMember::factory()->create([
+            'project_id' => $project->id,
+            'user_id' => $disabled->id,
+            'role' => ProjectRole::MEMBER,
+        ]);
+
+        foreach (range(1, 4) as $index) {
+            $user = User::factory()->create(['name' => "Member {$index}"]);
+            ProjectMember::factory()->create([
+                'project_id' => $project->id,
+                'user_id' => $user->id,
+                'role' => $index === 1 ? ProjectRole::MANAGER : ProjectRole::MEMBER,
+            ]);
+        }
+
+        $this->actingAs($owner)->get(route('projects.show', $project))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('projects/Show')
+                ->where('team_preview.total', 6)
+                ->where('team_preview.remaining', 0)
+                ->has('team_preview.members', 6)
+                ->where('team_preview.members.0.id', $owner->id)
+                ->where('team_preview.members.0.role', 'owner')
+                ->where('team_preview.members.1.id', $admin->id)
+                ->where('team_preview.members.1.role', 'admin')
+                ->where('team_preview.members.2.role', 'manager')
+                ->has('team_preview.overflow_members', 0)
+                ->where('team_preview.unlisted_count', 0)
+                ->etc());
+    }
+
+    public function test_team_preview_limits_tooltip_names_for_large_teams(): void
+    {
+        [$owner, $project] = $this->makeProject();
+
+        foreach (range(1, 18) as $index) {
+            $user = User::factory()->create(['name' => "Member {$index}"]);
+            ProjectMember::factory()->create([
+                'project_id' => $project->id,
+                'user_id' => $user->id,
+                'role' => ProjectRole::MEMBER,
+            ]);
+        }
+
+        $this->actingAs($owner)->get(route('projects.show', $project))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('team_preview.total', 19)
+                ->has('team_preview.members', 8)
+                ->has('team_preview.overflow_members', 6)
+                ->where('team_preview.remaining', 11)
+                ->where('team_preview.unlisted_count', 5)
+                ->etc());
     }
 
     public function test_overview_does_not_include_records_from_other_projects(): void
@@ -138,6 +230,42 @@ class ProjectOverviewTest extends TestCase
             );
     }
 
+    public function test_project_overview_shares_member_management_permissions_by_role(): void
+    {
+        [$owner, $project] = $this->makeProject();
+        $manager = User::factory()->create();
+        $member = User::factory()->create();
+        ProjectMember::factory()->create([
+            'project_id' => $project->id,
+            'user_id' => $manager->id,
+            'role' => ProjectRole::MANAGER,
+        ]);
+        ProjectMember::factory()->create([
+            'project_id' => $project->id,
+            'user_id' => $member->id,
+            'role' => ProjectRole::MEMBER,
+        ]);
+
+        $this->actingAs($owner)->get(route('projects.show', $project))
+            ->assertOk()->assertInertia(fn (Assert $page) => $page
+                ->where('can_manage_team', true)
+                ->where('can_manage_managers', true)->etc());
+        $this->actingAs($manager)->get(route('projects.show', $project))
+            ->assertOk()->assertInertia(fn (Assert $page) => $page
+                ->where('can_manage_team', true)
+                ->where('can_manage_managers', false)->etc());
+        $this->actingAs($member)->get(route('projects.show', $project))
+            ->assertOk()->assertInertia(fn (Assert $page) => $page
+                ->where('can_manage_team', false)
+                ->where('can_manage_managers', false)->etc());
+
+        $project->forceFill(['archived_at' => now()])->save();
+        $this->actingAs($owner)->get(route('projects.show', $project))
+            ->assertOk()->assertInertia(fn (Assert $page) => $page
+                ->where('can_manage_team', false)
+                ->where('can_manage_managers', false)->etc());
+    }
+
     public function test_task_creation_dialog_receives_only_current_project_options(): void
     {
         [$owner, $project] = $this->makeProject();
@@ -174,7 +302,7 @@ class ProjectOverviewTest extends TestCase
             );
     }
 
-    public function test_read_only_member_does_not_receive_creation_options(): void
+    public function test_legacy_workspace_member_cannot_open_project_overview(): void
     {
         [$owner, $project] = $this->makeProject();
         $member = User::factory()->create();
@@ -184,12 +312,7 @@ class ProjectOverviewTest extends TestCase
             'role' => WorkspaceRole::MEMBER,
         ]);
 
-        $this->actingAs($member)->get(route('projects.show', $project))
-            ->assertOk()
-            ->assertInertia(fn (Assert $page) => $page
-                ->where('can_create_task', false)
-                ->where('task_form', null),
-            );
+        $this->actingAs($member)->get(route('projects.show', $project))->assertForbidden();
     }
 
     /** @return array{User, Project} */

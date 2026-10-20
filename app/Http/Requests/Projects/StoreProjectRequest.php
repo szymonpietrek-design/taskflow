@@ -31,7 +31,7 @@ class StoreProjectRequest extends FormRequest
             return false;
         }
 
-        $workspace = $user->workspaces()->whereKey($workspaceId)->first();
+        $workspace = \App\Models\Workspace::find($workspaceId);
 
         return $workspace !== null
             && $user->can('create', [Project::class, $workspace]);
@@ -64,7 +64,7 @@ class StoreProjectRequest extends FormRequest
             'icon' => ['nullable', 'string', Rule::in(ProjectIdentity::ICONS)],
             'color' => ['nullable', 'string', Rule::in(ProjectIdentity::COLORS)],
             'type' => ['required', Rule::in($types)],
-            'visibility' => ['required', Rule::in($visibilities)],
+            'visibility' => ['sometimes', Rule::in($visibilities)],
         ];
     }
     private function workspaceId(): ?int

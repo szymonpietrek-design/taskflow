@@ -5,6 +5,8 @@ namespace Tests\Feature\Tasks;
 use App\Actions\Projects\CreateProject;
 use App\Actions\Tasks\CreateTask;
 use App\Enums\WorkspaceRole;
+use App\Enums\ProjectRole;
+use App\Models\ProjectMember;
 use App\Models\Task;
 use App\Models\User;
 use App\Models\Workspace;
@@ -116,7 +118,7 @@ class TaskAttachmentsTest extends TestCase
         $this->assertSame(0, $task->attachments()->count());
     }
 
-    public function test_non_contributor_cannot_upload_or_delete_even_when_the_task_is_visible(): void
+    public function test_legacy_workspace_member_without_project_access_cannot_read_or_modify_attachments(): void
     {
         [$project, $owner, $task] = $this->taskWithOwner();
         $this->actingAs($owner)->post(route('tasks.attachments.store', [$project, $task]), [
@@ -124,22 +126,41 @@ class TaskAttachmentsTest extends TestCase
         ])->assertSessionHasNoErrors();
         $attachment = $task->attachments()->sole();
 
-        $viewer = User::factory()->create();
+        $outsider = User::factory()->create();
         WorkspaceMember::factory()->create([
             'workspace_id' => $project->workspace_id,
-            'user_id' => $viewer->id,
+            'user_id' => $outsider->id,
             'role' => WorkspaceRole::MEMBER,
         ]);
 
-        $this->actingAs($viewer)
+        $this->actingAs($outsider)
             ->get(route('tasks.attachments.download', [$project, $task, $attachment]))
-            ->assertOk();
+            ->assertForbidden();
         $this->post(route('tasks.attachments.store', [$project, $task]), [
             'files' => [UploadedFile::fake()->create('blocked.pdf', 10, 'application/pdf')],
         ])->assertForbidden();
         $this->delete(route('tasks.attachments.destroy', [$project, $task, $attachment]))
             ->assertForbidden();
         $this->assertSame(1, $task->attachments()->count());
+    }
+
+    public function test_explicit_project_member_can_download_private_task_attachments(): void
+    {
+        [$project, $owner, $task] = $this->taskWithOwner();
+        $this->actingAs($owner)->post(route('tasks.attachments.store', [$project, $task]), [
+            'files' => [UploadedFile::fake()->create('team-file.txt', 2, 'text/plain')],
+        ])->assertSessionHasNoErrors();
+        $attachment = $task->attachments()->sole();
+        $member = User::factory()->create();
+        ProjectMember::factory()->create([
+            'project_id' => $project->id,
+            'user_id' => $member->id,
+            'role' => ProjectRole::MEMBER,
+        ]);
+
+        $this->actingAs($member)
+            ->get(route('tasks.attachments.download', [$project, $task, $attachment]))
+            ->assertOk();
     }
 
     public function test_deletion_removes_private_file_and_archiving_blocks_changes(): void

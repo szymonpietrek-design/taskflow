@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Workspaces;
 use App\Enums\WorkspaceRole;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Workspaces\StoreWorkspaceMemberRequest;
-use App\Models\ProjectMember;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceMember;
@@ -29,6 +28,7 @@ class WorkspaceMemberController extends Controller
 
         $members = WorkspaceMember::query()
             ->where('workspace_id', $workspace->id)
+            ->whereIn('role', [WorkspaceRole::OWNER->value, WorkspaceRole::ADMIN->value])
             ->with('user:id,name,email')
             ->when($search !== '', fn ($query) => $query->whereHas('user', function ($userQuery) use ($search): void {
                 $userQuery->where(function ($nameOrEmail) use ($search): void {
@@ -62,8 +62,7 @@ class WorkspaceMemberController extends Controller
                 'is_suspended' => $membership->suspended_at !== null,
                 'can_manage' => $membership->role !== WorkspaceRole::OWNER
                     && $membership->user_id !== $request->user()->id
-                    && ($currentMembership?->role === WorkspaceRole::OWNER
-                        || $membership->role === WorkspaceRole::MEMBER),
+                    && $currentMembership?->role === WorkspaceRole::OWNER,
                 'is_you' => $membership->user_id === $request->user()->id,
             ]),
         ]);
@@ -72,6 +71,8 @@ class WorkspaceMemberController extends Controller
     public function candidates(Request $request, Workspace $workspace): JsonResponse
     {
         Gate::forUser($request->user())->authorize('manageMembers', $workspace);
+        abort_unless($request->user()->workspaceMemberships()->where('workspace_id', $workspace->id)
+            ->whereNull('suspended_at')->where('role', WorkspaceRole::OWNER->value)->exists(), 403);
 
         $data = $request->validate([
             'q' => ['sometimes', 'nullable', 'string', 'max:100'],
@@ -104,6 +105,8 @@ class WorkspaceMemberController extends Controller
     public function store(StoreWorkspaceMemberRequest $request, Workspace $workspace): RedirectResponse
     {
         $data = $request->validated();
+        abort_unless($request->user()->workspaceMemberships()->where('workspace_id', $workspace->id)
+            ->whereNull('suspended_at')->where('role', WorkspaceRole::OWNER->value)->exists(), 403);
         $user = User::query()->where('email', $data['email'])->whereNull('disabled_at')->first();
 
         if (! $user) {
@@ -112,14 +115,22 @@ class WorkspaceMemberController extends Controller
             ]);
         }
 
-        // The unique constraint on (workspace_id, user_id) also protects concurrent requests.
-        $membership = WorkspaceMember::query()->createOrFirst(
-            ['workspace_id' => $workspace->id, 'user_id' => $user->id],
-            [
-                'role' => $data['role'] === 'admin' ? WorkspaceRole::ADMIN : WorkspaceRole::MEMBER,
-                'joined_at' => now(),
-            ],
-        );
+        // Only owner/admin rows are allowed; project users are assigned within projects.
+        // The unique constraint also protects concurrent requests.
+        $membership = DB::transaction(function () use ($workspace, $user): WorkspaceMember {
+            $membership = WorkspaceMember::query()->createOrFirst(
+                ['workspace_id' => $workspace->id, 'user_id' => $user->id],
+                ['role' => WorkspaceRole::ADMIN, 'joined_at' => now()],
+            );
+            if ($membership->wasRecentlyCreated) {
+                // A workspace administrator inherits access and must not retain
+                // stale project grants if they later lose this administrator role.
+                \App\Models\ProjectMember::query()->where('user_id', $user->id)
+                    ->whereHas('project', fn ($projects) => $projects->where('workspace_id', $workspace->id))
+                    ->delete();
+            }
+            return $membership;
+        });
 
         if (! $membership->wasRecentlyCreated) {
             throw ValidationException::withMessages([
@@ -171,13 +182,9 @@ class WorkspaceMemberController extends Controller
     {
         $this->authorizeTarget($request, $workspace, $member);
 
-        DB::transaction(function () use ($workspace, $member): void {
+        DB::transaction(function () use ($member): void {
             $target = WorkspaceMember::query()->lockForUpdate()->findOrFail($member->id);
-            // Clear only project grants in this workspace; keep tasks, worklogs and messages.
-            ProjectMember::query()
-                ->where('user_id', $target->user_id)
-                ->whereHas('project', fn ($query) => $query->where('workspace_id', $workspace->id))
-                ->delete();
+            // Revoking workspace administration does not remove explicit project grants.
             $target->delete();
         });
 
@@ -199,7 +206,7 @@ class WorkspaceMemberController extends Controller
         abort_if(
             $member->user_id === $request->user()->id
                 || $member->role === WorkspaceRole::OWNER
-                || ($actor->role !== WorkspaceRole::OWNER && $member->role !== WorkspaceRole::MEMBER),
+                || $actor->role !== WorkspaceRole::OWNER,
             403,
         );
     }

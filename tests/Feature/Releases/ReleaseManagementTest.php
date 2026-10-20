@@ -86,10 +86,10 @@ class ReleaseManagementTest extends TestCase
     {
         [, $project] = $this->application();
         $member = User::factory()->create();
-        WorkspaceMember::factory()->create([
-            'workspace_id' => $project->workspace_id,
+        ProjectMember::factory()->create([
+            'project_id' => $project->id,
             'user_id' => $member->id,
-            'role' => WorkspaceRole::MEMBER,
+            'role' => ProjectRole::MEMBER,
         ]);
 
         $this->actingAs($member)->get(route('releases.index', $project))->assertOk()

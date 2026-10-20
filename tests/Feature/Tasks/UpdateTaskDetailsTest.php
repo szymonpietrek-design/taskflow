@@ -207,7 +207,7 @@ class UpdateTaskDetailsTest extends TestCase
         }
     }
 
-    public function test_read_only_workspace_member_cannot_edit_task(): void
+    public function test_unassigned_workspace_member_cannot_view_or_edit_task(): void
     {
         [$project, $owner, $task] = $this->taskWithOwner();
         $viewer = User::factory()->create();
@@ -218,12 +218,7 @@ class UpdateTaskDetailsTest extends TestCase
         ]);
 
         $this->actingAs($viewer)
-            ->get(route('tasks.show', [$project, $task]))
-            ->assertOk()
-            ->assertInertia(fn (Assert $page) => $page
-                ->component('tasks/Show')
-                ->where('can_update', false)
-                ->has('assignees', 0));
+            ->get(route('tasks.show', [$project, $task]))->assertForbidden();
 
         $this->actingAs($viewer)
             ->patch(route('tasks.update', [$project, $task]), $this->payload(['title' => 'Unauthorized']))

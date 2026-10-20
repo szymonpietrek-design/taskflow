@@ -3,7 +3,6 @@
 namespace Tests\Feature\Projects;
 
 use App\Actions\Projects\CreateProject;
-use App\Enums\ProjectRole;
 use App\Enums\ProjectType;
 use App\Enums\ProjectVisibility;
 use App\Enums\TaskStatusCategory;
@@ -20,7 +19,7 @@ class CreateProjectTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_workspace_owner_can_create_a_project_and_becomes_its_manager(): void
+    public function test_workspace_owner_can_create_a_project_with_inherited_management_access(): void
     {
         [$workspace, $user] = $this->workspaceWithMember(WorkspaceRole::OWNER);
 
@@ -47,11 +46,11 @@ class CreateProjectTest extends TestCase
             'task_sequence' => 0,
         ]);
 
-        $this->assertDatabaseHas('project_members', [
+        $this->assertDatabaseMissing('project_members', [
             'project_id' => $project->id,
             'user_id' => $user->id,
-            'role' => ProjectRole::MANAGER->value,
         ]);
+        $this->assertTrue($user->can('manageMembers', $project));
 
         $this->assertDatabaseCount('task_statuses', 4);
         $this->assertDatabaseHas('task_statuses', [
@@ -85,11 +84,11 @@ class CreateProjectTest extends TestCase
         $project = app(CreateProject::class)->handle($user, $workspace, 'Internal Tools', 'IT');
 
         $this->assertSame($workspace->id, $project->workspace_id);
-        $this->assertDatabaseHas('project_members', [
+        $this->assertDatabaseMissing('project_members', [
             'project_id' => $project->id,
             'user_id' => $user->id,
-            'role' => ProjectRole::MANAGER->value,
         ]);
+        $this->assertTrue($user->can('manageMembers', $project));
     }
 
     public function test_regular_workspace_member_cannot_create_a_project(): void

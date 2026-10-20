@@ -5,8 +5,10 @@ namespace Tests\Feature\Reports;
 use App\Contracts\Ai\ReportTextGenerator;
 use App\Enums\ProjectVisibility;
 use App\Enums\ReportFormat;
+use App\Enums\ProjectRole;
 use App\Enums\WorkspaceRole;
 use App\Models\Project;
+use App\Models\ProjectMember;
 use App\Models\Report;
 use App\Models\Task;
 use App\Models\TaskMessage;
@@ -208,8 +210,8 @@ class ReportAiGenerationTest extends TestCase
     {
         [$owner, $project, $report] = $this->fixtures();
         $person = User::factory()->create();
-        WorkspaceMember::factory()->create(['workspace_id' => $project->workspace_id,
-            'user_id' => $person->id, 'role' => WorkspaceRole::MEMBER]);
+        ProjectMember::factory()->create(['project_id' => $project->id,
+            'user_id' => $person->id, 'role' => ProjectRole::MEMBER]);
         $report->update(['created_by' => $person->id, 'contributor_ids' => [$person->id], 'sources' => ['worklogs']]);
         $status = TaskStatus::factory()->create(['project_id' => $project->id]);
         $task = Task::factory()->create(['project_id' => $project->id, 'status_id' => $status->id,

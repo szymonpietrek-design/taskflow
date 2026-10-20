@@ -395,15 +395,16 @@ class TaskController extends Controller
     /** @return array<int,array{id:int,name:string}> */
     private function eligibleAssignees(Project $project): array
     {
-        // Project members still need workspace membership, even for private projects.
+        // Eligible assignees are project team members or workspace administrators.
         return User::query()
-            ->whereHas('workspaceMemberships', fn ($query) => $query->where('workspace_id', $project->workspace_id))
+            ->whereNull('disabled_at')
             ->where(function ($query) use ($project): void {
                 $query->whereHas('workspaceMemberships', function ($memberships) use ($project): void {
                     $memberships->where('workspace_id', $project->workspace_id)
-                        ->whereIn('role', [WorkspaceRole::OWNER->value, WorkspaceRole::ADMIN->value]);
+                    ->whereNull('suspended_at')
+                    ->whereIn('role', [WorkspaceRole::OWNER->value, WorkspaceRole::ADMIN->value]);
                 })->orWhereHas('projectMemberships', fn ($memberships) => $memberships->where('project_id', $project->id));
-            })
+                })
             ->orderBy('name')
             ->get(['id', 'name'])
             ->map(fn (User $user): array => ['id' => $user->id, 'name' => $user->name])

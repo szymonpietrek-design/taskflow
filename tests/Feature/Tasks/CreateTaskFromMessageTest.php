@@ -93,7 +93,7 @@ class CreateTaskFromMessageTest extends TestCase
         $this->assertSame($message->id, $created->source_message_id);
     }
 
-    public function test_reader_cannot_open_form_or_create_task_but_can_see_message_without_button(): void
+    public function test_unassigned_workspace_member_cannot_open_task_or_convert_message(): void
     {
         [$project, $owner, $source, $message] = $this->source();
         $viewer = User::factory()->create();
@@ -103,9 +103,7 @@ class CreateTaskFromMessageTest extends TestCase
             'role' => WorkspaceRole::MEMBER,
         ]);
 
-        $this->actingAs($viewer)->get(route('tasks.show', [$project, $source]))
-            ->assertOk()
-            ->assertInertia(fn (Assert $page) => $page->where('messages.0.can_create_task', false));
+        $this->actingAs($viewer)->get(route('tasks.show', [$project, $source]))->assertForbidden();
 
         $this->actingAs($viewer)->get(route('tasks.messages.create-task', [$project, $source, $message]))
             ->assertForbidden();

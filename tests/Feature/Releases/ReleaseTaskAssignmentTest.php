@@ -6,14 +6,17 @@ use App\Actions\Releases\SetTaskRelease;
 use App\Enums\ProjectType;
 use App\Enums\ReleaseStatus;
 use App\Enums\TaskActivityType;
+use App\Enums\ProjectRole;
 use App\Enums\WorkspaceRole;
 use App\Models\Project;
+use App\Models\ProjectMember;
 use App\Models\Release;
 use App\Models\Task;
 use App\Models\TaskStatus;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceMember;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
@@ -126,10 +129,10 @@ class ReleaseTaskAssignmentTest extends TestCase
     {
         [, $project, $release, $task] = $this->fixtures();
         $reader = User::factory()->create();
-        WorkspaceMember::factory()->create([
-            'workspace_id' => $project->workspace_id,
+        ProjectMember::factory()->create([
+            'project_id' => $project->id,
             'user_id' => $reader->id,
-            'role' => WorkspaceRole::MEMBER,
+            'role' => ProjectRole::MEMBER,
         ]);
         $this->actingAs($reader)->get(route('releases.show', [$project, $release]))
             ->assertOk()->assertInertia(fn (Assert $page) => $page->component('releases/Show')
@@ -138,6 +141,24 @@ class ReleaseTaskAssignmentTest extends TestCase
             'task_id' => $task->id,
         ])->assertForbidden();
         $this->assertNull($task->fresh()->release_id);
+    }
+
+    public function test_regular_project_member_cannot_use_the_release_assignment_action(): void
+    {
+        [, $project, $release, $task] = $this->fixtures();
+        $member = User::factory()->create();
+        ProjectMember::factory()->create([
+            'project_id' => $project->id,
+            'user_id' => $member->id,
+            'role' => ProjectRole::MEMBER,
+        ]);
+
+        // Editing task details does not grant the right to manage releases.
+        $this->assertTrue($member->can('update', $task));
+        $this->assertFalse($member->can('update', $project));
+
+        $this->expectException(AuthorizationException::class);
+        app(SetTaskRelease::class)->handle($member, $task, $release);
     }
 
     public function test_closed_release_cannot_add_or_remove_tasks(): void

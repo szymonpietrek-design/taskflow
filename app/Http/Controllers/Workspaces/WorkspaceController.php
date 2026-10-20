@@ -7,7 +7,6 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Workspaces\StoreWorkspaceRequest;
 use App\Http\Requests\Workspaces\UpdateWorkspaceRequest;
 use App\Enums\ProjectRole;
-use App\Enums\ProjectVisibility;
 use App\Models\Project;
 use App\Support\Projects\ProjectLogo;
 use App\Models\ProjectMember;
@@ -61,13 +60,12 @@ class WorkspaceController extends Controller
             ->pluck('project_id')
             ->all();
 
-        // Members see only workspace-visible projects or their own private projects.
+        // Project collaborators see only explicitly assigned projects.
         // Owner/admin access is scoped to their own workspace, never global.
         $visibleProjects = Project::query()
             ->whereIn('workspace_id', $workspaceIds)
             ->where(function (Builder $query) use ($adminWorkspaceIds, $request): void {
                 $query->whereIn('workspace_id', $adminWorkspaceIds)
-                    ->orWhere('visibility', ProjectVisibility::WORKSPACE->value)
                     ->orWhereHas('memberships', fn (Builder $memberships) => $memberships
                         ->where('user_id', $request->user()->id));
             });

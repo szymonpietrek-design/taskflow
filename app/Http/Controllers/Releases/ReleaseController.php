@@ -85,7 +85,7 @@ class ReleaseController extends Controller
 
         $editable = $project->archived_at === null
             && in_array($release->status, [ReleaseStatus::DRAFT, ReleaseStatus::PLANNED], true);
-        $canManage = $editable && $request->user()->can('create', [Task::class, $project]);
+        $canManage = $editable && $request->user()->can('update', $project);
         $search = trim(is_string($request->query('q')) ? $request->query('q') : '');
         if (mb_strlen($search) > 80) {
             $search = mb_substr($search, 0, 80);

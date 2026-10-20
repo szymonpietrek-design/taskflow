@@ -40,7 +40,7 @@ const displayedLogoUrl = computed(() => {
 // Shared dialog for both /workspaces and the sidebar /projects shortcut.
 // The workspace ID is sent in the URL, never inferred from an old session.
 const form = useForm({
-    name: '', key: '', description: '', type: 1, visibility: 1,
+    name: '', key: '', description: '', type: 1, visibility: 2,
     icon: null as ProjectIcon | null, color: null as ProjectColor | null,
 });
 const previewIcon = computed<ProjectIcon>(() => form.icon ?? (form.type === 2 ? 'code-2' : 'folder-kanban'));
@@ -65,7 +65,6 @@ watch(() => [props.open, props.project?.id, props.workspaceId] as const, () => {
     form.key = props.project.key;
     form.description = props.project.description ?? '';
     form.type = props.project.type === 'application' ? 2 : 1;
-    form.visibility = props.project.visibility === 'private' ? 2 : 1;
     form.icon = props.project.icon;
     form.color = props.project.color;
 }, { immediate: true });
@@ -169,14 +168,6 @@ function submit(): void {
                         <option :value="2">{{ t('stage2.application') }}</option>
                     </select>
                     <InputError :message="form.errors.type" />
-                </div>
-                <div class="grid gap-2">
-                    <Label for="workspace-project-visibility">{{ t('stage2.visibility') }}</Label>
-                    <select id="workspace-project-visibility" v-model.number="form.visibility" class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50">
-                        <option :value="1">{{ t('stage2.workspace') }}</option>
-                        <option :value="2">{{ t('stage2.private') }}</option>
-                    </select>
-                    <InputError :message="form.errors.visibility" />
                 </div>
                 <section class="space-y-3 border-t pt-4" :aria-label="t('projectIdentity.appearance')">
                     <div class="flex items-center justify-between gap-3">

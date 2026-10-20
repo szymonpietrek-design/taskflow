@@ -43,8 +43,8 @@ class DemoSeederTest extends TestCase
         $site = Project::query()->where('workspace_id', $workspace->id)->where('key', 'STUDIO')->sole();
         $this->assertSame(ProjectType::APPLICATION, $app->type);
         $this->assertSame(ProjectType::STANDARD, $site->type);
-        $this->assertSame(3, $workspace->memberships()->count());
-        $this->assertSame(3, $app->memberships()->count());
+        $this->assertSame(2, $workspace->memberships()->count());
+        $this->assertSame(1, $app->memberships()->count());
         $this->assertSame(18, $app->tasks()->count());
         $this->assertSame(5, $site->tasks()->count());
         $this->assertSame(18, $app->task_sequence);

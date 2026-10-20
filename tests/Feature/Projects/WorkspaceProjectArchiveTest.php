@@ -120,23 +120,27 @@ class WorkspaceProjectArchiveTest extends TestCase
         $this->actingAs($manager)->get(route('workspaces.index'))
             ->assertOk()->assertInertia(fn (Assert $page) => $page
                 ->has("archivedProjectsByWorkspace.{$workspace->id}", 1)->etc());
+        // A legacy workspace member with no explicit project assignment no longer
+        // has workspace visibility. The archived-projects map must not expose it.
         $this->actingAs($member)->get(route('workspaces.index'))
             ->assertOk()->assertInertia(fn (Assert $page) => $page
-                ->has("archivedProjectsByWorkspace.{$workspace->id}", 0)->etc());
+                ->missing("projectsByWorkspace.{$workspace->id}")
+                ->missing("archivedProjectsByWorkspace.{$workspace->id}")->etc());
         $this->actingAs($manager)->patch(route('workspaces.projects.restore', [$workspace, $project]))->assertRedirect();
         $this->assertNull($project->fresh()->archived_at);
     }
 
-    public function test_suspended_manager_cannot_find_archived_projects_or_restore_them(): void
+    public function test_removed_manager_cannot_find_archived_projects_or_restore_them(): void
     {
         $owner = User::factory()->create();
         $manager = User::factory()->create();
         $workspace = app(CreateWorkspace::class)->handle($owner, 'Team');
         $project = app(CreateProject::class)->handle($owner, $workspace, 'Private', 'PRIVATE');
-        $membership = WorkspaceMember::factory()->create(['workspace_id' => $workspace->id, 'user_id' => $manager->id, 'role' => WorkspaceRole::MEMBER]);
-        ProjectMember::factory()->create(['project_id' => $project->id, 'user_id' => $manager->id, 'role' => ProjectRole::MANAGER]);
+        $membership = ProjectMember::factory()->create([
+            'project_id' => $project->id, 'user_id' => $manager->id, 'role' => ProjectRole::MANAGER,
+        ]);
         $this->actingAs($owner)->patch(route('workspaces.projects.archive', [$workspace, $project]))->assertRedirect();
-        $membership->update(['suspended_at' => now()]);
+        $membership->delete();
 
         $this->actingAs($manager)->patch(route('workspaces.projects.restore', [$workspace, $project]))->assertForbidden();
         $this->actingAs($manager)->get(route('workspaces.index'))

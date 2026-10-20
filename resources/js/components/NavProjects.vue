@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Link, usePage } from '@inertiajs/vue3';
-import { FileText, FolderKanban, LayoutDashboard, ListTodo, Package, Plus } from '@lucide/vue';
+import { FileText, FolderKanban, LayoutDashboard, ListTodo, Package, Plus, Users } from '@lucide/vue';
 import { computed, ref, watch } from 'vue';
 import ProjectIdentity from '@/components/ProjectIdentity.vue';
 import { useI18n } from '@/composables/useI18n';
@@ -18,7 +18,7 @@ import {
     useSidebar,
 } from '@/components/ui/sidebar';
 
-type ProjectSection = 'overview' | 'tasks' | 'releases' | 'reports';
+type ProjectSection = 'overview' | 'tasks' | 'releases' | 'reports' | 'members';
 
 const page = usePage();
 const { t } = useI18n();
@@ -160,6 +160,14 @@ function isSectionActive(projectId: number, section: ProjectSection): boolean {
                                             <Link :href="`/projects/${project.id}/reports`" :aria-current="isSectionActive(project.id, 'reports') ? 'page' : undefined">
                                                 <FileText />
                                                 <span>{{ t('stage2.reports') }}</span>
+                                            </Link>
+                                        </SidebarMenuSubButton>
+                                    </SidebarMenuSubItem>
+                                    <SidebarMenuSubItem>
+                                        <SidebarMenuSubButton as-child size="sm" class="data-[active=true]:bg-sidebar-accent/70 data-[active=true]:font-semibold" :is-active="isSectionActive(project.id, 'members')">
+                                            <Link :href="`/projects/${project.id}/members`" :aria-current="isSectionActive(project.id, 'members') ? 'page' : undefined">
+                                                <Users />
+                                                <span>{{ t('stage3.team') }}</span>
                                             </Link>
                                         </SidebarMenuSubButton>
                                     </SidebarMenuSubItem>

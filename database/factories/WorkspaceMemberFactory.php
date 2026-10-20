@@ -23,7 +23,7 @@ class WorkspaceMemberFactory extends Factory
         return [
             'workspace_id' => Workspace::factory(),
             'user_id' => User::factory(),
-            'role' => WorkspaceRole::MEMBER->value,
+            'role' => WorkspaceRole::ADMIN->value,
             'joined_at' => now(),
         ];
     }

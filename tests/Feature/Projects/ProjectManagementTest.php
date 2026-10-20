@@ -78,11 +78,11 @@ class ProjectManagementTest extends TestCase
         $this->assertSame('APP', $project->key);
         $this->assertSame(ProjectType::APPLICATION, $project->type);
         $this->assertSame(ProjectVisibility::PRIVATE, $project->visibility);
-        $this->assertDatabaseHas('project_members', [
+        $this->assertDatabaseMissing('project_members', [
             'project_id' => $project->id,
             'user_id' => $user->id,
-            'role' => ProjectRole::MANAGER->value,
         ]);
+        $this->assertTrue($user->can('manageMembers', $project));
     }
 
     public function test_project_form_validates_required_fields_and_project_key(): void
@@ -117,7 +117,7 @@ class ProjectManagementTest extends TestCase
             ->assertForbidden();
     }
 
-    public function test_regular_workspace_member_sees_workspace_projects_but_not_unassigned_private_projects(): void
+    public function test_project_member_sees_only_explicitly_assigned_projects(): void
     {
         [$workspace, $owner] = $this->workspaceWithMember(WorkspaceRole::OWNER);
         $member = User::factory()->create();
@@ -143,6 +143,17 @@ class ProjectManagementTest extends TestCase
             ProjectType::STANDARD,
             ProjectVisibility::PRIVATE,
         );
+
+        $this->actingAs($member)
+            ->withSession(['current_workspace_id' => $workspace->id])
+            ->get(route('projects.index'))
+            ->assertRedirect();
+
+        ProjectMember::factory()->create([
+            'project_id' => $workspaceProject->id,
+            'user_id' => $member->id,
+            'role' => ProjectRole::MEMBER,
+        ]);
 
         $this->actingAs($member)
             ->withSession(['current_workspace_id' => $workspace->id])

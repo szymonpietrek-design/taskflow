@@ -29,7 +29,7 @@ class UpdateProjectRequest extends FormRequest
             'description' => ['nullable', 'string', 'max:5000'],
             'icon' => ['sometimes', 'nullable', 'string', Rule::in(ProjectIdentity::ICONS)],
             'color' => ['sometimes', 'nullable', 'string', Rule::in(ProjectIdentity::COLORS)],
-            'visibility' => ['required', Rule::in(array_map(
+            'visibility' => ['sometimes', Rule::in(array_map(
                 fn (ProjectVisibility $visibility): int => $visibility->value,
                 ProjectVisibility::cases(),
             ))],

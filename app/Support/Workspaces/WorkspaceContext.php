@@ -7,76 +7,69 @@ use App\Models\Workspace;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 
-class WorkspaceContext
+final class WorkspaceContext
 {
-    /**
-     * @return array{
-     *     current: array{id: int, name: string, slug: string, role: string, is_current: bool}|null,
-     *     items: array<int, array{id: int, name: string, slug: string, role: string, is_current: bool}>
-     * }
-     */
+    /** @return array{current: ?array, items: array} */
     public function resolve(Request $request): array
     {
         $user = $request->user();
-
         if ($user === null) {
-            return [
-                'current' => null,
-                'items' => [],
-            ];
+            return ['current' => null, 'items' => []];
         }
 
-        $workspaces = $user->workspaces()
-            ->select(['workspaces.id', 'workspaces.name', 'workspaces.slug'])
-            ->orderBy('workspaces.name')
-            ->get();
-
-        $currentWorkspaceId = $this->resolveCurrentWorkspaceId($request, $workspaces);
-
-        $items = $workspaces
-            ->map(function ($workspace) use ($currentWorkspaceId): array {
-                $role = WorkspaceRole::from((int) $workspace->pivot->getAttribute('role'));
-
-                return [
-                    'id' => $workspace->id,
-                    'name' => $workspace->name,
-                    'slug' => $workspace->slug,
-                    'role' => strtolower($role->name),
-                    'is_current' => $workspace->id === $currentWorkspaceId,
-                ];
+        // A project collaborator may access the workspace via a project, without
+        // any row in workspace_members. Only owner/admin hold a workspace role.
+        $workspaces = Workspace::query()
+            ->where(function ($query) use ($user): void {
+                $query->whereHas('memberships', fn ($members) => $members
+                    ->where('user_id', $user->id)
+                    ->whereNull('suspended_at')
+                    ->whereIn('role', [WorkspaceRole::OWNER->value, WorkspaceRole::ADMIN->value]))
+                    ->orWhereHas('projects.memberships', fn ($members) => $members
+                        ->where('user_id', $user->id));
             })
-            ->values();
+            ->orderBy('name')
+            ->get(['id', 'name', 'slug']);
+
+        $currentId = $this->currentId($request, $workspaces);
+        $adminRoles = $user->workspaceMemberships()
+            ->whereIn('workspace_id', $workspaces->pluck('id'))
+            ->whereNull('suspended_at')
+            ->whereIn('role', [WorkspaceRole::OWNER->value, WorkspaceRole::ADMIN->value])
+            ->get()
+            ->keyBy('workspace_id');
+
+        $items = $workspaces->map(function (Workspace $workspace) use ($currentId, $adminRoles): array {
+            $role = $adminRoles->get($workspace->id)?->role;
+            return [
+                'id' => $workspace->id,
+                'name' => $workspace->name,
+                'slug' => $workspace->slug,
+                // "member" describes project-derived visibility, not a stored workspace role.
+                'role' => $role !== null ? strtolower($role->name) : 'member',
+                'is_current' => $workspace->id === $currentId,
+            ];
+        })->values()->all();
 
         return [
-            'current' => $items->firstWhere('is_current', true),
-            'items' => $items->all(),
+            'current' => collect($items)->firstWhere('is_current', true),
+            'items' => $items,
         ];
     }
 
-    /**
-     * @param  Collection<int, Workspace>  $workspaces
-     */
-    private function resolveCurrentWorkspaceId(Request $request, Collection $workspaces): ?int
+    /** @param Collection<int, Workspace> $workspaces */
+    private function currentId(Request $request, Collection $workspaces): ?int
     {
         if ($workspaces->isEmpty()) {
             $request->session()->forget('current_workspace_id');
-
             return null;
         }
-
-        $storedWorkspaceId = $request->session()->get('current_workspace_id');
-        $currentWorkspaceId = is_numeric($storedWorkspaceId) ? (int) $storedWorkspaceId : null;
-
-        if ($currentWorkspaceId !== null && ! $workspaces->contains('id', $currentWorkspaceId)) {
-            $currentWorkspaceId = null;
+        $stored = $request->session()->get('current_workspace_id');
+        $id = is_numeric($stored) ? (int) $stored : null;
+        if ($id === null || ! $workspaces->contains('id', $id)) {
+            $id = (int) $workspaces->first()->id;
         }
-
-        if ($currentWorkspaceId === null) {
-            $currentWorkspaceId = (int) $workspaces->first()->id;
-        }
-
-        $request->session()->put('current_workspace_id', $currentWorkspaceId);
-
-        return $currentWorkspaceId;
+        $request->session()->put('current_workspace_id', $id);
+        return $id;
     }
 }

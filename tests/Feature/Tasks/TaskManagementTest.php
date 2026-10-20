@@ -92,7 +92,7 @@ class TaskManagementTest extends TestCase
         $this->assertSame(0, $project->tasks()->count());
     }
 
-    public function test_non_contributor_cannot_create_task_even_in_visible_project(): void
+    public function test_unassigned_workspace_member_cannot_view_or_create_task(): void
     {
         [$project, $owner] = $this->projectWithOwner();
         $viewer = User::factory()->create();
@@ -103,13 +103,7 @@ class TaskManagementTest extends TestCase
         ]);
 
         $this->actingAs($viewer)
-            ->get(route('tasks.index', $project))
-            ->assertOk()
-            ->assertInertia(fn (Assert $page) => $page
-                ->component('tasks/Index')
-                ->where('can_create', false)
-                ->has('assignees', 0),
-            );
+            ->get(route('tasks.index', $project))->assertForbidden();
 
         $this->actingAs($viewer)
             ->post(route('tasks.store', $project), [
