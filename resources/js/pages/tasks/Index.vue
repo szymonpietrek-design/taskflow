@@ -16,9 +16,10 @@ import {
 } from '@lucide/vue';
 import CreateTaskDialog from '@/components/tasks/CreateTaskDialog.vue';
 import TaskStatusIcon from '@/components/tasks/TaskStatusIcon.vue';
+import TaskPriorityLabel from '@/components/tasks/TaskPriorityLabel.vue';
 import TaskTypeLabel from '@/components/tasks/TaskTypeLabel.vue';
 import UserAvatar from '@/components/UserAvatar.vue';
-import { taskPriorityDotClass, taskStatusBadgeClass } from '@/lib/taskVisuals';
+import { TASK_PRIORITIES, taskPriorityDotClass, taskPriorityLabelKey, taskPriorityTextClass, taskStatusBadgeClass } from '@/lib/taskVisuals';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -39,6 +40,7 @@ import {
     TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { Input } from '@/components/ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Label } from '@/components/ui/label';
 import type {
     TaskListSummary,
@@ -46,6 +48,7 @@ import type {
     TaskProjectSummary,
     TaskStatusSummary,
     TaskUserSummary,
+    TaskPriorityValue,
 } from '@/types/task';
 
 const props = defineProps<{
@@ -55,6 +58,7 @@ const props = defineProps<{
         current_page: number;
         last_page: number;
         total: number;
+        unfiltered_total: number;
         from: number | null;
         to: number | null;
         previous_page_url: string | null;
@@ -79,12 +83,44 @@ const filterForm = reactive({
     ...props.filters,
     sort: props.filters.sort || 'newest',
 });
+const searchQuery = ref(props.filters.q || '');
+const filtersOpen = ref(false);
 const filterProcessing = ref(false);
+let searchTimeout: ReturnType<typeof setTimeout> | null = null;
+
+function cancelSearchTimeout(): void {
+    if (searchTimeout !== null) {
+        clearTimeout(searchTimeout);
+        searchTimeout = null;
+    }
+}
+
 watch(
     () => props.filters,
-    (filters) =>
-        Object.assign(filterForm, filters, { sort: filters.sort || 'newest' }),
+    (filters) => {
+        Object.assign(filterForm, filters, { sort: filters.sort || 'newest' });
+        // Do not overwrite what is being typed if a previous request finishes late.
+        if (typeof document === 'undefined' || document.activeElement?.id !== 'task-search') {
+            searchQuery.value = filters.q || '';
+        }
+    },
 );
+
+watch(filtersOpen, (open) => {
+    // Cancelled selections must not affect the next search or a reopened popover.
+    if (open) Object.assign(filterForm, props.filters, { sort: props.filters.sort || 'newest' });
+});
+
+watch(searchQuery, (value) => {
+    cancelSearchTimeout();
+    if (value.trim() === props.filters.q.trim()) return;
+    searchTimeout = setTimeout(() => {
+        searchTimeout = null;
+        // Search only changes q. Filter controls in the popover remain drafts
+        // until the user explicitly applies them.
+        visitFilters({ ...props.filters, q: value });
+    }, 450);
+}, { flush: 'sync' });
 
 // Reka UI Select requires non-empty item values. The filter URL must still
 // use empty strings for the unfiltered states expected by Laravel.
@@ -94,6 +130,9 @@ const filterStatus = computed({
         filterForm.status_id = value === 'all' ? '' : value;
     },
 });
+const selectedFilterPriority = computed(() =>
+    TASK_PRIORITIES.find((priority) => String(priority) === filterForm.priority),
+);
 const filterPriority = computed({
     get: () => filterForm.priority || 'all',
     set: (value: string) => {
@@ -112,18 +151,40 @@ const filterSort = computed({
         filterForm.sort = value;
     },
 });
-const hasActiveFilters = computed(() =>
-    Boolean(
-        filterForm.q.trim() ||
-        filterForm.status_id ||
-        filterForm.priority ||
-        filterForm.assignee_id ||
-        (filterForm.sort && filterForm.sort !== 'newest'),
-    ),
-);
+function visitFilters(filters: typeof props.filters): void {
+    router.get(
+        indexUrl,
+        {
+            q: filters.q.trim() || undefined,
+            status_id: filters.status_id || undefined,
+            priority: filters.priority || undefined,
+            assignee_id: filters.assignee_id || undefined,
+            sort: filters.sort && filters.sort !== 'newest' ? filters.sort : undefined,
+        },
+        {
+            replace: true,
+            preserveState: true,
+            preserveScroll: true,
+            onStart: () => { filterProcessing.value = true; },
+            onFinish: () => { filterProcessing.value = false; },
+        },
+    );
+}
 
-function clearFilters() {
+function submitSearch(): void {
+    cancelSearchTimeout();
+    visitFilters({ ...props.filters, q: searchQuery.value });
+}
+
+function clearSearch(): void {
+    searchQuery.value = '';
+    submitSearch();
+}
+
+function clearFilters(): void {
     if (filterProcessing.value) return;
+    cancelSearchTimeout();
+    searchQuery.value = '';
     Object.assign(filterForm, {
         q: '',
         status_id: '',
@@ -131,32 +192,15 @@ function clearFilters() {
         assignee_id: '',
         sort: 'newest',
     });
-    applyFilters();
+    filtersOpen.value = false;
+    visitFilters({ ...filterForm });
 }
 
-function applyFilters() {
+function applyFilters(): void {
     if (filterProcessing.value) return;
-    router.get(
-        indexUrl,
-        {
-            q: filterForm.q.trim() || undefined,
-            status_id: filterForm.status_id || undefined,
-            priority: filterForm.priority || undefined,
-            assignee_id: filterForm.assignee_id || undefined,
-            sort: filterForm.sort !== 'newest' ? filterForm.sort : undefined,
-        },
-        {
-            replace: true,
-            preserveState: true,
-            preserveScroll: true,
-            onStart: () => {
-                filterProcessing.value = true;
-            },
-            onFinish: () => {
-                filterProcessing.value = false;
-            },
-        },
-    );
+    cancelSearchTimeout();
+    filtersOpen.value = false;
+    visitFilters({ ...filterForm, q: searchQuery.value });
 }
 
 const taskUrl = (id: number) => `/projects/${props.project.id}/tasks/${id}`;
@@ -174,7 +218,10 @@ onMounted(() => {
     openFromHash();
     window.addEventListener('hashchange', openFromHash);
 });
-onUnmounted(() => window.removeEventListener('hashchange', openFromHash));
+onUnmounted(() => {
+    window.removeEventListener('hashchange', openFromHash);
+    cancelSearchTimeout();
+});
 
 function formatWorklogTime(totalMinutes: number): string {
     const hours = Math.floor(totalMinutes / 60);
@@ -213,14 +260,25 @@ function formatDueDate(value: string): string {
 // The URL/server props are the source of truth for applied filters. Form fields
 // may contain changes that have not yet been submitted.
 type FilterKey = 'q' | 'status_id' | 'priority' | 'assignee_id' | 'sort';
-type AppliedFilterChip = { key: FilterKey; label: string; value: string };
+type AppliedFilterChip = { key: FilterKey; label: string; value: string; priority?: TaskPriorityValue };
+
+// Sorting changes presentation, not how many tasks match.
+const hasRestrictiveFilters = computed(() =>
+    Boolean(
+        props.filters.q.trim() ||
+        props.filters.status_id ||
+        props.filters.priority ||
+        props.filters.assignee_id,
+    ),
+);
 
 const hasAppliedFilters = computed(() =>
     Boolean(
         props.filters.q ||
         props.filters.status_id ||
         props.filters.priority ||
-        props.filters.assignee_id,
+        props.filters.assignee_id ||
+        (props.filters.sort && props.filters.sort !== 'newest'),
     ),
 );
 
@@ -240,13 +298,13 @@ const appliedFilterChips = computed<AppliedFilterChip[]>(() => {
         });
     }
     if (filters.priority) {
-        const labels: Record<string, string> = {
-            '1': t('stage2.low'),
-            '2': t('stage2.normal'),
-            '3': t('stage2.high'),
-            '4': t('stage2.urgent'),
-        };
-        chips.push({ key: 'priority', label: t('stage2.priority'), value: labels[filters.priority] ?? filters.priority });
+        const priority = TASK_PRIORITIES.find((item) => String(item) === filters.priority);
+        chips.push({
+            key: 'priority',
+            label: t('stage2.priority'),
+            value: priority ? t(taskPriorityLabelKey(priority)) : filters.priority,
+            priority,
+        });
     }
     if (filters.assignee_id) {
         const person = props.filter_assignees.find((item) => String(item.id) === filters.assignee_id);
@@ -277,14 +335,20 @@ function removeAppliedFilter(key: FilterKey): void {
     // submit any draft values entered into other fields.
     Object.assign(filterForm, props.filters, { sort: props.filters.sort || 'newest' });
     filterForm[key] = key === 'sort' ? 'newest' : '';
-    applyFilters();
+    cancelSearchTimeout();
+    if (key === 'q') searchQuery.value = '';
+    visitFilters({ ...filterForm, q: searchQuery.value });
 }
+const appliedAdvancedCount = computed(() =>
+    appliedFilterChips.value.filter((chip) => chip.key !== 'q').length,
+);
+
 </script>
 
 <template>
     <Head :title="`${project.name} · ${t('stage2.tasks')}`" />
 
-    <div class="mx-auto flex w-full min-w-0 max-w-[80rem] flex-1 flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
+    <div class="mx-auto flex w-full min-w-0 max-w-[90rem] flex-1 flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
         <div class="flex flex-wrap items-start justify-between gap-4">
             <div>
                 <Link
@@ -307,190 +371,167 @@ function removeAppliedFilter(key: FilterKey): void {
             <section class="min-w-0 space-y-3">
                 <div class="flex items-center justify-between gap-3">
                     <h2 class="text-sm font-medium">{{ t('stage2.project_tasks') }}</h2>
-                    <span class="text-xs text-muted-foreground"
-                        >{{ pagination.total }}
-                        {{ pagination.total === 1 ? t('followup.task_count_one') : t('followup.task_count_many') }}</span
-                    >
+                    <span class="text-xs text-muted-foreground">
+                        <template v-if="hasRestrictiveFilters">
+                            {{ formatText(pagination.unfiltered_total === 1 ? 'followup.filtered_task_count_one' : 'followup.filtered_task_count_many', { filtered: pagination.total, total: pagination.unfiltered_total }) }}
+                        </template>
+                        <template v-else>
+                            {{ pagination.total }}
+                            {{ pagination.total === 1 ? t('followup.task_count_one') : t('followup.task_count_many') }}
+                        </template>
+                    </span>
                 </div>
 
-                <Card class="gap-0 p-4">
-                    <form class="space-y-3" @submit.prevent="applyFilters">
-                        <div class="flex items-center gap-2 text-sm font-medium">
-                            <SlidersHorizontal class="size-4" /> {{ t('stage2.filters') }}
-                        </div>
-                        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-[minmax(15rem,2fr)_repeat(4,minmax(0,1fr))]">
-                            <div class="grid min-w-0 gap-1.5">
-                                <Label for="task-search">{{ t('stage2.search') }}</Label>
-                                <Input
-                                    id="task-search"
-                                    v-model="filterForm.q"
-                                    maxlength="100"
-                                    :placeholder="`${t('stage2.title')}, ${t('stage2.description')}, ${project.key}-1`"
-                                    :disabled="filterProcessing"
-                                />
-                            </div>
-                            <div class="grid min-w-0 gap-1.5">
-                                <Label for="task-filter-status">{{ t('stage2.status') }}</Label>
-                                <Select
-                                    v-model="filterStatus"
-                                    :disabled="filterProcessing"
-                                >
-                                    <SelectTrigger
-                                        id="task-filter-status"
-                                        class="w-full"
-                                        ><SelectValue
-                                            :placeholder="t('stage2.all_statuses')"
-                                    /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all"
-                                            >{{ t('stage2.all_statuses') }}</SelectItem
-                                        >
-                                        <SelectItem
-                                            v-for="status in statuses"
-                                            :key="status.id"
-                                            :value="String(status.id)"
-                                            >{{ status.name }}</SelectItem
-                                        >
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div class="grid min-w-0 gap-1.5">
-                                <Label for="task-filter-priority"
-                                    >{{ t('stage2.priority') }}</Label
-                                >
-                                <Select
-                                    v-model="filterPriority"
-                                    :disabled="filterProcessing"
-                                >
-                                    <SelectTrigger
-                                        id="task-filter-priority"
-                                        class="w-full"
-                                        ><SelectValue
-                                            :placeholder="t('stage2.all_priorities')"
-                                    /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all"
-                                            >{{ t('stage2.all_priorities') }}</SelectItem
-                                        >
-                                        <SelectItem value="1">{{ t('stage2.low') }}</SelectItem>
-                                        <SelectItem value="2"
-                                            >{{ t('stage2.normal') }}</SelectItem
-                                        >
-                                        <SelectItem value="3">{{ t('stage2.high') }}</SelectItem>
-                                        <SelectItem value="4"
-                                            >{{ t('stage2.urgent') }}</SelectItem
-                                        >
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div class="grid min-w-0 gap-1.5">
-                                <Label for="task-filter-assignee"
-                                    >{{ t('stage2.assignee') }}</Label
-                                >
-                                <Select
-                                    v-model="filterAssignee"
-                                    :disabled="filterProcessing"
-                                >
-                                    <SelectTrigger
-                                        id="task-filter-assignee"
-                                        class="w-full"
-                                        ><SelectValue :placeholder="t('stage2.anyone')"
-                                    /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="anyone"
-                                            >{{ t('stage2.anyone') }}</SelectItem
-                                        >
-                                        <SelectItem value="unassigned"
-                                            >{{ t('stage2.unassigned') }}</SelectItem
-                                        >
-                                        <SelectItem
-                                            v-for="person in filter_assignees"
-                                            :key="person.id"
-                                            :value="String(person.id)"
-                                            >{{ person.name }}</SelectItem
-                                        >
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div class="grid min-w-0 gap-1.5">
-                                <Label for="task-filter-sort">{{ t('stage2.sort_by') }}</Label>
-                                <Select
-                                    v-model="filterSort"
-                                    :disabled="filterProcessing"
-                                >
-                                    <SelectTrigger
-                                        id="task-filter-sort"
-                                        class="w-full"
-                                        ><SelectValue :placeholder="t('stage2.sort_by')"
-                                    /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="newest"
-                                            >{{ t('stage2.newest_first') }}</SelectItem
-                                        >
-                                        <SelectItem value="oldest"
-                                            >{{ t('stage2.oldest_first') }}</SelectItem
-                                        >
-                                        <SelectItem value="priority"
-                                            >{{ t('stage2.highest_priority') }}</SelectItem
-                                        >
-                                        <SelectItem value="due_date"
-                                            >{{ t('stage2.due_date') }}</SelectItem
-                                        >
-                                        <SelectItem value="title"
-                                            >{{ t('stage2.title_a_z') }}</SelectItem
-                                        >
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        </div>
-                        <div class="flex flex-wrap items-center justify-end gap-2">
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                :disabled="
-                                    filterProcessing || (!hasActiveFilters && !appliedFilterChips.length)
-                                "
-                                @click="clearFilters"
-                                >{{ t('stage2.clear_filters') }}</Button
-                            >
-                            <Button
-                                type="submit"
-                                :disabled="filterProcessing"
-                            >
-                                <LoaderCircle
-                                    v-if="filterProcessing"
-                                    class="size-4 animate-spin"
-                                />
-                                <Search v-else class="size-4" />
-                                {{
-                                    filterProcessing ? t('followup.applying') : t('followup.apply')
-                                }}
-                            </Button>
-                        </div>
-                        <div
-                            v-if="appliedFilterChips.length"
-                            class="flex flex-wrap items-center gap-2 border-t pt-3"
-                            role="group"
-                            :aria-label="t('stage2.filters')"
-                        >
-                            <span class="mr-1 text-xs text-muted-foreground">{{ t('stage2.filters') }}:</span>
+                <div class="space-y-3">
+                    <div class="flex min-w-0 items-center gap-2 rounded-lg border bg-card p-3 shadow-xs">
+                        <form class="relative min-w-0 max-w-[28rem] flex-1" role="search" @submit.prevent="submitSearch">
+                            <LoaderCircle v-if="filterProcessing" class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 animate-spin text-muted-foreground" aria-hidden="true" />
+                            <Search v-else class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                            <Input
+                                id="task-search"
+                                v-model="searchQuery"
+                                class="h-10 pr-10 pl-9"
+                                type="text"
+                                maxlength="100"
+                                :aria-label="t('stage2.search')"
+                                :placeholder="t('stage2.search_by_task_title_or_number')"
+                            />
                             <button
-                                v-for="chip in appliedFilterChips"
-                                :key="chip.key"
+                                v-if="searchQuery"
                                 type="button"
-                                :disabled="filterProcessing"
-                                :title="`${chip.label}: ${chip.value}`"
-                                :aria-label="`${t('stage2.clear_filters')}: ${chip.label}: ${chip.value}`"
-                                class="inline-flex max-w-full items-center gap-1.5 rounded-md border bg-muted/30 px-2.5 py-1 text-xs text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                                @click="removeAppliedFilter(chip.key)"
+                                class="absolute top-1/2 right-2 inline-flex size-7 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                :aria-label="t('stage2.clear_search')"
+                                @click="clearSearch"
                             >
-                                <span class="shrink-0 text-muted-foreground">{{ chip.label }}:</span>
-                                <span class="max-w-52 truncate font-medium">{{ chip.value }}</span>
-                                <X class="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                                <X class="size-4" aria-hidden="true" />
                             </button>
-                        </div>
-                    </form>
-                </Card>
+                        </form>
+                        <Popover v-model:open="filtersOpen">
+                            <PopoverTrigger as-child>
+                                <Button type="button" variant="outline" class="h-10 shrink-0 gap-2">
+                                    <SlidersHorizontal class="size-4" aria-hidden="true" />
+                                    {{ t('stage2.filters') }}
+                                    <span
+                                        v-if="appliedAdvancedCount"
+                                        class="inline-flex size-5 items-center justify-center rounded-full bg-muted text-xs font-semibold text-foreground"
+                                    >{{ appliedAdvancedCount }}</span>
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent align="end" class="max-h-[min(75vh,34rem)] w-[min(22rem,calc(100vw-2rem))] overflow-y-auto p-4">
+                                <form class="space-y-4" @submit.prevent="applyFilters">
+                                    <p class="text-sm font-semibold">{{ t('stage2.filters') }}</p>
+                                    <div class="grid gap-1.5">
+                                        <Label for="task-filter-status">{{ t('stage2.status') }}</Label>
+                                        <Select v-model="filterStatus" :disabled="filterProcessing">
+                                            <SelectTrigger id="task-filter-status" class="w-full">
+                                                <SelectValue :placeholder="t('stage2.all_statuses')" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">{{ t('stage2.all_statuses') }}</SelectItem>
+                                                <SelectItem v-for="status in statuses" :key="status.id" :value="String(status.id)">
+                                                    {{ displayLabel(status.name) }}
+                                                </SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div class="grid gap-1.5">
+                                        <Label for="task-filter-priority">{{ t('stage2.priority') }}</Label>
+                                        <Select v-model="filterPriority" :disabled="filterProcessing">
+                                            <SelectTrigger id="task-filter-priority" class="w-full">
+                                                <span class="flex min-w-0 flex-1 items-center gap-2 text-left">
+                                                    <span
+                                                        v-if="selectedFilterPriority"
+                                                        class="size-2 shrink-0 rounded-full"
+                                                        :class="taskPriorityDotClass(selectedFilterPriority)"
+                                                        aria-hidden="true"
+                                                    />
+                                                    <SelectValue
+                                                        class="min-w-0 flex-1 text-left"
+                                                        :class="selectedFilterPriority ? taskPriorityTextClass(selectedFilterPriority) : undefined"
+                                                        :placeholder="t('stage2.all_priorities')"
+                                                    />
+                                                </span>
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">{{ t('stage2.all_priorities') }}</SelectItem>
+                                                <SelectItem v-for="priority in TASK_PRIORITIES" :key="priority" :value="String(priority)">
+                                                    <TaskPriorityLabel :priority="priority" />
+                                                </SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div class="grid gap-1.5">
+                                        <Label for="task-filter-assignee">{{ t('stage2.assignee') }}</Label>
+                                        <Select v-model="filterAssignee" :disabled="filterProcessing">
+                                            <SelectTrigger id="task-filter-assignee" class="w-full">
+                                                <SelectValue :placeholder="t('stage2.anyone')" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="anyone">{{ t('stage2.anyone') }}</SelectItem>
+                                                <SelectItem value="unassigned">{{ t('stage2.unassigned') }}</SelectItem>
+                                                <SelectItem v-for="person in filter_assignees" :key="person.id" :value="String(person.id)">
+                                                    {{ person.name }}
+                                                </SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div class="grid gap-1.5">
+                                        <Label for="task-filter-sort">{{ t('stage2.sort_by') }}</Label>
+                                        <Select v-model="filterSort" :disabled="filterProcessing">
+                                            <SelectTrigger id="task-filter-sort" class="w-full">
+                                                <SelectValue :placeholder="t('stage2.sort_by')" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="newest">{{ t('stage2.newest_first') }}</SelectItem>
+                                                <SelectItem value="oldest">{{ t('stage2.oldest_first') }}</SelectItem>
+                                                <SelectItem value="priority">{{ t('stage2.highest_priority') }}</SelectItem>
+                                                <SelectItem value="due_date">{{ t('stage2.due_date') }}</SelectItem>
+                                                <SelectItem value="title">{{ t('stage2.title_a_z') }}</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div class="flex items-center justify-end gap-2 border-t pt-3">
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            :disabled="filterProcessing || !hasAppliedFilters"
+                                            @click="clearFilters"
+                                        >{{ t('stage2.clear_filters') }}</Button>
+                                        <Button type="submit" :disabled="filterProcessing">
+                                            <LoaderCircle v-if="filterProcessing" class="size-4 animate-spin" aria-hidden="true" />
+                                            {{ filterProcessing ? t('followup.applying') : t('followup.apply') }}
+                                        </Button>
+                                    </div>
+                                </form>
+                            </PopoverContent>
+                        </Popover>
+                    </div>
+                    <div
+                        v-if="appliedAdvancedCount > 0"
+                        class="flex flex-wrap items-center gap-2"
+                        role="group"
+                        :aria-label="t('stage2.filters')"
+                    >
+                        <button
+                            v-for="chip in appliedFilterChips.filter((item) => item.key !== 'q')"
+                            :key="chip.key"
+                            type="button"
+                            :disabled="filterProcessing"
+                            :title="`${chip.label}: ${chip.value}`"
+                            :aria-label="`${t('stage2.clear_filters')}: ${chip.label}: ${chip.value}`"
+                            class="inline-flex max-w-full items-center gap-1.5 rounded-md border bg-muted/30 px-2.5 py-1 text-xs text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+                            @click="removeAppliedFilter(chip.key)"
+                        >
+                            <span class="shrink-0 text-muted-foreground">{{ chip.label }}:</span>
+                            <span v-if="chip.priority" class="size-2 shrink-0 rounded-full" :class="taskPriorityDotClass(chip.priority)" aria-hidden="true" />
+                            <span class="max-w-52 truncate" :class="chip.priority ? taskPriorityTextClass(chip.priority) : 'font-medium'">{{ chip.value }}</span>
+                            <X class="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                        </button>
+                        <Button type="button" size="sm" variant="ghost" :disabled="filterProcessing" @click="clearFilters">
+                            {{ t('stage2.clear_filters') }}
+                        </Button>
+                    </div>
+                </div>
 
                 <TooltipProvider v-if="tasks.length">
                     <Card class="gap-0 overflow-hidden py-0">
@@ -533,13 +574,10 @@ function removeAppliedFilter(key: FilterKey): void {
                                 </div>
 
                                 <div class="flex flex-wrap items-center gap-x-3 gap-y-2 pl-[26px] text-xs">
-                                    <Badge variant="outline" :class="taskStatusBadgeClass(task.status.category)">
+                                    <Badge variant="outline" class="max-w-full whitespace-nowrap font-medium" :class="taskStatusBadgeClass(task.status.category)">
                                         {{ displayLabel(task.status.name) }}
                                     </Badge>
-                                    <span class="inline-flex items-center gap-1.5 text-muted-foreground">
-                                        <span class="size-2 shrink-0 rounded-full" :class="taskPriorityDotClass(task.priority)" aria-hidden="true" />
-                                        {{ displayLabel(task.priority_label) }}
-                                    </span>
+                                    <TaskPriorityLabel :priority="task.priority" />
                                     <Tooltip v-if="task.due_date">
                                         <TooltipTrigger as-child>
                                             <span tabindex="0" class="inline-flex items-center gap-1.5 rounded-sm text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring">
@@ -552,10 +590,19 @@ function removeAppliedFilter(key: FilterKey): void {
                                 </div>
 
                                 <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 pl-[26px] text-xs text-muted-foreground">
-                                    <div v-if="task.assignee" class="flex min-w-0 items-center gap-2">
-                                        <UserAvatar :user-id="task.assignee.id" :name="task.assignee.name" small />
-                                        <span class="truncate" :title="task.assignee.name">{{ task.assignee.name }}</span>
-                                    </div>
+                                    <Tooltip v-if="task.assignee">
+                                        <TooltipTrigger as-child>
+                                            <span
+                                                tabindex="0"
+                                                class="inline-flex min-w-0 max-w-full items-center gap-2 rounded-sm outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                                                :aria-label="task.assignee.name"
+                                            >
+                                                <UserAvatar :user-id="task.assignee.id" :name="task.assignee.name" small />
+                                                <span class="truncate">{{ task.assignee.name }}</span>
+                                            </span>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="top">{{ task.assignee.name }}</TooltipContent>
+                                    </Tooltip>
                                     <span v-else>{{ t('fix.no_assignee') }}</span>
                                     <Tooltip v-if="task.worklog_entries_count > 0">
                                         <TooltipTrigger as-child>
@@ -575,23 +622,23 @@ function removeAppliedFilter(key: FilterKey): void {
                         </div>
 
                         <div class="hidden overflow-x-auto lg:block">
-                            <table class="w-full min-w-[42rem] text-left text-sm">
+                            <table class="w-full min-w-[48rem] table-fixed text-left text-sm">
                                 <thead class="border-b bg-muted/30 text-xs text-muted-foreground">
                                     <tr>
-                                        <th scope="col" class="w-[46%] px-4 py-3 font-medium">{{ t('stage2.task') }}</th>
-                                        <th scope="col" class="px-4 py-3 font-medium">{{ t('stage2.status') }}</th>
-                                        <th scope="col" class="px-4 py-3 font-medium">{{ t('stage2.priority') }}</th>
-                                        <th scope="col" class="px-4 py-3 font-medium">{{ t('stage2.assignee') }}</th>
-                                        <th scope="col" class="w-12 px-2 py-3"><span class="sr-only">{{ t('stage3.actions') }}</span></th>
+                                        <th scope="col" class="w-[43%] px-5 py-3 font-medium">{{ t('stage2.task') }}</th>
+                                        <th scope="col" class="w-[17%] px-4 py-3 font-medium">{{ t('stage2.status') }}</th>
+                                        <th scope="col" class="w-[15%] px-4 py-3 font-medium">{{ t('stage2.priority') }}</th>
+                                        <th scope="col" class="w-[20%] px-4 py-3 font-medium">{{ t('stage2.assignee') }}</th>
+                                        <th scope="col" class="w-[5%] px-2 py-3"><span class="sr-only">{{ t('stage3.actions') }}</span></th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y">
                                     <tr
                                         v-for="task in tasks"
                                         :key="task.id"
-                                        class="transition-colors hover:bg-muted/20 focus-within:bg-muted/20"
+                                        class="group transition-colors hover:bg-muted/40 focus-within:bg-muted/40"
                                     >
-                                        <td class="px-4 py-3.5 align-middle">
+                                        <td class="px-5 py-3 align-middle">
                                             <div class="flex min-w-0 items-start gap-2.5">
                                                 <span class="mt-0.5" aria-hidden="true">
                                                     <TaskStatusIcon :category="task.status.category" />
@@ -638,25 +685,31 @@ function removeAppliedFilter(key: FilterKey): void {
                                                 </div>
                                             </div>
                                         </td>
-                                        <td class="px-4 py-3.5 align-middle">
-                                            <Badge variant="outline" :class="taskStatusBadgeClass(task.status.category)">
+                                        <td class="px-4 py-3 align-middle">
+                                            <Badge variant="outline" class="max-w-full whitespace-nowrap font-medium" :class="taskStatusBadgeClass(task.status.category)">
                                                 {{ displayLabel(task.status.name) }}
                                             </Badge>
                                         </td>
-                                        <td class="px-4 py-3.5 align-middle">
-                                            <span class="inline-flex items-center gap-2 whitespace-nowrap text-muted-foreground">
-                                                <span class="size-2 shrink-0 rounded-full" :class="taskPriorityDotClass(task.priority)" aria-hidden="true" />
-                                                {{ displayLabel(task.priority_label) }}
-                                            </span>
+                                        <td class="px-4 py-3 align-middle">
+                                            <TaskPriorityLabel :priority="task.priority" />
                                         </td>
-                                        <td class="px-4 py-3.5 align-middle">
-                                            <div v-if="task.assignee" class="flex min-w-0 items-center gap-2">
-                                                <UserAvatar :user-id="task.assignee.id" :name="task.assignee.name" small />
-                                                <span class="max-w-40 truncate text-muted-foreground" :title="task.assignee.name">{{ task.assignee.name }}</span>
-                                            </div>
+                                        <td class="px-4 py-3 align-middle">
+                                            <Tooltip v-if="task.assignee">
+                                                <TooltipTrigger as-child>
+                                                    <span
+                                                        tabindex="0"
+                                                        class="inline-flex min-w-0 max-w-full items-center gap-2 rounded-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                                                        :aria-label="task.assignee.name"
+                                                    >
+                                                        <UserAvatar :user-id="task.assignee.id" :name="task.assignee.name" small />
+                                                        <span class="truncate">{{ task.assignee.name }}</span>
+                                                    </span>
+                                                </TooltipTrigger>
+                                                <TooltipContent side="top">{{ task.assignee.name }}</TooltipContent>
+                                            </Tooltip>
                                             <span v-else class="text-muted-foreground">{{ t('fix.no_assignee') }}</span>
                                         </td>
-                                        <td class="px-2 py-3.5 text-right align-middle">
+                                        <td class="px-1 py-3 text-right align-middle">
                                             <Tooltip>
                                                 <TooltipTrigger as-child>
                                                     <Button as-child variant="ghost" size="icon-sm" class="text-muted-foreground">
@@ -686,12 +739,7 @@ function removeAppliedFilter(key: FilterKey): void {
                         <p class="max-w-sm text-sm text-muted-foreground">
                             {{ hasAppliedFilters ? t('fix.clear_search') : can_create ? t('fix.create_first_task') : t('fix.tasks_appear') }}
                         </p>
-                        <Link
-                            v-if="hasAppliedFilters"
-                            :href="indexUrl"
-                            class="text-sm underline underline-offset-4"
-                        >{{ t('stage2.clear_filters') }}</Link>
-                        <Button v-else-if="can_create" type="button" class="mt-2" @click="openCreateDialog">
+                        <Button v-if="!hasAppliedFilters && can_create" type="button" class="mt-2" @click="openCreateDialog">
                             <Plus class="size-4" /> {{ t('stage2.new_task') }}
                         </Button>
                     </CardContent>

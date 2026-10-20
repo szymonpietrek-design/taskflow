@@ -306,34 +306,27 @@ function submitMessage(): void {
                     />
                     <div v-else class="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-xs text-muted-foreground">?</div>
                     <div class="min-w-0 flex-1 space-y-2">
-                        <div
-                            class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1"
-                        >
-                            <div
-                                class="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm"
-                            >
-                                <span class="font-medium">{{
+                        <div class="flex min-w-0 items-start justify-between gap-3">
+                            <div class="flex min-w-0 flex-1 flex-col gap-0.5">
+                                <span class="break-words text-sm font-semibold leading-5">{{
                                     message.author?.name ?? t('fix.deleted_user')
                                 }}</span>
-                                <time
-                                    :datetime="message.created_at"
-                                    class="text-xs text-muted-foreground"
-                                >
-                                    {{ formattedDate(message.created_at) }}
-                                </time>
-                                <span
-                                    v-if="
-                                        message.updated_at &&
-                                        message.updated_at !==
-                                            message.created_at
-                                    "
-                                    class="text-xs text-muted-foreground"
-                                    >{{ t('stage2.edited') }}</span
-                                >
+                                <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+                                    <time :datetime="message.created_at">
+                                        {{ formattedDate(message.created_at) }}
+                                    </time>
+                                    <span
+                                        v-if="
+                                            message.updated_at &&
+                                            message.updated_at !==
+                                                message.created_at
+                                        "
+                                    >{{ t('stage2.edited') }}</span>
+                                </div>
                             </div>
                             <div
                                 v-if="((message.can_create_task || message.can_update) && editingId !== message.id) || message.can_delete"
-                                class="flex shrink-0 items-center gap-0.5 rounded-md p-0.5"
+                                class="flex shrink-0 items-center gap-0.5 self-start rounded-md p-0.5"
                                 role="group"
                                 :aria-label="t('messages.actions')"
                             >
@@ -580,6 +573,7 @@ function submitMessage(): void {
                     :disabled="posting"
                     :placeholder="t('stage2.share_an_update_a_question_or_a_decision')"
                     compact
+                    auto-focus
                     :can-upload="selectedExistingIds.length < 20"
                     @uploaded="onUploaded"
                     @uploading="composerUploading = $event"

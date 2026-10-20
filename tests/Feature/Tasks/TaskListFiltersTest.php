@@ -49,6 +49,37 @@ class TaskListFiltersTest extends TestCase
             ->has('tasks', 0)->where('pagination.total', 0));
     }
 
+    public function test_filtered_count_preserves_the_total_number_of_tasks_in_this_project(): void
+    {
+        [$project, $owner] = $this->projectWithOwner();
+        [$other, $otherOwner] = $this->projectWithOwner('OTHER');
+        app(CreateTask::class)->handle($owner, $project, 'Implement API');
+        app(CreateTask::class)->handle($owner, $project, 'Write docs');
+        app(CreateTask::class)->handle($otherOwner, $other, 'External task');
+
+        $this->actingAs($owner)->get(route('tasks.index', $project))
+            ->assertOk()->assertInertia(fn (Assert $page) => $page
+                ->where('pagination.total', 2)
+                ->where('pagination.unfiltered_total', 2));
+
+        $this->actingAs($owner)->get(route('tasks.index', ['project' => $project, 'q' => 'missing']))
+            ->assertOk()->assertInertia(fn (Assert $page) => $page
+                ->has('tasks', 0)
+                ->where('pagination.total', 0)
+                ->where('pagination.unfiltered_total', 2));
+
+        $this->actingAs($owner)->get(route('tasks.index', ['project' => $project, 'q' => 'API']))
+            ->assertOk()->assertInertia(fn (Assert $page) => $page
+                ->has('tasks', 1)
+                ->where('pagination.total', 1)
+                ->where('pagination.unfiltered_total', 2));
+
+        $this->actingAs($owner)->get(route('tasks.index', ['project' => $project, 'sort' => 'oldest']))
+            ->assertOk()->assertInertia(fn (Assert $page) => $page
+                ->where('pagination.total', 2)
+                ->where('pagination.unfiltered_total', 2));
+    }
+
     public function test_status_priority_and_assignee_filters_can_be_combined(): void
     {
         [$project, $owner] = $this->projectWithOwner();

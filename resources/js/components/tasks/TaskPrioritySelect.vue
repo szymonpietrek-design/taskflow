@@ -8,7 +8,8 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { useI18n } from '@/composables/useI18n';
-import { taskPriorityDotClass } from '@/lib/taskVisuals';
+import TaskPriorityLabel from '@/components/tasks/TaskPriorityLabel.vue';
+import { TASK_PRIORITIES, taskPriorityDotClass, taskPriorityTextClass } from '@/lib/taskVisuals';
 import type { TaskPriorityValue } from '@/types/task';
 
 // Shared with the task list and header: priority colours come from taskVisuals.
@@ -19,14 +20,7 @@ const props = defineProps<{
 }>();
 const model = defineModel<string>({ required: true });
 const { t } = useI18n();
-const priorities = [1, 2, 3, 4] as const;
-const labelKeys = {
-    1: 'stage2.low',
-    2: 'stage2.normal',
-    3: 'stage2.high',
-    4: 'stage2.urgent',
-} as const;
-const selected = computed(() => priorities.find((priority) => String(priority) === model.value));
+const selected = computed(() => TASK_PRIORITIES.find((priority) => String(priority) === model.value));
 </script>
 
 <template>
@@ -39,19 +33,12 @@ const selected = computed(() => priorities.find((priority) => String(priority) =
                     :class="taskPriorityDotClass(selected)"
                     aria-hidden="true"
                 />
-                <SelectValue class="min-w-0 flex-1 text-left" :placeholder="t('stage2.select_priority')" />
+                <SelectValue class="min-w-0 flex-1 text-left" :class="selected ? taskPriorityTextClass(selected) : undefined" :placeholder="t('stage2.select_priority')" />
             </span>
         </SelectTrigger>
         <SelectContent>
-            <SelectItem v-for="priority in priorities" :key="priority" :value="String(priority)">
-                <span class="flex items-center gap-2">
-                    <span
-                        class="size-2 shrink-0 rounded-full"
-                        :class="taskPriorityDotClass(priority)"
-                        aria-hidden="true"
-                    />
-                    {{ t(labelKeys[priority]) }}
-                </span>
+            <SelectItem v-for="priority in TASK_PRIORITIES" :key="priority" :value="String(priority)">
+                <TaskPriorityLabel :priority="priority" />
             </SelectItem>
         </SelectContent>
     </Select>

@@ -10,8 +10,9 @@ import TaskAttachments from '@/components/tasks/TaskAttachments.vue';
 import TaskImagePreviewDialog from '@/components/tasks/TaskImagePreviewDialog.vue';
 import TaskStatusIcon from '@/components/tasks/TaskStatusIcon.vue';
 import TaskTypeLabel from '@/components/tasks/TaskTypeLabel.vue';
+import TaskPriorityLabel from '@/components/tasks/TaskPriorityLabel.vue';
 import UserAvatar from '@/components/UserAvatar.vue';
-import { taskStatusBadgeClass, taskPriorityDotClass } from '@/lib/taskVisuals';
+import { taskStatusBadgeClass } from '@/lib/taskVisuals';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import InputError from '@/components/InputError.vue';
@@ -109,6 +110,12 @@ function finishStatusEdit(): void {
     selectedStatus.value = String(props.task.status.id);
 }
 const stayOnTask = { preserveScroll: true, preserveState: true };
+// The title and content share the same column proportions, including edit mode.
+const taskGridColumns = computed(() =>
+    editingDetails.value && props.can_update
+        ? 'grid-cols-1'
+        : 'xl:grid-cols-[minmax(0,1fr)_18.75rem]',
+);
 // Compare calendar dates in the viewer's local timezone: a deadline is not
 // overdue until the day AFTER its due date. Completion/cancellation wins.
 const isOverdue = computed(() => {
@@ -145,11 +152,11 @@ const { t, displayLabel, locale } = useI18n();
 <template>
     <Head :title="`${task.reference} · ${task.title}`" />
 
-    <div class="mx-auto flex w-full max-w-[86rem] min-w-0 flex-1 flex-col gap-5 p-4 md:p-6">
+    <div class="mx-auto flex w-full max-w-[90rem] min-w-0 flex-1 flex-col gap-5 p-4 md:p-6">
         <!-- Keep the title, actions and main cards on the same column grid. -->
         <div
-            class="grid min-w-0 gap-5 xl:gap-6"
-            :class="editingDetails && can_update ? 'grid-cols-1' : 'xl:grid-cols-[minmax(0,1fr)_19rem]'"
+            class="grid min-w-0 gap-5 xl:gap-7"
+            :class="taskGridColumns"
         >
             <div class="min-w-0">
                 <Link
@@ -162,8 +169,7 @@ const { t, displayLabel, locale } = useI18n();
                     <Badge variant="secondary">{{ task.reference }}</Badge>
                     <TaskTypeLabel :type="task.type" variant="badge" />
                     <Badge variant="outline" class="gap-1.5">
-                        <span class="size-2 rounded-full" :class="taskPriorityDotClass(task.priority)" />
-                        {{ t('followup.priority') }}: {{ displayLabel(task.priority_label) }}
+                        <TaskPriorityLabel :priority="task.priority" prefix />
                     </Badge>
                 </div>
                 <div class="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
@@ -185,21 +191,21 @@ const { t, displayLabel, locale } = useI18n();
         </div>
 
         <div
-            class="grid min-w-0 items-start gap-5 xl:gap-6"
-            :class="editingDetails && can_update ? 'grid-cols-1' : 'xl:grid-cols-[minmax(0,1fr)_19rem]'"
+            class="grid min-w-0 items-start gap-5 xl:gap-7"
+            :class="taskGridColumns"
         >
             <aside
                 v-if="!editingDetails || !can_update"
                 class="min-w-0 xl:sticky xl:top-6 xl:col-start-2 xl:row-start-1"
             >
-                <Card>
-                    <CardHeader class="pb-3">
-                        <CardTitle>{{ t('stage2.details') }}</CardTitle>
+                <Card class="gap-0 py-0">
+                    <CardHeader class="border-b border-border/60 px-5 py-4">
+                        <CardTitle class="text-base">{{ t('stage2.details') }}</CardTitle>
                     </CardHeader>
-                    <CardContent class="text-sm">
-                        <div class="space-y-4">
-                            <section>
-                                <p class="mb-2 text-xs font-medium text-muted-foreground">{{ t('stage2.status') }}</p>
+                    <CardContent class="px-5 py-2 text-sm">
+                        <div class="divide-y divide-border/60">
+                            <section class="py-3.5 first:pt-2 last:pb-2">
+                                <p class="mb-1.5 text-xs font-medium text-muted-foreground">{{ t('stage2.status') }}</p>
                                 <div class="flex min-h-8 flex-wrap items-center gap-2">
                                     <Badge variant="outline" class="gap-1.5" :class="taskStatusBadgeClass(task.status.category)">
                                         <TaskStatusIcon :category="task.status.category" />
@@ -261,7 +267,7 @@ const { t, displayLabel, locale } = useI18n();
                                 </Form>
                             </section>
 
-                            <section v-if="task.release" class="border-t border-border/60 pt-4">
+                            <section v-if="task.release" class="py-3.5 first:pt-2 last:pb-2">
                                 <Label class="text-xs text-muted-foreground">{{ t('stage2.release') }}</Label>
                                 <p class="mt-1 font-medium">
                                     <Link
@@ -271,27 +277,27 @@ const { t, displayLabel, locale } = useI18n();
                                 </p>
                             </section>
 
-                            <section class="border-t border-border/60 pt-4">
+                            <section class="py-3.5 first:pt-2 last:pb-2">
                                 <Label class="text-xs text-muted-foreground">{{ t('stage2.assigned_to') }}</Label>
-                                <div v-if="task.assignee" class="mt-2 flex min-w-0 items-center gap-2.5">
+                                <div v-if="task.assignee" class="mt-1.5 flex min-w-0 items-center gap-2.5">
                                     <UserAvatar :user-id="task.assignee.id" :name="task.assignee.name" small />
                                     <span class="min-w-0 break-words font-medium">{{ task.assignee.name }}</span>
                                 </div>
                                 <p v-else class="mt-1 text-muted-foreground">{{ t('fix.no_assignee') }}</p>
                             </section>
 
-                            <section class="border-t border-border/60 pt-4">
+                            <section class="py-3.5 first:pt-2 last:pb-2">
                                 <Label class="text-xs text-muted-foreground">{{ t('stage2.created_by') }}</Label>
-                                <div class="mt-2 flex min-w-0 items-center gap-2.5">
+                                <div class="mt-1.5 flex min-w-0 items-center gap-2.5">
                                     <UserAvatar :user-id="task.creator.id" :name="task.creator.name" small />
                                     <span class="min-w-0 break-words font-medium">{{ task.creator.name }}</span>
                                 </div>
                             </section>
 
-                            <section class="border-t border-border/60 pt-4">
+                            <section class="py-3.5 first:pt-2 last:pb-2">
                                 <Label class="text-xs text-muted-foreground">{{ t('stage2.due_date') }}</Label>
-                                <p class="mt-1.5 flex min-w-0 items-center gap-2">
-                                    <CalendarDays class="size-4 shrink-0 text-muted-foreground" />
+                                <p class="mt-1.5 flex min-w-0 items-center gap-2" :class="{ 'text-destructive': isOverdue }">
+                                    <CalendarDays class="size-4 shrink-0" :class="isOverdue ? 'text-destructive' : 'text-muted-foreground'" />
                                     <span class="min-w-0">{{ dueDateLabel }}</span>
                                 </p>
                                 <p v-if="isOverdue" class="mt-2 flex items-center gap-1.5 text-xs font-medium text-destructive">
@@ -299,7 +305,7 @@ const { t, displayLabel, locale } = useI18n();
                                     <span>{{ t('audit.overdue') }}</span>
                                 </p>
                             </section>
-                            <section v-if="task.completed_at" class="border-t border-border/60 pt-4">
+                            <section v-if="task.completed_at" class="py-3.5 first:pt-2 last:pb-2">
                                 <p class="text-xs text-muted-foreground">{{ t('stage2.completed') }}</p>
                                 <p class="mt-1">
                                     {{ new Date(task.completed_at).toLocaleString(locale === 'pl' ? 'pl-PL' : 'en-US') }}

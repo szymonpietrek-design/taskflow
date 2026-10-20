@@ -11,6 +11,24 @@ const statusBadgeClasses: Record<StatusCategory, string> = {
     canceled: 'border-zinc-200 bg-zinc-100/70 text-zinc-500 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-400',
 };
 
+// One source of truth for the visual and translated identity of task priorities.
+// Priority numeric values are persisted in the database and must not be changed.
+export const TASK_PRIORITIES = [1, 2, 3, 4] as const satisfies readonly TaskPriorityValue[];
+
+const priorityLabelKeys: Record<TaskPriorityValue, 'stage2.low' | 'stage2.normal' | 'stage2.high' | 'stage2.urgent'> = {
+    1: 'stage2.low',
+    2: 'stage2.normal',
+    3: 'stage2.high',
+    4: 'stage2.urgent',
+};
+
+const priorityTextClasses: Record<TaskPriorityValue, string> = {
+    1: 'text-muted-foreground',
+    2: 'text-muted-foreground',
+    3: 'font-medium text-orange-700 dark:text-orange-400',
+    4: 'font-medium text-red-700 dark:text-red-400',
+};
+
 const priorityDotClasses: Record<TaskPriorityValue, string> = {
     1: 'bg-slate-400 dark:bg-slate-500',
     2: 'bg-slate-500 dark:bg-slate-400',
@@ -24,4 +42,12 @@ export function taskStatusBadgeClass(category: StatusCategory): string {
 
 export function taskPriorityDotClass(priority: TaskPriorityValue): string {
     return priorityDotClasses[priority] ?? priorityDotClasses[2];
+}
+
+export function taskPriorityTextClass(priority: TaskPriorityValue): string {
+    return priorityTextClasses[priority] ?? priorityTextClasses[2];
+}
+
+export function taskPriorityLabelKey(priority: TaskPriorityValue): (typeof priorityLabelKeys)[TaskPriorityValue] {
+    return priorityLabelKeys[priority] ?? priorityLabelKeys[2];
 }

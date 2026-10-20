@@ -89,6 +89,11 @@ class TaskController extends Controller
         };
 
         $tasks = $query->paginate(15)->withQueryString();
+        // The filtered paginator does not tell the UI how many tasks exist in
+        // the project overall. Only run a second COUNT query when restrictive
+        // filters are active; changing sort order alone does not restrict rows.
+        $hasRestrictiveFilters = $search !== '' || $statusId !== null || $priority !== null || $assignee !== '';
+        $unfilteredTotal = $hasRestrictiveFilters ? $project->tasks()->count() : $tasks->total();
         $canCreate = $request->user()->can('create', [Task::class, $project]);
         $creationOptions = $canCreate ? $taskCreationOptions->forProject($project) : null;
 
@@ -102,6 +107,7 @@ class TaskController extends Controller
                 'current_page' => $tasks->currentPage(),
                 'last_page' => $tasks->lastPage(),
                 'total' => $tasks->total(),
+                'unfiltered_total' => $unfilteredTotal,
                 'from' => $tasks->firstItem(),
                 'to' => $tasks->lastItem(),
                 'previous_page_url' => $tasks->previousPageUrl(),

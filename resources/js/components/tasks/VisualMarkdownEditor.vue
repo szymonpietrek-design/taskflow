@@ -25,10 +25,11 @@ const props = withDefaults(defineProps<{
     disabled?: boolean;
     canUpload?: boolean;
     compact?: boolean;
+    autoFocus?: boolean;
     maxLength?: number;
     // Commands from parents are declarative, so refs to async wrappers are not needed.
     insertRequests?: Array<{ id: number; file: TaskAttachmentSummary; image: boolean }>;
-}>(), { placeholder: '', disabled: false, canUpload: false, compact: false, maxLength: 10000 });
+}>(), { placeholder: '', disabled: false, canUpload: false, compact: false, autoFocus: false, maxLength: 10000 });
 
 const emit = defineEmits<{
     'update:modelValue': [value: string];
@@ -37,6 +38,7 @@ const emit = defineEmits<{
 }>();
 const { t } = useI18n();
 const root = ref<HTMLElement | null>(null);
+const sourceTextarea = ref<HTMLTextAreaElement | null>(null);
 const imagePicker = ref<HTMLInputElement | null>(null);
 const uploadingImage = ref(false);
 let activeUploads = 0;
@@ -258,11 +260,24 @@ async function createEditor(): Promise<void> {
         flushQueuedInsertions();
         attachSelectionListeners();
         scheduleFormatting();
+        // The discussion composer replaces a focusable placeholder button.
+        // Wait for lazy Crepe initialization before placing the caret in the editor.
+        // Other editors keep their existing focus behavior.
+        if (props.autoFocus && !props.disabled) {
+            await nextTick();
+            if (crepe === instance && root.value?.isConnected) {
+                instance.editor.action(ctx => ctx.get(editorViewCtx).focus());
+            }
+        }
     } catch {
         // Keep the source editor available if the rich editor cannot initialize.
         sourceMode.value = true;
         flushQueuedInsertions();
         toast.error(t('visualEditor.loadError'));
+        if (props.autoFocus && !props.disabled) {
+            await nextTick();
+            sourceTextarea.value?.focus();
+        }
     }
 }
 
@@ -386,6 +401,72 @@ function insertNewBlock(kind: BlockKind): void {
     syncFormatting();
 }
 
+// The link button is a toggle: when a link mark is active, turn it off
+// instead of opening the URL prompt again. A caret inside a link removes
+// the link from its contiguous text run; a selection unlinks only that range.
+function toggleLink(): void {
+    if (props.disabled || sourceMode.value || !crepe) return;
+    let linkIsActive = false;
+    crepe.editor.action(ctx => {
+        const state = ctx.get(editorViewCtx).state;
+        const link = state.schema.marks.link;
+        if (!link) return;
+        const { selection } = state;
+        linkIsActive = selection.empty
+            ? (state.storedMarks ?? selection.$from.marks()).some(mark => mark.type === link)
+            : state.doc.rangeHasMark(selection.from, selection.to, link);
+    });
+
+    if (linkIsActive) {
+        crepe.editor.action(ctx => {
+            const view = ctx.get(editorViewCtx);
+            const { state } = view;
+            const link = state.schema.marks.link;
+            if (!link) return;
+            const { selection } = state;
+            const tr = state.tr;
+            if (selection.empty) {
+                const { $from } = selection;
+                const activeMark = (state.storedMarks ?? $from.marks()).find(mark => mark.type === link);
+                if (activeMark) {
+                    // Find the link around the caret, even when it spans text
+                    // nodes with different bold/italic marks.
+                    const pieces: Array<{ start: number; end: number; linked: boolean }> = [];
+                    $from.parent.forEach((node, start) => {
+                        pieces.push({
+                            start,
+                            end: start + node.nodeSize,
+                            linked: node.marks.some(mark => mark.eq(activeMark)),
+                        });
+                    });
+                    const position = $from.parentOffset;
+                    let index = pieces.findIndex(piece => piece.linked && piece.start < position && position <= piece.end);
+                    if (index < 0) {
+                        index = pieces.findIndex(piece => piece.linked && piece.start <= position && position < piece.end);
+                    }
+                    if (index >= 0) {
+                        let first = index;
+                        let last = index;
+                        while (first > 0 && pieces[first - 1].linked) first--;
+                        while (last < pieces.length - 1 && pieces[last + 1].linked) last++;
+                        tr.removeMark($from.start() + pieces[first].start, $from.start() + pieces[last].end, link);
+                    }
+                }
+            } else {
+                tr.removeMark(selection.from, selection.to, link);
+            }
+            // Also stop new text inheriting a link mark at the cursor.
+            tr.removeStoredMark(link);
+            view.dispatch(tr);
+            view.focus();
+        });
+        scheduleFormatting();
+        return;
+    }
+
+    addLink();
+}
+
 function addLink(): void {
     if (props.disabled || sourceMode.value || !crepe) return;
     const input = window.prompt(t('visualEditor.linkPrompt'), 'https://');
@@ -407,10 +488,13 @@ function addLink(): void {
         const tr = empty
             ? view.state.tr.replaceSelectionWith(view.state.schema.text(input, [link.create({ href })]))
             : view.state.tr.addMark(from, to, link.create({ href }));
+        // Inserting a URL as linked text should not leave the next characters
+        // inside the same link when the user continues typing.
+        tr.removeStoredMark(link);
         view.dispatch(tr.scrollIntoView());
         view.focus();
     });
-    syncFormatting();
+    scheduleFormatting();
 }
 
 async function pickImage(event: Event): Promise<void> {
@@ -555,13 +639,13 @@ defineExpose({ insertAttachment });
             <Button type="button" :variant="formatting.ordered ? 'secondary' : 'ghost'" :aria-pressed="formatting.ordered" size="icon-sm" class="shrink-0" :title="t('visualEditor.numberedList')" :aria-label="t('visualEditor.numberedList')" :disabled="disabled || !ready" @mousedown.prevent @click="formatList(true)"><ListOrdered class="size-4" /></Button>
             <Button type="button" :variant="formatting.block === 'code' ? 'secondary' : 'ghost'" :aria-pressed="formatting.block === 'code'" size="icon-sm" class="shrink-0" :title="t('visualEditor.codeBlock')" :aria-label="t('visualEditor.codeBlock')" :disabled="disabled || !ready" @mousedown.prevent @click="insertNewBlock('code')"><Code2 class="size-4" /></Button>
             <div class="mx-1 h-5 shrink-0 border-l" />
-            <Button type="button" :variant="formatting.link ? 'secondary' : 'ghost'" :aria-pressed="formatting.link" size="icon-sm" class="shrink-0" :title="t('visualEditor.link')" :aria-label="t('visualEditor.link')" :disabled="disabled || !ready" @click="addLink"><Link2 class="size-4" /></Button>
+            <Button type="button" :variant="formatting.link ? 'secondary' : 'ghost'" :aria-pressed="formatting.link" size="icon-sm" class="shrink-0" :title="t(formatting.link ? 'visualEditor.unlink' : 'visualEditor.link')" :aria-label="t(formatting.link ? 'visualEditor.unlink' : 'visualEditor.link')" :disabled="disabled || !ready" @mousedown.prevent @click="toggleLink"><Link2 class="size-4" /></Button>
             <input ref="imagePicker" type="file" class="sr-only" accept=".png,.jpg,.jpeg,.webp" :aria-label="t('visualEditor.image')" @change="pickImage" />
             <Button v-if="canUpload" type="button" variant="ghost" size="icon-sm" class="shrink-0" :title="t('visualEditor.image')" :aria-label="t('visualEditor.image')" :disabled="disabled || !ready || uploadingImage" @click="imagePicker?.click()"><ImageIcon class="size-4" /></Button>
             <Button type="button" :variant="formatting.table ? 'secondary' : 'ghost'" :aria-pressed="formatting.table" size="icon-sm" class="shrink-0" :title="t('visualEditor.table')" :aria-label="t('visualEditor.table')" :disabled="disabled || !ready" @click="insertNewBlock('table')"><Table2 class="size-4" /></Button>
         </div>
         <div ref="root" v-show="!sourceMode" class="visual-markdown-body" />
-        <textarea v-if="sourceMode" :value="modelValue" :disabled="disabled" :maxlength="maxLength"
+        <textarea v-if="sourceMode" ref="sourceTextarea" :value="modelValue" :disabled="disabled" :maxlength="maxLength"
             :rows="compact ? 5 : 8" class="block w-full resize-y bg-transparent px-3 py-2 font-mono text-sm outline-none"
             @input="setValue(($event.target as HTMLTextAreaElement).value)" />
     </div>
