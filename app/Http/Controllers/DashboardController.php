@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\TaskActivityType;
+use App\Support\Projects\ProjectLogo;
 use App\Enums\TaskStatusCategory;
 use App\Models\Project;
 use App\Models\Task;
@@ -35,6 +36,49 @@ final class DashboardController extends Controller
             ->filter(fn (Project $project): bool => $user->can('view', $project))
             ->values();
         $projectIds = $projects->pluck('id')->all();
+
+        // Only the first four authorized, non-archived projects need dashboard
+        // cards. Fetch all their task aggregates in one query, without loading
+        // tasks or building the full per-project overview (activity, releases, etc.).
+        $previewProjects = $projects->take(4);
+        $projectTaskCounts = Task::query()
+            ->join('task_statuses', 'task_statuses.id', '=', 'tasks.status_id')
+            ->whereIn('tasks.project_id', $previewProjects->pluck('id'))
+            ->select('tasks.project_id')
+            ->selectRaw('COUNT(*) AS total')
+            ->selectRaw('SUM(CASE WHEN task_statuses.category = ? THEN 1 ELSE 0 END) AS in_progress', [TaskStatusCategory::IN_PROGRESS->value])
+            ->selectRaw('SUM(CASE WHEN task_statuses.category = ? THEN 1 ELSE 0 END) AS completed', [TaskStatusCategory::DONE->value])
+            ->selectRaw('SUM(CASE WHEN task_statuses.category = ? THEN 1 ELSE 0 END) AS canceled', [TaskStatusCategory::CANCELED->value])
+            ->selectRaw('SUM(CASE WHEN tasks.assignee_id = ? AND tasks.due_date < ? AND task_statuses.category NOT IN (?, ?) THEN 1 ELSE 0 END) AS my_overdue', [
+                $user->id,
+                today()->toDateString(),
+                TaskStatusCategory::DONE->value,
+                TaskStatusCategory::CANCELED->value,
+            ])
+            ->groupBy('tasks.project_id')
+            ->get()
+            ->keyBy('project_id');
+
+        $dashboardProjects = $previewProjects->map(function (Project $project) use ($projectTaskCounts): array {
+            $counts = $projectTaskCounts->get($project->id);
+            $total = (int) ($counts->total ?? 0);
+            $completed = (int) ($counts->completed ?? 0);
+            $eligible = max(0, $total - (int) ($counts->canceled ?? 0));
+
+            return [
+                'id' => $project->id,
+                'name' => $project->name,
+                'key' => $project->key,
+                'type' => strtolower($project->type->name),
+                'icon' => $project->icon,
+                'color' => $project->color,
+                'logo_url' => ProjectLogo::url($project),
+                'total' => $total,
+                'in_progress' => (int) ($counts->in_progress ?? 0),
+                'my_overdue' => (int) ($counts->my_overdue ?? 0),
+                'progress_percent' => $eligible > 0 ? (int) round($completed / $eligible * 100) : 0,
+            ];
+        })->all();
 
         $openCategories = [TaskStatusCategory::DONE->value, TaskStatusCategory::CANCELED->value];
         $myOpenTasks = Task::query()
@@ -225,7 +269,9 @@ final class DashboardController extends Controller
                 'previous_url' => $taskPage->previousPageUrl(),
                 'next_url' => $taskPage->nextPageUrl(),
             ],
-            // Sidebar projects are provided separately by ProjectContext.
+            // Do not reuse the 'projects' key: it is reserved for the sidebar
+            // by HandleInertiaRequests / ProjectContext.
+            'dashboard_projects' => $dashboardProjects,
             'activity' => $activityFeed,
         ]);
     }

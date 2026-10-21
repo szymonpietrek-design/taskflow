@@ -7,6 +7,8 @@ import {
 } from '@lucide/vue';
 import { useI18n } from '@/composables/useI18n';
 import { Badge } from '@/components/ui/badge';
+import ProjectIdentity from '@/components/ProjectIdentity.vue';
+import type { ProjectColor, ProjectIcon, ProjectType } from '@/types/project';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import TaskStatusIcon from '@/components/tasks/TaskStatusIcon.vue';
@@ -26,6 +28,19 @@ type TaskSummary = {
     category: TaskStatusSummary['category'];
     due_date: string | null;
     overdue: boolean;
+};
+type DashboardProject = {
+    id: number;
+    name: string;
+    key: string;
+    type: ProjectType;
+    icon: ProjectIcon | null;
+    color: ProjectColor | null;
+    logo_url: string | null;
+    total: number;
+    in_progress: number;
+    my_overdue: number;
+    progress_percent: number;
 };
 type ActivityKind = 'status' | 'priority' | 'assignee' | 'due_date' | 'release' | 'title' | 'description' | 'type' | 'comment';
 type ActivityChange = { kind: ActivityKind };
@@ -48,6 +63,7 @@ const props = defineProps<{
     task_view: 'attention' | 'open' | 'overdue' | 'due_soon';
     task_pagination: { previous_url: string | null; next_url: string | null };
     activity: ActivityItem[];
+    dashboard_projects: DashboardProject[];
 }>();
 
 defineOptions({
@@ -146,6 +162,67 @@ const taskListSubtitle = computed(() => ({
             </Link>
         </section>
 
+        <section aria-labelledby="dashboard-projects-heading" class="space-y-3">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <div class="space-y-1">
+                    <h2 id="dashboard-projects-heading" class="text-base font-semibold">{{ copy.myProjects }}</h2>
+                    <p class="text-xs text-muted-foreground">{{ copy.projectsHelp }}</p>
+                </div>
+                <span class="text-xs text-muted-foreground">{{ copy.projectCount }} {{ stats.projects }}</span>
+            </div>
+
+            <div v-if="dashboard_projects.length" class="grid gap-3 md:grid-cols-2">
+                <Link v-for="project in dashboard_projects" :key="project.id" :href="`/projects/${project.id}`"
+                    :aria-label="project.name"
+                    class="group block min-w-0 rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
+                    <Card class="h-full gap-0 py-0 shadow-none transition-colors group-hover:border-foreground/20 group-hover:bg-muted/30">
+                        <CardContent class="space-y-4 p-4 sm:p-5">
+                            <div class="flex min-w-0 items-center gap-3">
+                                <ProjectIdentity :logo-url="project.logo_url" :icon="project.icon" :color="project.color" :type="project.type" size="md" />
+                                <div class="min-w-0 flex-1 space-y-0.5">
+                                    <div class="truncate text-sm font-semibold">{{ project.name }}</div>
+                                    <p class="text-xs text-muted-foreground">{{ project.key }} · {{ project.type === 'application' ? t('stage2.application') : t('stage2.standard') }}</p>
+                                </div>
+                                <ArrowRight class="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-foreground" />
+                            </div>
+
+                            <div class="space-y-2">
+                                <div class="flex items-center justify-between gap-3 text-xs">
+                                    <span class="text-muted-foreground">{{ copy.projectProgress }}</span>
+                                    <span class="font-medium tabular-nums">{{ project.progress_percent }}%</span>
+                                </div>
+                                <div class="h-1.5 overflow-hidden rounded-full bg-muted" role="progressbar"
+                                    :aria-label="copy.projectProgress" :aria-valuenow="project.progress_percent" aria-valuemin="0" aria-valuemax="100">
+                                    <div class="h-full rounded-full bg-foreground" :style="{ width: `${project.progress_percent}%` }" />
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-3 gap-3 border-t pt-3">
+                                <div class="min-w-0 space-y-0.5">
+                                    <div class="text-sm font-semibold tabular-nums">{{ project.total }}</div>
+                                    <p class="text-xs text-muted-foreground">{{ copy.projectTasks }}</p>
+                                </div>
+                                <div class="min-w-0 space-y-0.5">
+                                    <div class="text-sm font-semibold tabular-nums">{{ project.in_progress }}</div>
+                                    <p class="text-xs text-muted-foreground">{{ copy.projectInProgress }}</p>
+                                </div>
+                                <div class="min-w-0 space-y-0.5">
+                                    <div class="text-sm font-semibold tabular-nums" :class="project.my_overdue ? 'text-destructive' : ''">{{ project.my_overdue }}</div>
+                                    <p class="text-xs text-muted-foreground">{{ copy.projectMyOverdue }}</p>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </Link>
+            </div>
+            <div v-else class="rounded-xl border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
+                {{ copy.projectEmpty }}
+            </div>
+            <Link v-if="stats.projects > dashboard_projects.length" href="/projects" class="inline-flex items-center gap-1 text-sm font-medium hover:underline">
+                {{ copy.projectSeeAll }} <ArrowRight class="size-3.5" />
+            </Link>
+        </section>
+
         <div class="grid min-w-0 items-start gap-4 lg:grid-cols-2">
             <Card id="attention" class="min-w-0 scroll-mt-6 gap-0 py-0 shadow-none">
                 <CardHeader class="flex flex-row items-center justify-between gap-3 border-b py-4">
@@ -230,5 +307,6 @@ const taskListSubtitle = computed(() => ({
                 </CardContent>
             </Card>
         </div>
+
     </div>
 </template>

@@ -2,6 +2,15 @@
 // this screen does not overwrite unrelated changes in pl.ts and en.ts.
 export const dashboardCopy = {
     pl: {
+        myProjects: 'Moje projekty',
+        projectsHelp: 'Postęp prac i najważniejsze informacje',
+        projectCount: 'Dostępne projekty:',
+        projectProgress: 'Postęp projektu',
+        projectTasks: 'Zadań',
+        projectInProgress: 'W trakcie',
+        projectMyOverdue: 'Moje zaległe',
+        projectEmpty: 'Nie masz jeszcze dostępnych projektów.',
+        projectSeeAll: 'Zobacz wszystkie projekty',
         weekTime: 'Mój czas w tym tygodniu',
         noTimeThisWeek: 'Brak wpisów w tym tygodniu',
         focusOpen: 'Wszystkie moje otwarte zadania',
@@ -30,6 +39,15 @@ export const dashboardCopy = {
         activityHelp: 'Ostatnie istotne wydarzenia w projektach',
     },
     en: {
+        myProjects: 'My projects',
+        projectsHelp: 'Progress and key information',
+        projectCount: 'Available projects:',
+        projectProgress: 'Project progress',
+        projectTasks: 'Tasks',
+        projectInProgress: 'In progress',
+        projectMyOverdue: 'My overdue',
+        projectEmpty: 'You do not have access to any projects yet.',
+        projectSeeAll: 'View all projects',
         weekTime: 'My time this week',
         noTimeThisWeek: 'No time entries this week',
         focusOpen: 'All my open tasks',

@@ -18,7 +18,7 @@ use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceMember;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Inertia\Testing\AssertableJson as Assert;
+use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
 class DashboardTest extends TestCase
@@ -47,7 +47,7 @@ class DashboardTest extends TestCase
                     'week_minutes' => 0,
                 ])
                 ->has('my_tasks', 0)
-                ->missing('dashboard_projects')
+                ->has('dashboard_projects', 0)
                 ->has('projects.items', 0)
                 ->where('projects.can_create', false)
                 ->has('activity', 0)
@@ -135,12 +135,85 @@ class DashboardTest extends TestCase
                 ->where('my_tasks.0.priority', 2)
                 ->where('my_tasks.0.overdue', true)
                 ->where('my_tasks.1.reference', 'API-2')
-                ->missing('dashboard_projects')
+                ->has('dashboard_projects', 1)
+                ->where('dashboard_projects.0.id', $project->id)
+                ->where('dashboard_projects.0.total', 2)
+                ->where('dashboard_projects.0.in_progress', 0)
+                ->where('dashboard_projects.0.my_overdue', 1)
+                ->where('dashboard_projects.0.progress_percent', 0)
                 ->has('projects.items', 1)
                 ->where('projects.items.0.id', $project->id)
                 ->where('projects.can_create', true)
                 ->has('activity', 1)
                 ->where('activity.0.reference', 'API-1')
+                ->etc());
+    }
+
+    public function test_project_cards_use_the_same_progress_calculation_as_project_overview(): void
+    {
+        $owner = User::factory()->create();
+        $workspace = Workspace::factory()->create();
+        WorkspaceMember::factory()->create([
+            'workspace_id' => $workspace->id,
+            'user_id' => $owner->id,
+            'role' => WorkspaceRole::OWNER,
+        ]);
+        $project = Project::factory()->create(['workspace_id' => $workspace->id, 'key' => 'APP']);
+        $todo = TaskStatus::factory()->create(['project_id' => $project->id, 'category' => TaskStatusCategory::TODO]);
+        $doing = TaskStatus::factory()->create(['project_id' => $project->id, 'category' => TaskStatusCategory::IN_PROGRESS]);
+        $done = TaskStatus::factory()->create(['project_id' => $project->id, 'category' => TaskStatusCategory::DONE]);
+        $canceled = TaskStatus::factory()->create(['project_id' => $project->id, 'category' => TaskStatusCategory::CANCELED]);
+        foreach ([
+            [$todo, $owner->id],
+            [$doing, null],
+            [$done, $owner->id],
+            [$canceled, $owner->id],
+        ] as $number => [$status, $assigneeId]) {
+            Task::factory()->create([
+                'project_id' => $project->id,
+                'number' => $number + 1,
+                'status_id' => $status->id,
+                'assignee_id' => $assigneeId,
+                'due_date' => today()->subDay(),
+            ]);
+        }
+
+        $this->actingAs($owner)->get(route('dashboard'))
+            ->assertOk()->assertInertia(fn (Assert $page) => $page
+                ->has('dashboard_projects', 1)
+                ->where('dashboard_projects.0.id', $project->id)
+                ->where('dashboard_projects.0.key', 'APP')
+                ->where('dashboard_projects.0.total', 4)
+                ->where('dashboard_projects.0.in_progress', 1)
+                ->where('dashboard_projects.0.my_overdue', 1)
+                ->where('dashboard_projects.0.progress_percent', 33)
+                ->where('stats.overdue', 1)
+                ->etc());
+    }
+
+    public function test_project_cards_show_at_most_four_accessible_projects_and_keep_sidebar_data(): void
+    {
+        $owner = User::factory()->create();
+        $workspace = Workspace::factory()->create();
+        WorkspaceMember::factory()->create([
+            'workspace_id' => $workspace->id,
+            'user_id' => $owner->id,
+            'role' => WorkspaceRole::OWNER,
+        ]);
+        foreach (['One', 'Two', 'Three', 'Four', 'Five'] as $name) {
+            Project::factory()->create(['workspace_id' => $workspace->id, 'name' => $name]);
+        }
+        Project::factory()->create(['workspace_id' => $workspace->id, 'name' => 'Archived', 'archived_at' => now()]);
+
+        $this->actingAs($owner)->get(route('dashboard'))
+            ->assertOk()->assertInertia(fn (Assert $page) => $page
+                ->where('stats.projects', 5)
+                ->has('dashboard_projects', 4)
+                ->where('dashboard_projects.0.name', 'Five')
+                ->where('dashboard_projects.1.name', 'Four')
+                ->where('dashboard_projects.2.name', 'One')
+                ->where('dashboard_projects.3.name', 'Three')
+                ->has('projects.items', 5)
                 ->etc());
     }
 
@@ -200,6 +273,8 @@ class DashboardTest extends TestCase
                 ->where('stats.overdue', 0)
                 ->where('stats.due_soon', 1)
                 ->has('my_tasks', 1)
+                ->has('dashboard_projects', 1)
+                ->where('dashboard_projects.0.id', $firstProject->id)
                 ->etc());
 
         $this->actingAs($user)->withSession(['current_workspace_id' => $second->id])
@@ -257,7 +332,10 @@ class DashboardTest extends TestCase
                 ->where('stats.projects', 1)
                 ->where('stats.my_open_tasks', 1)
                 ->where('stats.week_minutes', 45)
-                ->missing('dashboard_projects')
+                ->has('dashboard_projects', 1)
+                ->where('dashboard_projects.0.id', $allowed->id)
+                ->where('dashboard_projects.0.total', 1)
+                ->where('dashboard_projects.0.my_overdue', 0)
                 ->has('projects.items', 1)
                 ->where('projects.items.0.id', $allowed->id)
                 ->where('projects.can_create', false)
