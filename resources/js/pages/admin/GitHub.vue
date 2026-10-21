@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 
 const props = defineProps<{
     settings: { app_id: string; has_private_key: boolean; client_id: string; has_client_secret: boolean; updated_at: string | null };
+    callback_url: string;
 }>();
 
 const { locale } = useI18n();
@@ -43,15 +44,15 @@ function save(): void {
     });
 }
 
-defineOptions({ layout: { breadcrumbs: [{ title: 'GitHub', href: '/admin/integrations/github' }] } });
+defineOptions({ layout: { breadcrumbs: [{ title: 'Integracje: Git', href: '/admin/integrations/git' }, { title: 'GitHub', href: '/admin/integrations/github' }] } });
 </script>
 
 <template>
     <Head :title="isPl ? 'Integracje · GitHub' : 'Integrations · GitHub'" />
     <div class="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-6 p-4 md:p-6">
         <div class="space-y-2">
-            <Link href="/dashboard" class="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-                <ArrowLeft class="size-4" /> {{ isPl ? 'Wróć do pulpitu' : 'Back to dashboard' }}
+            <Link href="/admin/integrations/git" class="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+                <ArrowLeft class="size-4" /> {{ isPl ? 'Wróć do integracji Git' : 'Back to Git integrations' }}
             </Link>
             <h1 class="flex items-center gap-2 text-2xl font-semibold tracking-tight"><GitBranch class="size-6" /> {{ isPl ? 'Integracje · GitHub' : 'Integrations · GitHub' }}</h1>
             <p class="text-sm text-muted-foreground">{{ isPl ? 'Globalna konfiguracja GitHub App. Dostęp ma wyłącznie administrator systemu.' : 'Server-wide GitHub App configuration. Accessible only to system administrators.' }}</p>
@@ -109,8 +110,8 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'GitHub', href: '/admin/integra
                         </div>
                         <div class="rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground">
                             <p class="font-medium text-foreground">GitHub App → Callback URL</p>
-                            <code class="mt-1 block select-all break-all">{{ '/settings/github/callback' }}</code>
-                            <p class="mt-1">{{ isPl ? 'W GitHubie podaj pełny adres, np. http://localhost:8123/settings/github/callback. Połączenie kont zacznie działać po wdrożeniu etapu 3A.2.' : 'Register the full URL in GitHub, e.g. http://localhost:8123/settings/github/callback. Account linking will become available after stage 3A.2.' }}</p>
+                            <code class="mt-1 block select-all break-all">{{ callback_url }}</code>
+                            <p class="mt-1">{{ isPl ? 'Wprowadź pełny adres callback w ustawieniach GitHub App. Każdy serwer TaskFlow musi mieć poprawny adres powrotu.' : 'Register the complete callback URL in GitHub App settings. Each TaskFlow installation requires the correct redirect URL.' }}</p>
                         </div>
                     </div>
                     <div class="flex flex-wrap items-center gap-3 border-t pt-4">
@@ -123,7 +124,7 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'GitHub', href: '/admin/integra
             </CardContent>
         </Card>
         <p class="text-sm text-muted-foreground">
-            {{ isPl ? 'Po zapisaniu konfiguracji przejdź do projektu → GitHub, aby podać Installation ID i podłączyć repozytorium. Pierwsze połączenie nie importuje historii ani nie uruchamia AI.' : 'After saving, open a project → GitHub to enter the Installation ID and connect a repository. Initial connection imports no history and does not run AI.' }}
+            {{ isPl ? 'Po zapisaniu konfiguracji możesz podłączyć repozytorium w projekcie → Integracje Git. Pierwsze połączenie nie importuje historii ani nie uruchamia AI.' : 'After saving, open a project → Git integrations to connect a repository. Initial connection imports no history and does not run AI.' }}
         </p>
     </div>
 </template>

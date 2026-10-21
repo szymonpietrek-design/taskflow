@@ -97,15 +97,13 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
             </CardContent>
         </Card>
 
-        <section class="space-y-3" aria-labelledby="vcs-providers-title">
+        <section v-if="!repository" class="space-y-3" aria-labelledby="vcs-providers-title">
             <div class="space-y-1">
                 <h2 id="vcs-providers-title" class="text-base font-semibold">
                     {{ isPl ? 'Dostawcy repozytoriów' : 'Repository providers' }}
                 </h2>
                 <p class="text-sm text-muted-foreground">
-                    {{ repository
-                        ? (isPl ? 'Projekt ma już połączone repozytorium. Aby zmienić dostawcę, najpierw odłącz obecne połączenie.' : 'This project already has a repository. Disconnect it before choosing another provider.')
-                        : (isPl ? 'Wybierz dostawcę, aby skonfigurować połączenie.' : 'Choose a provider to configure a connection.') }}
+                    {{ isPl ? 'Wybierz dostawcę dla tego projektu. Inne projekty mogą korzystać z różnych usług Git.' : 'Choose a provider for this project. Other projects may use different Git services.' }}
                 </p>
             </div>
             <div class="grid gap-3 md:grid-cols-3">

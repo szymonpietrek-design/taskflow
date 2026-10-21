@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\SystemUserController;
 use App\Http\Controllers\Admin\GitHubAppSettingsController;
+use App\Http\Controllers\Admin\GitIntegrationsController;
 use App\Http\Controllers\Projects\ProjectController;
 use App\Http\Controllers\Projects\ProjectGitHubController;
 use App\Http\Controllers\Projects\ProjectRepositoryIntegrationController;
@@ -66,6 +67,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::patch('{user}/status', [SystemUserController::class, 'status'])->name('admin.users.status');
         Route::patch('{user}/role', [SystemUserController::class, 'role'])->name('admin.users.role');
     });
+
+    Route::get('admin/integrations/git', GitIntegrationsController::class)
+        ->middleware('can:manage-system-users')->name('admin.git.index');
 
     Route::middleware('can:manage-system-users')->prefix('admin/integrations/github')->group(function () {
         Route::get('/', [GitHubAppSettingsController::class, 'index'])->name('admin.github.index');

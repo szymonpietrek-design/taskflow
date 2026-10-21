@@ -52,8 +52,8 @@ const mainNavItems = computed<NavItem[]>(() => [
             icon: UsersRound,
         },
         {
-            title: locale.value === 'pl' ? 'Integracje · GitHub' : 'Integrations · GitHub',
-            href: '/admin/integrations/github',
+            title: locale.value === 'pl' ? 'Integracje: Git' : 'Git integrations',
+            href: '/admin/integrations/git',
             icon: GitBranch,
         },
     ] : []),

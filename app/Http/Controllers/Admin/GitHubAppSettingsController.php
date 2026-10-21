@@ -27,6 +27,7 @@ class GitHubAppSettingsController extends Controller
                 'has_client_secret' => $settings?->client_secret !== null && $settings->client_secret !== '',
                 'updated_at' => $settings?->updated_at?->toIso8601String(),
             ],
+            'callback_url' => route('github.account.callback'),
         ]);
     }
 
