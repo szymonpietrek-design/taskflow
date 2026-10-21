@@ -84,6 +84,44 @@ class GitHubAppSettingsTest extends TestCase
         $this->assertDatabaseCount('github_app_settings', 0);
     }
 
+    public function test_admin_can_configure_user_oauth_without_exposing_client_secret(): void
+    {
+        $admin = User::factory()->create(['is_system_admin' => true]);
+        $pem = $this->rsaPrivateKey();
+        GitHubAppSetting::query()->create(['id' => 1, 'app_id' => 1234, 'private_key' => $pem]);
+
+        $this->actingAs($admin)->post(route('admin.github.store'), [
+            'app_id' => 1234, 'client_id' => 'Iv1.demo-id', 'client_secret' => 'super-secret',
+        ])->assertRedirect(route('admin.github.index'));
+        $settings = GitHubAppSetting::current();
+        $this->assertTrue($settings->userAuthorizationConfigured());
+        $this->assertSame('super-secret', $settings->client_secret);
+        $this->assertNotSame('super-secret', DB::table('github_app_settings')->value('client_secret'));
+        $this->assertArrayNotHasKey('client_secret', $settings->toArray());
+        $this->actingAs($admin)->get(route('admin.github.index'))->assertInertia(fn (Assert $page) => $page
+            ->where('settings.client_id', 'Iv1.demo-id')
+            ->where('settings.has_client_secret', true)
+            ->missing('settings.client_secret')->etc());
+
+        // Leaving the secret blank on a subsequent save preserves the encrypted value.
+        $this->post(route('admin.github.store'), ['app_id' => 1234, 'client_id' => 'Iv1.demo-id'])
+            ->assertRedirect();
+        $this->assertSame('super-secret', GitHubAppSetting::current()->client_secret);
+    }
+
+    public function test_client_id_alone_requires_a_secret_and_non_admin_cannot_configure_it(): void
+    {
+        $admin = User::factory()->create(['is_system_admin' => true]);
+        $member = User::factory()->create(['is_system_admin' => false]);
+        GitHubAppSetting::query()->create(['id' => 1, 'app_id' => 1234, 'private_key' => $this->rsaPrivateKey()]);
+        $this->actingAs($admin)->post(route('admin.github.store'), [
+            'app_id' => 1234, 'client_id' => 'Iv1.test',
+        ])->assertSessionHasErrors('client_secret');
+        $this->actingAs($member)->post(route('admin.github.store'), [
+            'app_id' => 1234, 'client_id' => 'Iv1.test', 'client_secret' => 'secret',
+        ])->assertForbidden();
+    }
+
     private function rsaPrivateKey(): string
     {
         $key = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);

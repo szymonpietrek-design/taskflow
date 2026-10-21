@@ -23,6 +23,8 @@ class GitHubAppSettingsController extends Controller
             'settings' => [
                 'app_id' => $settings?->app_id === null ? '' : (string) $settings->app_id,
                 'has_private_key' => $settings !== null,
+                'client_id' => $settings?->client_id ?? '',
+                'has_client_secret' => $settings?->client_secret !== null && $settings->client_secret !== '',
                 'updated_at' => $settings?->updated_at?->toIso8601String(),
             ],
         ]);
@@ -34,6 +36,8 @@ class GitHubAppSettingsController extends Controller
 
         $validated = $request->validate([
             'app_id' => ['required', 'integer', 'min:1'],
+            'client_id' => ['nullable', 'string', 'max:150', 'regex:/\A[A-Za-z0-9._-]+\z/D'],
+            'client_secret' => ['nullable', 'string', 'max:255'],
             'private_key' => [$settings ? 'nullable' : 'required', 'file', 'max:32'],
         ]);
 
@@ -52,7 +56,18 @@ class GitHubAppSettingsController extends Controller
             }
         }
 
-        DB::transaction(function () use ($validated, $pem, $request): void {
+        $clientId = $validated['client_id'] ?? $settings?->client_id;
+        $clientSecret = $validated['client_secret'] ?? null;
+        if (($clientId === null || $clientId === '') && ($clientSecret !== null && $clientSecret !== '')) {
+            throw ValidationException::withMessages(['client_id' => 'Provide the GitHub App Client ID.']);
+        }
+        if ($clientId !== null && $clientId !== ''
+            && ($clientSecret === null || $clientSecret === '')
+            && ($settings?->client_secret === null || $settings->client_secret === '')) {
+            throw ValidationException::withMessages(['client_secret' => 'Provide the GitHub App Client Secret.']);
+        }
+
+        DB::transaction(function () use ($validated, $pem, $clientId, $clientSecret, $request): void {
             $settings = GitHubAppSetting::query()->lockForUpdate()->find(1);
             if ($settings === null) {
                 if ($pem === null) {
@@ -63,6 +78,12 @@ class GitHubAppSettingsController extends Controller
             }
 
             $settings->app_id = (int) $validated['app_id'];
+            if ($clientId !== null && $clientId !== '') {
+                $settings->client_id = $clientId;
+            }
+            if ($clientSecret !== null && $clientSecret !== '') {
+                $settings->client_secret = $clientSecret;
+            }
             if ($pem !== null) {
                 $settings->private_key = $pem;
             }

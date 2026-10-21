@@ -9,16 +9,18 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 
 const props = defineProps<{
-    settings: { app_id: string; has_private_key: boolean; updated_at: string | null };
+    settings: { app_id: string; has_private_key: boolean; client_id: string; has_client_secret: boolean; updated_at: string | null };
 }>();
 
 const { locale } = useI18n();
 const isPl = computed(() => locale.value === 'pl');
 const fileInput = ref<HTMLInputElement | null>(null);
 const chosenName = ref('');
-const form = useForm<{ app_id: string; private_key: File | null }>({
+const form = useForm<{ app_id: string; private_key: File | null; client_id: string; client_secret: string }>({
     app_id: props.settings.app_id,
     private_key: null,
+    client_id: props.settings.client_id,
+    client_secret: '',
 });
 
 function selectKey(event: Event): void {
@@ -34,6 +36,7 @@ function save(): void {
         preserveScroll: true,
         onSuccess: () => {
             form.private_key = null;
+            form.client_secret = '';
             chosenName.value = '';
             if (fileInput.value) fileInput.value.value = '';
         },
@@ -86,6 +89,29 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'GitHub', href: '/admin/integra
                         </div>
                         <p v-if="form.errors.private_key" class="text-sm text-destructive">{{ form.errors.private_key }}</p>
                         <p v-if="settings.has_private_key" class="text-xs text-muted-foreground">{{ isPl ? 'Nie musisz ponownie przesyłać klucza przy zmianie App ID.' : 'You do not need to upload the key again to edit App ID.' }}</p>
+                    </div>
+                    <div class="space-y-3 border-t pt-5">
+                        <div class="space-y-1">
+                            <p class="text-sm font-semibold">{{ isPl ? 'Autoryzacja użytkowników GitHub' : 'GitHub user authorization' }}</p>
+                            <p class="text-xs text-muted-foreground">{{ isPl ? 'Opcjonalna konfiguracja tej samej GitHub App do potwierdzania tożsamości użytkowników TaskFlow. Nie wpływa na połączenia repozytoriów.' : 'Optional identity verification with the same GitHub App. Repository connections work independently.' }}</p>
+                        </div>
+                        <div class="space-y-2">
+                            <label for="github-client-id" class="text-sm font-medium">Client ID</label>
+                            <Input id="github-client-id" v-model="form.client_id" maxlength="150" autocomplete="off" placeholder="Iv1.…" :aria-invalid="!!form.errors.client_id" />
+                            <p v-if="form.errors.client_id" class="text-sm text-destructive">{{ form.errors.client_id }}</p>
+                            <p class="text-xs text-muted-foreground">{{ isPl ? 'Client ID z GitHub App → General (inny niż App ID).' : 'Client ID from GitHub App → General (different from App ID).' }}</p>
+                        </div>
+                        <div class="space-y-2">
+                            <label for="github-client-secret" class="text-sm font-medium">Client Secret</label>
+                            <Input id="github-client-secret" v-model="form.client_secret" type="password" maxlength="255" autocomplete="new-password" :placeholder="settings.has_client_secret ? (isPl ? 'Sekret zapisany — pozostaw puste, aby zachować' : 'Secret stored — leave blank to keep') : (isPl ? 'Wpisz Client Secret' : 'Enter Client Secret')" :aria-invalid="!!form.errors.client_secret" />
+                            <p v-if="form.errors.client_secret" class="text-sm text-destructive">{{ form.errors.client_secret }}</p>
+                            <p class="text-xs text-muted-foreground">{{ isPl ? 'Sekret będzie szyfrowany w bazie i nie wraca do przeglądarki.' : 'Encrypted in the database and never sent back to the browser.' }}</p>
+                        </div>
+                        <div class="rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground">
+                            <p class="font-medium text-foreground">GitHub App → Callback URL</p>
+                            <code class="mt-1 block select-all break-all">{{ '/settings/github/callback' }}</code>
+                            <p class="mt-1">{{ isPl ? 'W GitHubie podaj pełny adres, np. http://localhost:8123/settings/github/callback. Połączenie kont zacznie działać po wdrożeniu etapu 3A.2.' : 'Register the full URL in GitHub, e.g. http://localhost:8123/settings/github/callback. Account linking will become available after stage 3A.2.' }}</p>
+                        </div>
                     </div>
                     <div class="flex flex-wrap items-center gap-3 border-t pt-4">
                         <Button type="submit" :disabled="form.processing || !form.app_id.trim() || (!settings.has_private_key && !form.private_key)">
