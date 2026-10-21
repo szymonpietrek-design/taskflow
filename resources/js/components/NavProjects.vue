@@ -18,10 +18,10 @@ import {
     useSidebar,
 } from '@/components/ui/sidebar';
 
-type ProjectSection = 'overview' | 'tasks' | 'releases' | 'reports' | 'members' | 'integrations/github';
+type ProjectSection = 'overview' | 'tasks' | 'releases' | 'reports' | 'members' | 'integrations/repository';
 
 const page = usePage();
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const projects = computed(() => page.props.projects.items);
 const pathname = computed(() => page.url.split('?')[0].replace(/\/$/, '') || '/');
 
@@ -62,6 +62,7 @@ function isActive(projectId: number): boolean {
 function isSectionActive(projectId: number, section: ProjectSection): boolean {
     const base = `/projects/${projectId}`;
     const sectionPath = section === 'overview' ? base : `${base}/${section}`;
+    if (section === 'integrations/repository' && pathname.value.startsWith(`${base}/integrations/github`)) return true;
     return section === 'overview'
         ? pathname.value === sectionPath
         : pathname.value === sectionPath || pathname.value.startsWith(`${sectionPath}/`);
@@ -164,10 +165,10 @@ function isSectionActive(projectId: number, section: ProjectSection): boolean {
                                         </SidebarMenuSubButton>
                                     </SidebarMenuSubItem>
                                     <SidebarMenuSubItem>
-                                        <SidebarMenuSubButton as-child size="sm" class="data-[active=true]:bg-sidebar-accent/70 data-[active=true]:font-semibold" :is-active="isSectionActive(project.id, 'integrations/github')">
-                                            <Link :href="`/projects/${project.id}/integrations/github`" :aria-current="isSectionActive(project.id, 'integrations/github') ? 'page' : undefined">
+                                        <SidebarMenuSubButton as-child size="sm" class="data-[active=true]:bg-sidebar-accent/70 data-[active=true]:font-semibold" :is-active="isSectionActive(project.id, 'integrations/repository')">
+                                            <Link :href="`/projects/${project.id}/integrations/repository`" :aria-current="isSectionActive(project.id, 'integrations/repository') ? 'page' : undefined">
                                                 <GitBranch />
-                                                <span>GitHub</span>
+                                                <span>{{ locale === 'pl' ? 'Integracje Git' : 'Git integrations' }}</span>
                                             </Link>
                                         </SidebarMenuSubButton>
                                     </SidebarMenuSubItem>

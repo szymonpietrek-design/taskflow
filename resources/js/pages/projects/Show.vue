@@ -10,6 +10,7 @@ import {
     CheckCircle2,
     Clock3,
     FileText,
+    GitBranch,
     History,
     ListTodo,
     MessageSquare,
@@ -223,6 +224,9 @@ function activityLabel(kind: TimelineItem['kind']): string {
             </Button>
             <Button variant="outline" size="sm" as-child>
                 <Link :href="`${projectUrl}/reports`"><FileText class="size-4" /> {{ t('stage2.reports') }}</Link>
+            </Button>
+            <Button variant="outline" size="sm" as-child>
+                <Link :href="`${projectUrl}/integrations/repository`"><GitBranch class="size-4" /> {{ locale === 'pl' ? 'Integracje Git' : 'Git integrations' }}</Link>
             </Button>
         </nav>
 

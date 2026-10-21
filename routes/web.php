@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\SystemUserController;
 use App\Http\Controllers\Admin\GitHubAppSettingsController;
 use App\Http\Controllers\Projects\ProjectController;
 use App\Http\Controllers\Projects\ProjectGitHubController;
+use App\Http\Controllers\Projects\ProjectRepositoryIntegrationController;
 use App\Http\Controllers\Projects\ProjectLogoController;
 use App\Http\Controllers\Projects\ProjectMemberController;
 use App\Http\Controllers\Releases\GenerateReleaseChangelogController;
@@ -80,6 +81,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('projects', [ProjectController::class, 'index'])->name('projects.index');
     Route::post('projects', [ProjectController::class, 'store'])->name('projects.store');
     Route::get('projects/{project}', [ProjectController::class, 'show'])->name('projects.show');
+    Route::get('projects/{project}/integrations/repository', ProjectRepositoryIntegrationController::class)
+        ->name('projects.repository.index');
     Route::get('projects/{project}/integrations/github', [ProjectGitHubController::class, 'index'])
         ->name('projects.github.index');
     Route::post('projects/{project}/integrations/github', [ProjectGitHubController::class, 'store'])

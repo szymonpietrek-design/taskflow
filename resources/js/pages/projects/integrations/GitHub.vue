@@ -96,8 +96,8 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
     <Head :title="`GitHub · ${project.name}`" />
     <div class="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-4 md:p-6">
         <div class="space-y-2">
-            <Link :href="`/projects/${project.id}`" class="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-                <ArrowLeft class="size-4" /> {{ isPl ? 'Wróć do projektu' : 'Back to project' }}
+            <Link :href="`/projects/${project.id}/integrations/repository`" class="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+                <ArrowLeft class="size-4" /> {{ isPl ? 'Wróć do integracji Git' : 'Back to Git integrations' }}
             </Link>
             <h1 class="flex items-center gap-2 text-2xl font-semibold tracking-tight"><GitBranch class="size-6" /> GitHub</h1>
             <p class="text-sm text-muted-foreground">
