@@ -189,7 +189,7 @@ class RepositoryHistoryPipelineTest extends TestCase
             'last_synced_sha' => self::BASE,
             'connected_at' => now(),
         ]);
-        app(BackfillGitHubLegacyData::class)->run();
+        app(BackfillGitHubLegacyData::class)->run(true);
 
         return [RepositoryConnection::query()->sole(), $legacy];
     }

@@ -18,7 +18,7 @@ final class BackfillGitHubLegacyData
     private const BATCH_SIZE = 200;
 
     /** @return array<string, int> Counts of copied records, not newly inserted rows. */
-    public function run(): array
+    public function run(bool $allowAfterCutover = false): array
     {
         foreach (['github_installations', 'github_repositories', 'github_commits', 'github_sync_runs',
             'github_accounts', 'vcs_instances', 'vcs_connections', 'repository_connections',
@@ -29,6 +29,11 @@ final class BackfillGitHubLegacyData
         }
 
         $instanceId = $this->githubInstanceId();
+        // After cutover the old GitHub cursor can no longer be trusted as live.
+        if (! $allowAfterCutover && Schema::hasColumn('vcs_instances', 'cutover_at')
+            && DB::table('vcs_instances')->where('id', $instanceId)->whereNotNull('cutover_at')->exists()) {
+            throw new LogicException('GitHub already uses VCS tables; legacy backfill is disabled after cutover.');
+        }
         $this->copyInstallations($instanceId);
         $this->copyRepositories();
         $this->copyCommits();

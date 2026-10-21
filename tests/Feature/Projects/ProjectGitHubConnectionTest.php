@@ -5,8 +5,9 @@ namespace Tests\Feature\Projects;
 use App\Enums\ProjectRole;
 use App\Enums\WorkspaceRole;
 use App\Integrations\GitHub\GitHubAppClient;
-use App\Models\GitHubInstallation;
-use App\Models\GitHubRepository;
+use App\Models\VcsConnection;
+use App\Integrations\Vcs\Providers\GitHubInstance;
+use App\Models\RepositoryConnection;
 use App\Models\Project;
 use App\Models\ProjectMember;
 use App\Models\User;
@@ -40,20 +41,21 @@ class ProjectGitHubConnectionTest extends TestCase
             'installation_id' => 456, 'repository' => 'example/api',
         ])->assertRedirect(route('projects.github.index', $project));
 
-        $this->assertDatabaseHas('github_installations', [
+        $this->assertDatabaseHas('vcs_connections', [
             'workspace_id' => $project->workspace_id,
-            'installation_id' => 456,
-            'github_account_id' => 78,
+            'vcs_instance_id' => GitHubInstance::get()->id,
+            'external_connection_id' => '456',
+            'external_account_id' => '78',
             'account_login' => 'example',
         ]);
-        $this->assertDatabaseHas('github_repositories', [
+        $this->assertDatabaseHas('repository_connections', [
             'project_id' => $project->id,
             'full_name' => 'example/api',
             'start_sha' => self::HEAD,
             'last_synced_sha' => self::HEAD,
             'last_synced_at' => null,
         ]);
-        $this->assertSame(456, GitHubRepository::query()->firstOrFail()->installation->installation_id);
+        $this->assertSame('456', RepositoryConnection::query()->firstOrFail()->connection->external_connection_id);
     }
 
     public function test_second_project_reuses_workspace_installation(): void
@@ -68,8 +70,8 @@ class ProjectGitHubConnectionTest extends TestCase
             ])->assertRedirect(route('projects.github.index', $item));
         }
 
-        $this->assertDatabaseCount('github_installations', 1);
-        $this->assertDatabaseCount('github_repositories', 2);
+        $this->assertDatabaseCount('vcs_connections', 1);
+        $this->assertDatabaseCount('repository_connections', 2);
     }
 
     public function test_duplicate_connection_never_resets_last_synced_sha(): void
@@ -87,7 +89,7 @@ class ProjectGitHubConnectionTest extends TestCase
             ])->assertRedirect(route('projects.github.index', $project))
             ->assertSessionHasErrors('repository');
 
-        $this->assertSame(str_repeat('b', 40), GitHubRepository::query()->firstOrFail()->last_synced_sha);
+        $this->assertSame(str_repeat('b', 40), RepositoryConnection::query()->firstOrFail()->last_synced_sha);
     }
 
     public function test_an_installation_registered_to_another_workspace_cannot_be_reused(): void
@@ -103,9 +105,9 @@ class ProjectGitHubConnectionTest extends TestCase
 
         $this->actingAs($secondOwner)->from(route('projects.github.index', $second))
             ->post(route('projects.github.store', $second), [
-                'installation_id' => $installation->installation_id, 'repository' => 'example/api',
+                'installation_id' => $installation->external_connection_id, 'repository' => 'example/api',
             ])->assertSessionHasErrors('installation_id');
-        $this->assertDatabaseCount('github_repositories', 0);
+        $this->assertDatabaseCount('repository_connections', 0);
     }
 
     public function test_workspace_owner_without_system_admin_role_cannot_register_an_unapproved_installation(): void
@@ -121,7 +123,7 @@ class ProjectGitHubConnectionTest extends TestCase
             ->post(route('projects.github.store', $project), [
                 'installation_id' => 456, 'repository' => 'example/api',
             ])->assertSessionHasErrors('installation_id');
-        $this->assertDatabaseCount('github_installations', 0);
+        $this->assertDatabaseCount('vcs_connections', 0);
     }
 
     public function test_project_member_can_view_connection_but_cannot_change_it(): void
@@ -176,8 +178,8 @@ class ProjectGitHubConnectionTest extends TestCase
 
         $this->actingAs($owner)->delete(route('projects.github.destroy', $project))
             ->assertRedirect(route('projects.github.index', $project));
-        $this->assertDatabaseCount('github_repositories', 0);
-        $this->assertDatabaseCount('github_installations', 1);
+        $this->assertDatabaseCount('repository_connections', 0);
+        $this->assertDatabaseCount('vcs_connections', 1);
         $this->assertDatabaseHas('projects', ['id' => $project->id]);
     }
 
@@ -189,7 +191,7 @@ class ProjectGitHubConnectionTest extends TestCase
             ->post(route('projects.github.store', $project), [
                 'installation_id' => 456, 'repository' => 'example/api',
             ])->assertSessionHasErrors('installation_id');
-        $this->assertDatabaseCount('github_installations', 0);
+        $this->assertDatabaseCount('vcs_connections', 0);
     }
 
     public function test_repository_owner_must_match_installation_account(): void
@@ -211,7 +213,7 @@ class ProjectGitHubConnectionTest extends TestCase
             ->post(route('projects.github.store', $project), [
                 'installation_id' => 456, 'repository' => 'example/api',
             ])->assertSessionHasErrors('repository');
-        $this->assertDatabaseCount('github_repositories', 0);
+        $this->assertDatabaseCount('repository_connections', 0);
     }
 
     public function test_github_api_error_does_not_create_incomplete_connection(): void
@@ -226,8 +228,8 @@ class ProjectGitHubConnectionTest extends TestCase
             ->post(route('projects.github.store', $project), [
                 'installation_id' => 456, 'repository' => 'example/api',
             ])->assertSessionHasErrors('repository');
-        $this->assertDatabaseCount('github_repositories', 0);
-        $this->assertDatabaseCount('github_installations', 0);
+        $this->assertDatabaseCount('repository_connections', 0);
+        $this->assertDatabaseCount('vcs_connections', 0);
     }
 
     /** @return array{Project, User} */
@@ -245,26 +247,27 @@ class ProjectGitHubConnectionTest extends TestCase
         return [$project, $owner];
     }
 
-    private function createInstallation(Project $project): GitHubInstallation
+    private function createInstallation(Project $project): VcsConnection
     {
-        return GitHubInstallation::query()->create([
+        return VcsConnection::query()->create([
             'workspace_id' => $project->workspace_id,
-            'installation_id' => 456,
-            'github_account_id' => 78,
+            'vcs_instance_id' => GitHubInstance::get()->id,
+            'external_connection_id' => '456',
+            'external_account_id' => '78',
             'account_login' => 'example',
             'account_type' => 'Organization',
             'connected_at' => now(),
         ]);
     }
 
-    private function createLinkedRepository(Project $project): GitHubRepository
+    private function createLinkedRepository(Project $project): RepositoryConnection
     {
         $installation = $this->createInstallation($project);
 
-        return GitHubRepository::query()->create([
+        return RepositoryConnection::query()->create([
             'project_id' => $project->id,
-            'github_installation_id' => $installation->id,
-            'github_repository_id' => 123,
+            'vcs_connection_id' => $installation->id,
+            'external_repository_id' => '123',
             'full_name' => 'example/api',
             'default_branch' => 'main',
             'start_sha' => self::HEAD,

@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-/** Provider-neutral VCS data. GitHub remains on its original models in 3A.5.1. */
+/** Provider-neutral VCS data; GitHub now uses these shared tables. */
 #[Fillable([
     'repository_connection_id',
     'sha',

@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-/** Provider-neutral VCS data. GitHub remains on its original models in 3A.5.1. */
+/** Provider and server identity, shared by every VCS integration. */
 #[Fillable([
     'provider',
     'base_url',
@@ -20,6 +20,7 @@ class VcsInstance extends Model
     {
         return [
             'id' => 'integer',
+            'cutover_at' => 'datetime',
         ];
     }
 

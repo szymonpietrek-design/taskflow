@@ -5,10 +5,10 @@ namespace Tests\Feature\Projects;
 use App\Enums\ProjectRole;
 use App\Enums\WorkspaceRole;
 use App\Integrations\GitHub\GitHubCommitReader;
-use App\Models\GitHubCommit;
-use App\Models\GitHubInstallation;
-use App\Models\GitHubRepository;
-use App\Models\GitHubSyncRun;
+use App\Models\RepositoryCommit;
+use App\Models\VcsConnection;
+use App\Integrations\Vcs\Providers\GitHubInstance;
+use App\Models\RepositoryConnection;
 use App\Models\Project;
 use App\Models\ProjectMember;
 use App\Models\User;
@@ -43,10 +43,10 @@ class GitHubRepositorySyncTest extends TestCase
         $this->actingAs($owner)->post(route('projects.github.sync', $project))
             ->assertRedirect(route('projects.github.index', $project));
 
-        $this->assertDatabaseCount('github_commits', 2);
-        $this->assertDatabaseHas('github_commits', ['github_repository_id' => $repo->id, 'sha' => self::HEAD, 'author_github_user_id' => 54321]);
-        $this->assertDatabaseHas('github_repositories', ['id' => $repo->id, 'start_sha' => self::BASE, 'last_synced_sha' => self::HEAD]);
-        $this->assertDatabaseHas('github_sync_runs', ['github_repository_id' => $repo->id, 'status' => 'completed', 'imported_count' => 2]);
+        $this->assertDatabaseCount('repository_commits', 2);
+        $this->assertDatabaseHas('repository_commits', ['repository_connection_id' => $repo->id, 'sha' => self::HEAD, 'author_external_user_id' => '54321']);
+        $this->assertDatabaseHas('repository_connections', ['id' => $repo->id, 'start_sha' => self::BASE, 'last_synced_sha' => self::HEAD]);
+        $this->assertDatabaseHas('repository_sync_runs', ['repository_connection_id' => $repo->id, 'status' => 'completed', 'imported_count' => 2]);
     }
 
     public function test_no_changes_does_not_duplicate_commits_and_still_records_sync(): void
@@ -57,9 +57,9 @@ class GitHubRepositorySyncTest extends TestCase
         $this->actingAs($owner)->post($url)->assertRedirect();
         $this->actingAs($owner)->post($url)->assertRedirect();
 
-        $this->assertDatabaseCount('github_commits', 1);
-        $this->assertDatabaseCount('github_sync_runs', 2);
-        $this->assertDatabaseHas('github_sync_runs', ['status' => 'completed', 'imported_count' => 0, 'fetched_count' => 0]);
+        $this->assertDatabaseCount('repository_commits', 1);
+        $this->assertDatabaseCount('repository_sync_runs', 2);
+        $this->assertDatabaseHas('repository_sync_runs', ['status' => 'completed', 'imported_count' => 0, 'fetched_count' => 0]);
         $this->assertSame(self::HEAD, $repo->fresh()->last_synced_sha);
     }
 
@@ -74,9 +74,9 @@ class GitHubRepositorySyncTest extends TestCase
             ->post(route('projects.github.sync', $project))
             ->assertRedirect(route('projects.github.index', $project))->assertSessionHasErrors('sync');
 
-        $this->assertDatabaseCount('github_commits', 0);
-        $this->assertDatabaseHas('github_repositories', ['id' => $repo->id, 'last_synced_sha' => self::BASE, 'last_synced_at' => null]);
-        $this->assertDatabaseHas('github_sync_runs', ['github_repository_id' => $repo->id, 'status' => 'failed']);
+        $this->assertDatabaseCount('repository_commits', 0);
+        $this->assertDatabaseHas('repository_connections', ['id' => $repo->id, 'last_synced_sha' => self::BASE, 'last_synced_at' => null]);
+        $this->assertDatabaseHas('repository_sync_runs', ['repository_connection_id' => $repo->id, 'status' => 'failed']);
     }
 
     public function test_only_workspace_owner_or_admin_can_trigger_sync(): void
@@ -89,7 +89,7 @@ class GitHubRepositorySyncTest extends TestCase
         $this->app->instance(GitHubCommitReader::class, $reader);
 
         $this->actingAs($member)->post(route('projects.github.sync', $project))->assertForbidden();
-        $this->assertDatabaseCount('github_sync_runs', 0);
+        $this->assertDatabaseCount('repository_sync_runs', 0);
 
         // An archived project is read-only, including synchronization.
         $project->update(['archived_at' => now()]);
@@ -99,8 +99,8 @@ class GitHubRepositorySyncTest extends TestCase
     public function test_project_member_can_view_imported_commits_without_sync_button_permission(): void
     {
         [$project, , $repo] = $this->linkedProject();
-        GitHubCommit::query()->create([
-            'github_repository_id' => $repo->id, 'sha' => self::HEAD,
+        RepositoryCommit::query()->create([
+            'repository_connection_id' => $repo->id, 'sha' => self::HEAD,
             'message' => 'Fix tasks', 'author_name' => 'Dev', 'committed_at' => now(),
         ]);
         $member = User::factory()->create();
@@ -113,7 +113,7 @@ class GitHubRepositorySyncTest extends TestCase
                 ->has('commits', 1)->etc());
     }
 
-    /** @return array{Project, User, GitHubRepository} */
+    /** @return array{Project, User, RepositoryConnection} */
     private function linkedProject(): array
     {
         $project = Project::factory()->create();
@@ -124,18 +124,19 @@ class GitHubRepositorySyncTest extends TestCase
             'role' => WorkspaceRole::OWNER,
             'suspended_at' => null,
         ]);
-        $installation = GitHubInstallation::query()->create([
+        $installation = VcsConnection::query()->create([
             'workspace_id' => $project->workspace_id,
-            'installation_id' => 456,
-            'github_account_id' => 78,
+            'vcs_instance_id' => GitHubInstance::get()->id,
+            'external_connection_id' => '456',
+            'external_account_id' => '78',
             'account_login' => 'example',
             'account_type' => 'Organization',
             'connected_at' => now(),
         ]);
-        $repo = GitHubRepository::query()->create([
+        $repo = RepositoryConnection::query()->create([
             'project_id' => $project->id,
-            'github_installation_id' => $installation->id,
-            'github_repository_id' => 123,
+            'vcs_connection_id' => $installation->id,
+            'external_repository_id' => '123',
             'full_name' => 'example/api',
             'default_branch' => 'main',
             'start_sha' => self::BASE,

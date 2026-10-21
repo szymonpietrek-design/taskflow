@@ -29,7 +29,7 @@ class GitHubVcsBackfillTest extends TestCase
     {
         [$project, $user, $repo, $commit, $account] = $this->legacyFixtures();
 
-        $this->artisan('vcs:backfill-github')->assertExitCode(0);
+        app(BackfillGitHubLegacyData::class)->run(true);
 
         $instance = VcsInstance::query()->sole();
         $this->assertSame('github', $instance->provider);
@@ -87,10 +87,10 @@ class GitHubVcsBackfillTest extends TestCase
     {
         [, , $repo] = $this->legacyFixtures();
         $service = app(BackfillGitHubLegacyData::class);
-        $first = $service->run();
+        $first = $service->run(true);
         $this->assertSame(['installations' => 1, 'repositories' => 1, 'commits' => 1,
             'sync_runs' => 1, 'accounts' => 1], $first);
-        $this->assertSame($first, $service->run());
+        $this->assertSame($first, $service->run(true));
 
         $repo->forceFill(['last_synced_sha' => self::BASE_SHA])->save();
         GitHubCommit::query()->create([
@@ -104,7 +104,7 @@ class GitHubVcsBackfillTest extends TestCase
             'author_identity_checked_at' => now(),
         ]);
 
-        $this->assertSame(2, $service->run()['commits']);
+        $this->assertSame(2, $service->run(true)['commits']);
         $this->assertDatabaseCount('repository_connections', 1);
         $this->assertDatabaseCount('repository_commits', 2);
         $this->assertDatabaseHas('repository_connections', [
@@ -121,7 +121,7 @@ class GitHubVcsBackfillTest extends TestCase
     public function test_github_accounts_are_scoped_to_provider_instance_and_other_instances_can_reuse_external_ids(): void
     {
         [, $user] = $this->legacyFixtures();
-        app(BackfillGitHubLegacyData::class)->run();
+        app(BackfillGitHubLegacyData::class)->run(true);
 
         $gitlab = VcsInstance::query()->create([
             'provider' => 'gitlab',

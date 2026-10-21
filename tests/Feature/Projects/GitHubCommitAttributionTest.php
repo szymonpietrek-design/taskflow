@@ -5,10 +5,11 @@ namespace Tests\Feature\Projects;
 use App\Enums\ProjectRole;
 use App\Enums\WorkspaceRole;
 use App\Integrations\GitHub\GitHubCommitReader;
-use App\Models\GitHubAccount;
-use App\Models\GitHubCommit;
-use App\Models\GitHubInstallation;
-use App\Models\GitHubRepository;
+use App\Models\UserVcsAccount;
+use App\Integrations\Vcs\Providers\GitHubInstance;
+use App\Models\RepositoryCommit;
+use App\Models\VcsConnection;
+use App\Models\RepositoryConnection;
 use App\Models\Project;
 use App\Models\ProjectMember;
 use App\Models\User;
@@ -36,10 +37,10 @@ class GitHubCommitAttributionTest extends TestCase
         [$project, $owner, $repository] = $this->linkedProject();
         $developer = User::factory()->create(['name' => 'Developer in TaskFlow']);
         $this->addProjectMember($project, $developer);
-        GitHubAccount::query()->create([
-            'user_id' => $developer->id,
-            'github_user_id' => 54321,
-            'github_login' => 'new-github-login',
+        UserVcsAccount::query()->create([
+            'user_id' => $developer->id, 'vcs_instance_id' => GitHubInstance::get()->id,
+            'external_user_id' => '54321',
+            'login' => 'new-github-login',
             'connected_at' => now(),
         ]);
         $this->commit($repository, 54321, 'old-github-login');
@@ -68,9 +69,9 @@ class GitHubCommitAttributionTest extends TestCase
             ->assertOk()->assertInertia(fn (Assert $page) => $page
                 ->where('commits.0.taskflow_author', null)->etc());
 
-        $account = GitHubAccount::query()->create([
-            'user_id' => $developer->id, 'github_user_id' => 54321,
-            'github_login' => 'same-handle', 'connected_at' => now(),
+        $account = UserVcsAccount::query()->create([
+            'user_id' => $developer->id, 'vcs_instance_id' => GitHubInstance::get()->id, 'external_user_id' => '54321',
+            'login' => 'same-handle', 'connected_at' => now(),
         ]);
         $assertName('Later member');
 
@@ -78,7 +79,7 @@ class GitHubCommitAttributionTest extends TestCase
         $this->actingAs($owner)->get($url)
             ->assertOk()->assertInertia(fn (Assert $page) => $page
                 ->where('commits.0.taskflow_author', null)->etc());
-        $this->assertDatabaseCount('github_commits', 1);
+        $this->assertDatabaseCount('repository_commits', 1);
     }
 
     public function test_name_or_login_similarity_does_not_claim_unidentified_commits(): void
@@ -86,9 +87,9 @@ class GitHubCommitAttributionTest extends TestCase
         [$project, $owner, $repository] = $this->linkedProject();
         $developer = User::factory()->create(['name' => 'Original developer']);
         $this->addProjectMember($project, $developer);
-        GitHubAccount::query()->create([
-            'user_id' => $developer->id, 'github_user_id' => 54321,
-            'github_login' => 'same-handle', 'connected_at' => now(),
+        UserVcsAccount::query()->create([
+            'user_id' => $developer->id, 'vcs_instance_id' => GitHubInstance::get()->id, 'external_user_id' => '54321',
+            'login' => 'same-handle', 'connected_at' => now(),
         ]);
         $this->commit($repository, null, 'same-handle');
 
@@ -101,9 +102,9 @@ class GitHubCommitAttributionTest extends TestCase
     {
         [$project, $owner, $repository] = $this->linkedProject();
         $stranger = User::factory()->create(['name' => 'Private account owner']);
-        GitHubAccount::query()->create([
-            'user_id' => $stranger->id, 'github_user_id' => 54321,
-            'github_login' => 'stranger', 'connected_at' => now(),
+        UserVcsAccount::query()->create([
+            'user_id' => $stranger->id, 'vcs_instance_id' => GitHubInstance::get()->id, 'external_user_id' => '54321',
+            'login' => 'stranger', 'connected_at' => now(),
         ]);
         $this->commit($repository, 54321, 'stranger');
 
@@ -118,9 +119,9 @@ class GitHubCommitAttributionTest extends TestCase
         $developer = User::factory()->create(['name' => 'Disabled developer']);
         $this->addProjectMember($project, $developer);
         $developer->forceFill(['disabled_at' => now()])->save();
-        GitHubAccount::query()->create([
-            'user_id' => $developer->id, 'github_user_id' => 54321,
-            'github_login' => 'developer', 'connected_at' => now(),
+        UserVcsAccount::query()->create([
+            'user_id' => $developer->id, 'vcs_instance_id' => GitHubInstance::get()->id, 'external_user_id' => '54321',
+            'login' => 'developer', 'connected_at' => now(),
         ]);
         $this->commit($repository, 54321, 'developer');
 
@@ -139,8 +140,8 @@ class GitHubCommitAttributionTest extends TestCase
         $this->app->instance(GitHubCommitReader::class, $reader);
 
         $this->actingAs($owner)->post(route('projects.github.authors', $project))->assertRedirect();
-        $this->assertDatabaseHas('github_commits', ['sha' => self::SHA, 'author_github_user_id' => null]);
-        $this->assertNotNull(GitHubCommit::query()->where('sha', self::SHA)->firstOrFail()->author_identity_checked_at);
+        $this->assertDatabaseHas('repository_commits', ['sha' => self::SHA, 'author_external_user_id' => null]);
+        $this->assertNotNull(RepositoryCommit::query()->where('sha', self::SHA)->firstOrFail()->author_identity_checked_at);
         $this->actingAs($owner)->post(route('projects.github.authors', $project))->assertRedirect();
     }
 
@@ -150,8 +151,8 @@ class GitHubCommitAttributionTest extends TestCase
         $member = User::factory()->create();
         $this->addProjectMember($project, $member);
         for ($i = 1; $i <= 11; $i++) {
-            GitHubCommit::query()->create([
-                'github_repository_id' => $repository->id,
+            RepositoryCommit::query()->create([
+                'repository_connection_id' => $repository->id,
                 'sha' => str_pad(dechex($i), 40, '0', STR_PAD_LEFT),
                 'message' => 'Old commit '.$i,
             ]);
@@ -167,10 +168,10 @@ class GitHubCommitAttributionTest extends TestCase
         $this->actingAs($member)->post($url)->assertForbidden();
         $this->actingAs($owner)->post($url)->assertRedirect(route('projects.github.index', $project));
 
-        $this->assertSame(1, GitHubCommit::query()->where('github_repository_id', $repository->id)->whereNull('author_identity_checked_at')->count());
-        $this->assertSame(10, GitHubCommit::query()->where('author_github_user_id', 54321)->count());
-        $this->assertDatabaseCount('github_commits', 11);
-        $this->assertDatabaseCount('github_sync_runs', 0);
+        $this->assertSame(1, RepositoryCommit::query()->where('repository_connection_id', $repository->id)->whereNull('author_identity_checked_at')->count());
+        $this->assertSame(10, RepositoryCommit::query()->where('author_external_user_id', '54321')->count());
+        $this->assertDatabaseCount('repository_commits', 11);
+        $this->assertDatabaseCount('repository_sync_runs', 0);
         $this->assertSame(self::SHA, $repository->fresh()->last_synced_sha);
     }
 
@@ -185,13 +186,13 @@ class GitHubCommitAttributionTest extends TestCase
 
         $this->actingAs($owner)->post(route('projects.github.authors', $project))
             ->assertSessionHasErrors('authors');
-        $this->assertDatabaseHas('github_commits', [
-            'sha' => self::SHA, 'author_github_user_id' => null,
+        $this->assertDatabaseHas('repository_commits', [
+            'sha' => self::SHA, 'author_external_user_id' => null,
             'author_identity_checked_at' => null,
         ]);
     }
 
-    /** @return array{Project, User, GitHubRepository} */
+    /** @return array{Project, User, RepositoryConnection} */
     private function linkedProject(): array
     {
         $project = Project::factory()->create();
@@ -202,18 +203,19 @@ class GitHubCommitAttributionTest extends TestCase
             'role' => WorkspaceRole::OWNER,
             'suspended_at' => null,
         ]);
-        $installation = GitHubInstallation::query()->create([
+        $installation = VcsConnection::query()->create([
             'workspace_id' => $project->workspace_id,
-            'installation_id' => 456,
-            'github_account_id' => 78,
+            'vcs_instance_id' => GitHubInstance::get()->id,
+            'external_connection_id' => '456',
+            'external_account_id' => '78',
             'account_login' => 'example',
             'account_type' => 'Organization',
             'connected_at' => now(),
         ]);
-        $repository = GitHubRepository::query()->create([
+        $repository = RepositoryConnection::query()->create([
             'project_id' => $project->id,
-            'github_installation_id' => $installation->id,
-            'github_repository_id' => 123,
+            'vcs_connection_id' => $installation->id,
+            'external_repository_id' => '123',
             'full_name' => 'example/api',
             'default_branch' => 'main',
             'start_sha' => self::SHA,
@@ -232,15 +234,15 @@ class GitHubCommitAttributionTest extends TestCase
         ]);
     }
 
-    private function commit(GitHubRepository $repository, ?int $githubUserId, string $login, bool $checked = true): void
+    private function commit(RepositoryConnection $repository, ?int $githubUserId, string $login, bool $checked = true): void
     {
-        GitHubCommit::query()->create([
-            'github_repository_id' => $repository->id,
+        RepositoryCommit::query()->create([
+            'repository_connection_id' => $repository->id,
             'sha' => self::SHA,
             'message' => 'Change',
             'author_name' => 'Original developer',
             'author_login' => $login,
-            'author_github_user_id' => $githubUserId,
+            'author_external_user_id' => $githubUserId === null ? null : (string) $githubUserId,
             'author_identity_checked_at' => $checked ? now() : null,
             'committed_at' => now(),
         ]);

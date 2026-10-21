@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-/** Provider-neutral VCS data. GitHub remains on its original models in 3A.5.1. */
+/** Provider-neutral VCS data; GitHub now uses these shared tables. */
 #[Fillable([
     'vcs_instance_id',
     'workspace_id',

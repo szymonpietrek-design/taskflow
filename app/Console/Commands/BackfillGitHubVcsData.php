@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Integrations\Vcs\BackfillGitHubLegacyData;
 use Illuminate\Console\Command;
+use LogicException;
 
 class BackfillGitHubVcsData extends Command
 {
@@ -13,7 +14,13 @@ class BackfillGitHubVcsData extends Command
 
     public function handle(BackfillGitHubLegacyData $backfill): int
     {
-        foreach ($backfill->run() as $type => $count) {
+        try {
+            $counts = $backfill->run();
+        } catch (LogicException $exception) {
+            $this->error($exception->getMessage());
+            return self::FAILURE;
+        }
+        foreach ($counts as $type => $count) {
             $this->line("{$type}: {$count}");
         }
 

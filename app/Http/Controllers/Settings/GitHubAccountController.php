@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Integrations\GitHub\GitHubUserIdentityClient;
 use App\Models\GitHubAccount;
 use App\Models\GitHubAppSetting;
+use App\Models\UserVcsAccount;
+use App\Integrations\Vcs\Providers\GitHubInstance;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\RedirectResponse;
@@ -26,7 +28,9 @@ class GitHubAccountController extends Controller
             return $this->feedback('GitHub user authorization is not configured.', 'error');
         }
 
-        if ($request->user()->githubAccount()->exists()) {
+        if ($request->user()->githubAccount()->exists()
+            || UserVcsAccount::query()->where('user_id', $request->user()->id)
+                ->where('vcs_instance_id', GitHubInstance::get()->id)->exists()) {
             return $this->feedback('Disconnect the current GitHub account before linking another.', 'error');
         }
 
@@ -76,7 +80,9 @@ class GitHubAccountController extends Controller
             return $this->feedback('GitHub user authorization is not configured.', 'error');
         }
 
-        if ($request->user()->githubAccount()->exists()) {
+        if ($request->user()->githubAccount()->exists()
+            || UserVcsAccount::query()->where('user_id', $request->user()->id)
+                ->where('vcs_instance_id', GitHubInstance::get()->id)->exists()) {
             return $this->feedback('Disconnect the current GitHub account before linking another.', 'error');
         }
 
@@ -95,9 +101,18 @@ class GitHubAccountController extends Controller
                     return false;
                 }
 
-                $request->user()->githubAccount()->create([
+                $legacy = $request->user()->githubAccount()->create([
                     ...$identity,
                     'connected_at' => now(),
+                ]);
+                UserVcsAccount::query()->create([
+                    'user_id' => $request->user()->id,
+                    'vcs_instance_id' => GitHubInstance::get()->id,
+                    'external_user_id' => (string) $identity['github_user_id'],
+                    'login' => $identity['github_login'],
+                    'avatar_url' => $identity['avatar_url'],
+                    'connected_at' => $legacy->connected_at,
+                    'legacy_github_account_id' => $legacy->id,
                 ]);
 
                 return true;
@@ -117,7 +132,11 @@ class GitHubAccountController extends Controller
     {
         $request->session()->forget(self::SESSION_KEY);
         // Delete only this user's verified link, not imported GitHub commits or installations.
-        $request->user()->githubAccount()->delete();
+        DB::transaction(function () use ($request): void {
+            UserVcsAccount::query()->where('user_id', $request->user()->id)
+                ->where('vcs_instance_id', GitHubInstance::get()->id)->delete();
+            $request->user()->githubAccount()->delete();
+        });
 
         return $this->feedback('GitHub account disconnected.', 'success');
     }

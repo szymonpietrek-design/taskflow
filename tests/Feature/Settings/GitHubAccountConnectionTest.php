@@ -66,10 +66,17 @@ class GitHubAccountConnectionTest extends TestCase
         $account = $user->githubAccount()->firstOrFail();
         $this->assertSame(8675309, $account->github_user_id);
         $this->assertSame('octocat', $account->github_login);
+        $this->assertDatabaseHas('user_vcs_accounts', [
+            'legacy_github_account_id' => $account->id,
+            'user_id' => $user->id,
+            'external_user_id' => '8675309',
+            'login' => 'octocat',
+        ]);
         $this->assertSame('https://avatars.githubusercontent.com/u/8675309?v=4', $account->avatar_url);
         $this->assertNotNull($account->connected_at);
         $this->assertArrayNotHasKey('access_token', $account->getAttributes());
         $this->assertStringNotContainsString('ghu_super-secret-token', json_encode(DB::table('github_accounts')->first()));
+        $this->assertStringNotContainsString('ghu_super-secret-token', json_encode(DB::table('user_vcs_accounts')->first()));
         $this->assertNull(session('github_oauth_pending'));
         Http::assertSentCount(2);
         Http::assertSent(fn ($request) => $request->url() === 'https://github.com/login/oauth/access_token'
