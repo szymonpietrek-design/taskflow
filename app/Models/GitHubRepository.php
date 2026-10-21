@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * Stores only the tracking baseline in stage 1: no historical import or AI analysis.
@@ -43,5 +44,15 @@ class GitHubRepository extends Model
     public function installation(): BelongsTo
     {
         return $this->belongsTo(GitHubInstallation::class, 'github_installation_id');
+    }
+
+    public function commits(): HasMany
+    {
+        return $this->hasMany(GitHubCommit::class, 'github_repository_id');
+    }
+
+    public function syncRuns(): HasMany
+    {
+        return $this->hasMany(GitHubSyncRun::class, 'github_repository_id');
     }
 }

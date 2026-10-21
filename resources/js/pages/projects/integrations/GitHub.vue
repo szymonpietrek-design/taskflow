@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Head, Link, useForm, router } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
-import { ArrowLeft, GitBranch, LockKeyhole, ShieldCheck, Trash2 } from '@lucide/vue';
+import { ArrowLeft, GitBranch, History, LockKeyhole, RefreshCw, ShieldCheck, Trash2 } from '@lucide/vue';
 import { useI18n } from '@/composables/useI18n';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -18,12 +18,24 @@ type Repository = {
     connected_at: string;
     last_synced_at: string | null;
 };
+type GitHubCommit = { sha: string; subject: string; author: string | null; committed_at: string | null };
+type SyncRun = {
+    id: number;
+    status: 'completed' | 'running' | 'failed';
+    fetched_count: number;
+    imported_count: number;
+    error_message: string | null;
+    started_at: string | null;
+};
 const props = defineProps<{
     project: { id: number; name: string; is_archived: boolean };
     configured: boolean;
     can_connect: boolean;
     repository: Repository | null;
     installations: { installation_id: number; account_login: string }[];
+    commits: GitHubCommit[];
+    commits_count: number;
+    sync_runs: SyncRun[];
 }>();
 const { locale } = useI18n();
 const isPl = computed(() => locale.value === 'pl');
@@ -31,6 +43,24 @@ const base = computed(() => `/projects/${props.project.id}/integrations/github`)
 const form = useForm({ installation_id: props.installations.length === 1 ? String(props.installations[0].installation_id) : '', repository: '' });
 const disconnecting = ref(false);
 const confirmDisconnect = ref(false);
+const syncing = ref(false);
+const syncError = ref('');
+const dateFormatter = computed(() => new Intl.DateTimeFormat(isPl.value ? 'pl-PL' : 'en-US', { dateStyle: 'medium', timeStyle: 'short' }));
+function formatDate(value: string | null): string {
+    if (!value) return '—';
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? '—' : dateFormatter.value.format(date);
+}
+function sync(): void {
+    if (!props.repository || !props.can_connect || props.project.is_archived || syncing.value) return;
+    syncError.value = '';
+    syncing.value = true;
+    router.post(`${base.value}/sync`, {}, {
+        preserveScroll: true,
+        onError: (errors) => { syncError.value = errors.sync || (isPl.value ? 'Synchronizacja nie powiodła się.' : 'Synchronization failed.'); },
+        onFinish: () => { syncing.value = false; },
+    });
+}
 
 function connect(): void {
     if (!props.can_connect || !props.configured || props.repository || form.processing) return;
@@ -85,7 +115,7 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
                         <div class="space-y-1"><dt class="text-muted-foreground">{{ isPl ? 'Gałąź' : 'Branch' }}</dt><dd class="font-medium">{{ repository.default_branch }}</dd></div>
                         <div class="space-y-1"><dt class="text-muted-foreground">{{ isPl ? 'Punkt startowy (SHA)' : 'Starting SHA' }}</dt><dd class="font-mono text-xs break-all">{{ repository.start_sha }}</dd></div>
                         <div class="space-y-1"><dt class="text-muted-foreground">{{ isPl ? 'Ostatni zsynchronizowany SHA' : 'Last synced SHA' }}</dt><dd class="font-mono text-xs break-all">{{ repository.last_synced_sha }}</dd></div>
-                        <div class="space-y-1"><dt class="text-muted-foreground">{{ isPl ? 'Ostatnia synchronizacja' : 'Last synchronization' }}</dt><dd>{{ repository.last_synced_at || (isPl ? 'Jeszcze nie uruchamiano' : 'Not started yet') }}</dd></div>
+                        <div class="space-y-1"><dt class="text-muted-foreground">{{ isPl ? 'Ostatnia synchronizacja' : 'Last synchronization' }}</dt><dd>{{ repository.last_synced_at ? formatDate(repository.last_synced_at) : (isPl ? 'Jeszcze nie uruchamiano' : 'Not started yet') }}</dd></div>
                     </dl>
                     <div v-if="can_connect" class="border-t pt-4">
                         <Button v-if="!confirmDisconnect" type="button" variant="outline" @click="confirmDisconnect = true">
@@ -125,8 +155,58 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
                 </form>
             </CardContent>
         </Card>
+        <template v-if="repository">
+            <Card class="gap-3">
+                <CardHeader class="space-y-2">
+                    <div class="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                            <CardTitle class="flex items-center gap-2 text-base"><History class="size-4" /> {{ isPl ? 'Commity GitHub' : 'GitHub commits' }}</CardTitle>
+                            <p class="mt-1 text-sm text-muted-foreground">{{ isPl ? 'Wyłącznie zmiany po zapisanym punkcie startowym, bez analizy AI.' : 'Only changes after the saved baseline. No AI analysis.' }}</p>
+                        </div>
+                        <Button v-if="can_connect && !project.is_archived" type="button" :disabled="syncing || !configured" @click="sync">
+                            <RefreshCw class="size-4" :class="syncing ? 'animate-spin' : ''" />
+                            {{ syncing ? (isPl ? 'Synchronizacja…' : 'Synchronizing…') : (isPl ? 'Synchronizuj teraz' : 'Sync now') }}
+                        </Button>
+                    </div>
+                    <p v-if="syncError" role="alert" class="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{{ syncError }}</p>
+                </CardHeader>
+                <CardContent class="space-y-4">
+                    <div class="flex items-center justify-between gap-2 text-sm">
+                        <span class="text-muted-foreground">{{ isPl ? 'Pobrane commity' : 'Stored commits' }}</span>
+                        <span class="font-semibold tabular-nums">{{ commits_count }}</span>
+                    </div>
+                    <div v-if="commits.length" class="divide-y rounded-lg border">
+                        <a v-for="commit in commits" :key="commit.sha" :href="`https://github.com/${repository.full_name}/commit/${commit.sha}`"
+                           target="_blank" rel="noopener noreferrer" class="flex items-start justify-between gap-3 px-4 py-3 transition-colors hover:bg-muted/40">
+                            <div class="min-w-0 space-y-1">
+                                <p class="break-words text-sm font-medium">{{ commit.subject || commit.sha.slice(0, 7) }}</p>
+                                <p class="text-xs text-muted-foreground">{{ commit.author || 'GitHub' }} · {{ formatDate(commit.committed_at) }}</p>
+                            </div>
+                            <span class="shrink-0 font-mono text-xs text-muted-foreground">{{ commit.sha.slice(0, 7) }}</span>
+                        </a>
+                    </div>
+                    <p v-else class="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+                        {{ isPl ? 'Brak nowych commitów. Synchronizacja nie importuje historii sprzed połączenia.' : 'No new commits. Commits predating the connection are not imported.' }}
+                    </p>
+                    <p v-if="commits_count > commits.length" class="text-xs text-muted-foreground">{{ isPl ? 'Pokazano ostatnie 15 commitów. Pozostałe są zapisane w bazie.' : 'Showing the latest 15 commits. The rest are stored in the database.' }}</p>
+                </CardContent>
+            </Card>
+            <Card v-if="sync_runs.length" class="gap-3">
+                <CardHeader><CardTitle class="text-base">{{ isPl ? 'Historia synchronizacji' : 'Synchronization history' }}</CardTitle></CardHeader>
+                <CardContent class="divide-y">
+                    <div v-for="run in sync_runs" :key="run.id" class="flex flex-wrap items-start justify-between gap-3 py-3 first:pt-0 last:pb-0">
+                        <div class="min-w-0 space-y-1">
+                            <p class="text-sm font-medium">{{ run.status === 'completed' ? (isPl ? 'Zakończono' : 'Completed') : run.status === 'failed' ? (isPl ? 'Niepowodzenie' : 'Failed') : (isPl ? 'W trakcie' : 'Running') }}</p>
+                            <p class="text-xs text-muted-foreground">{{ formatDate(run.started_at) }} · {{ run.imported_count }} {{ isPl ? 'nowych' : 'new' }} / {{ run.fetched_count }} {{ isPl ? 'pobranych' : 'fetched' }}</p>
+                            <p v-if="run.error_message" class="text-xs text-destructive">{{ run.error_message }}</p>
+                        </div>
+                        <Badge :variant="run.status === 'failed' ? 'destructive' : 'secondary'">{{ run.status === 'completed' ? 'OK' : run.status === 'failed' ? (isPl ? 'Błąd' : 'Error') : '…' }}</Badge>
+                    </div>
+                </CardContent>
+            </Card>
+        </template>
         <p class="text-sm text-muted-foreground">
-            {{ isPl ? 'Synchronizacja commitów, pull requestów i analiza przez Agenta AI będą dostępne w kolejnych etapach.' : 'Commit/PR synchronization and AI analysis will be added in later stages.' }}
+            {{ isPl ? 'Pull requesty, analiza zmian w kodzie i wykorzystanie ich w raportach oraz wydaniach pojawią się w kolejnych etapach.' : 'Pull requests, code analysis, report and release integration will be added in later stages.' }}
         </p>
     </div>
 </template>

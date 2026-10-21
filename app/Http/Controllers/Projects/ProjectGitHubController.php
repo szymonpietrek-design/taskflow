@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Projects;
 
 use App\Http\Controllers\Controller;
 use App\Integrations\GitHub\GitHubAppClient;
+use App\Integrations\GitHub\GitHubRepositorySynchronizer;
 use App\Models\GitHubInstallation;
 use App\Models\GitHubRepository;
 use App\Models\Project;
@@ -48,6 +49,25 @@ class ProjectGitHubController extends Controller
                 'last_synced_at' => $connected->last_synced_at?->toIso8601String(),
             ] : null,
             // Existing workspace installation may be reused by another project in the same workspace.
+            'commits' => $connected ? $connected->commits()
+                ->orderByDesc('committed_at')->orderByDesc('id')->limit(15)->get()
+                ->map(fn ($commit) => [
+                    'sha' => $commit->sha,
+                    'subject' => explode("\n", $commit->message, 2)[0],
+                    'author' => $commit->author_name ?? $commit->author_login,
+                    'committed_at' => $commit->committed_at?->toIso8601String(),
+                ])->values() : [],
+            'commits_count' => $connected ? $connected->commits()->count() : 0,
+            'sync_runs' => $connected ? $connected->syncRuns()
+                ->orderByDesc('id')->limit(5)->get()
+                ->map(fn ($run) => [
+                    'id' => $run->id,
+                    'status' => $run->status,
+                    'imported_count' => $run->imported_count,
+                    'fetched_count' => $run->fetched_count,
+                    'error_message' => $run->error_message,
+                    'started_at' => $run->started_at?->toIso8601String(),
+                ])->values() : [],
             'installations' => $request->user()->can('manageManagers', $project)
                 ? GitHubInstallation::query()->where('workspace_id', $project->workspace_id)
                     ->orderBy('account_login')->get(['installation_id', 'account_login'])
@@ -132,6 +152,30 @@ class ProjectGitHubController extends Controller
         } catch (UniqueConstraintViolationException $exception) {
             throw ValidationException::withMessages(['repository' => 'Connection already exists. Refresh the page.']);
         }
+
+        return to_route('projects.github.index', $project);
+    }
+
+    public function sync(Request $request, Project $project, GitHubRepositorySynchronizer $synchronizer): RedirectResponse
+    {
+        Gate::forUser($request->user())->authorize('manageManagers', $project);
+        $repository = GitHubRepository::query()->where('project_id', $project->id)->firstOrFail();
+
+        try {
+            $result = $synchronizer->synchronize($repository);
+        } catch (ConnectionException|RequestException|RuntimeException $exception) {
+            report($exception);
+            throw ValidationException::withMessages([
+                'sync' => 'Synchronization failed or the branch history changed. The saved SHA was not advanced. Review the synchronization history and retry.',
+            ]);
+        }
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => $result['imported'] > 0
+                ? 'Imported '.$result['imported'].' new GitHub commits.'
+                : 'GitHub synchronization complete. No new commits.',
+        ]);
 
         return to_route('projects.github.index', $project);
     }
