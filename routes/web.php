@@ -53,7 +53,7 @@ Route::get('r/{report}/{token}', PublicReportController::class)
     ->name('reports.public');
 
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::inertia('dashboard', 'Dashboard')->name('dashboard');
+    Route::get('dashboard', \App\Http\Controllers\DashboardController::class)->name('dashboard');
 
     Route::middleware('can:manage-system-users')->prefix('admin/users')->group(function () {
         Route::get('/', [SystemUserController::class, 'index'])->name('admin.users.index');
