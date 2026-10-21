@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Link, usePage } from '@inertiajs/vue3';
-import { FileText, FolderKanban, LayoutDashboard, ListTodo, Package, Plus, Users } from '@lucide/vue';
+import { FileText, FolderKanban, GitBranch, LayoutDashboard, ListTodo, Package, Plus, Users } from '@lucide/vue';
 import { computed, ref, watch } from 'vue';
 import ProjectIdentity from '@/components/ProjectIdentity.vue';
 import { useI18n } from '@/composables/useI18n';
@@ -18,7 +18,7 @@ import {
     useSidebar,
 } from '@/components/ui/sidebar';
 
-type ProjectSection = 'overview' | 'tasks' | 'releases' | 'reports' | 'members';
+type ProjectSection = 'overview' | 'tasks' | 'releases' | 'reports' | 'members' | 'integrations/github';
 
 const page = usePage();
 const { t } = useI18n();
@@ -160,6 +160,14 @@ function isSectionActive(projectId: number, section: ProjectSection): boolean {
                                             <Link :href="`/projects/${project.id}/reports`" :aria-current="isSectionActive(project.id, 'reports') ? 'page' : undefined">
                                                 <FileText />
                                                 <span>{{ t('stage2.reports') }}</span>
+                                            </Link>
+                                        </SidebarMenuSubButton>
+                                    </SidebarMenuSubItem>
+                                    <SidebarMenuSubItem>
+                                        <SidebarMenuSubButton as-child size="sm" class="data-[active=true]:bg-sidebar-accent/70 data-[active=true]:font-semibold" :is-active="isSectionActive(project.id, 'integrations/github')">
+                                            <Link :href="`/projects/${project.id}/integrations/github`" :aria-current="isSectionActive(project.id, 'integrations/github') ? 'page' : undefined">
+                                                <GitBranch />
+                                                <span>GitHub</span>
                                             </Link>
                                         </SidebarMenuSubButton>
                                     </SidebarMenuSubItem>

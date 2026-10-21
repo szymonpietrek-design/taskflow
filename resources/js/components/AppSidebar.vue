@@ -2,6 +2,7 @@
 import { Link, usePage } from '@inertiajs/vue3';
 import {
     Clock3,
+    GitBranch,
     LayoutGrid,
     PanelsTopLeft,
     UsersRound,
@@ -25,7 +26,7 @@ import { useI18n } from '@/composables/useI18n';
 import { dashboard } from '@/routes';
 import type { NavItem } from '@/types';
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const page = usePage();
 
 const mainNavItems = computed<NavItem[]>(() => [
@@ -44,11 +45,18 @@ const mainNavItems = computed<NavItem[]>(() => [
         href: '/workspaces',
         icon: PanelsTopLeft,
     },
-    ...(page.props.auth.user?.is_system_admin ? [{
-        title: t('adminUsers.nav'),
-        href: '/admin/users',
-        icon: UsersRound,
-    }] : []),
+    ...(page.props.auth.user?.is_system_admin ? [
+        {
+            title: t('adminUsers.nav'),
+            href: '/admin/users',
+            icon: UsersRound,
+        },
+        {
+            title: locale.value === 'pl' ? 'Integracje · GitHub' : 'Integrations · GitHub',
+            href: '/admin/integrations/github',
+            icon: GitBranch,
+        },
+    ] : []),
 ]);
 
 </script>

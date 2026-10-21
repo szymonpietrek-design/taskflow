@@ -1,7 +1,9 @@
 <?php
 
 use App\Http\Controllers\Admin\SystemUserController;
+use App\Http\Controllers\Admin\GitHubAppSettingsController;
 use App\Http\Controllers\Projects\ProjectController;
+use App\Http\Controllers\Projects\ProjectGitHubController;
 use App\Http\Controllers\Projects\ProjectLogoController;
 use App\Http\Controllers\Projects\ProjectMemberController;
 use App\Http\Controllers\Releases\GenerateReleaseChangelogController;
@@ -64,6 +66,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::patch('{user}/role', [SystemUserController::class, 'role'])->name('admin.users.role');
     });
 
+    Route::middleware('can:manage-system-users')->prefix('admin/integrations/github')->group(function () {
+        Route::get('/', [GitHubAppSettingsController::class, 'index'])->name('admin.github.index');
+        Route::post('/', [GitHubAppSettingsController::class, 'store'])->middleware('throttle:6,1')->name('admin.github.store');
+    });
+
     Route::get('worklogs', [WorklogController::class, 'index'])->name('worklogs.index');
     Route::get('worklogs/projects/{project}/tasks', [WorklogController::class, 'tasks'])->name('worklogs.tasks');
     Route::post('worklogs', [WorklogController::class, 'store'])->name('worklogs.store');
@@ -73,6 +80,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('projects', [ProjectController::class, 'index'])->name('projects.index');
     Route::post('projects', [ProjectController::class, 'store'])->name('projects.store');
     Route::get('projects/{project}', [ProjectController::class, 'show'])->name('projects.show');
+    Route::get('projects/{project}/integrations/github', [ProjectGitHubController::class, 'index'])
+        ->name('projects.github.index');
+    Route::post('projects/{project}/integrations/github', [ProjectGitHubController::class, 'store'])
+        ->middleware('throttle:10,1')->name('projects.github.store');
+    Route::delete('projects/{project}/integrations/github', [ProjectGitHubController::class, 'destroy'])
+        ->name('projects.github.destroy');
     Route::get('projects/{project}/members', [ProjectMemberController::class, 'index'])->name('projects.members.index');
     Route::get('projects/{project}/members/candidates', [ProjectMemberController::class, 'candidates'])->middleware('throttle:60,1')->name('projects.members.candidates');
     Route::post('projects/{project}/members', [ProjectMemberController::class, 'store'])->middleware('throttle:20,1')->name('projects.members.store');
