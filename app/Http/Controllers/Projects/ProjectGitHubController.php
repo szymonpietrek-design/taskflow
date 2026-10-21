@@ -166,15 +166,24 @@ class ProjectGitHubController extends Controller
         } catch (ConnectionException|RequestException|RuntimeException $exception) {
             report($exception);
             throw ValidationException::withMessages([
-                'sync' => 'Synchronization failed or the branch history changed. The saved SHA was not advanced. Review the synchronization history and retry.',
+                'sync' => app()->getLocale() === 'pl'
+                    ? 'Synchronizacja nie powiodła się lub zmieniła się historia gałęzi. Zapisany SHA pozostał bez zmian. Sprawdź historię synchronizacji i spróbuj ponownie.'
+                    : 'Synchronization failed or the branch history changed. The saved SHA was not advanced. Review the synchronization history and retry.',
             ]);
         }
 
+        $imported = (int) $result['imported'];
+        $isPolish = app()->getLocale() === 'pl';
+
         Inertia::flash('toast', [
             'type' => 'success',
-            'message' => $result['imported'] > 0
-                ? 'Imported '.$result['imported'].' new GitHub commits.'
-                : 'GitHub synchronization complete. No new commits.',
+            'message' => $isPolish
+                ? ($imported > 0
+                    ? 'Synchronizacja GitHub zakończona. Nowe commity: '.$imported.'.'
+                    : 'Synchronizacja GitHub zakończona. Brak nowych commitów.')
+                : ($imported > 0
+                    ? 'Imported '.$imported.' new GitHub commits.'
+                    : 'GitHub synchronization complete. No new commits.'),
         ]);
 
         return to_route('projects.github.index', $project);
