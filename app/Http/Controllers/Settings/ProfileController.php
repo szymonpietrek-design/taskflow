@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
+use App\Models\GitHubAppSetting;
 use App\Http\Requests\Settings\ProfileUpdateRequest;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Http\RedirectResponse;
@@ -20,6 +21,19 @@ class ProfileController extends Controller
         return Inertia::render('settings/Profile', [
             'mustVerifyEmail' => $request->user() instanceof MustVerifyEmail,
             'status' => $request->session()->get('status'),
+            // Keep OAuth secrets and GitHub numeric IDs out of the Inertia page props.
+            'githubAccount' => function () use ($request): ?array {
+                $account = $request->user()->githubAccount()
+                    ->first(['github_login', 'avatar_url', 'connected_at']);
+
+                return $account ? [
+                    'github_login' => $account->github_login,
+                    'avatar_url' => $account->avatar_url,
+                    'connected_at' => $account->connected_at?->toIso8601String(),
+                ] : null;
+            },
+            'githubConnectionConfigured' => fn (): bool =>
+                GitHubAppSetting::current()?->userAuthorizationConfigured() ?? false,
         ]);
     }
 
