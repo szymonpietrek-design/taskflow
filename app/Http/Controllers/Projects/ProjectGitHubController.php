@@ -4,8 +4,12 @@ namespace App\Http\Controllers\Projects;
 
 use App\Http\Controllers\Controller;
 use App\Integrations\GitHub\GitHubAppClient;
+use App\Integrations\GitHub\GitHubAuthorBackfiller;
 use App\Integrations\GitHub\GitHubRepositorySynchronizer;
+use App\Models\GitHubAccount;
 use App\Models\GitHubInstallation;
+use App\Models\GitHubCommit;
+use App\Enums\WorkspaceRole;
 use App\Models\GitHubRepository;
 use App\Models\Project;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -30,6 +34,24 @@ class ProjectGitHubController extends Controller
             ->with('installation:id,installation_id,account_login')
             ->first();
 
+        $recentCommits = $connected ? $connected->commits()
+            ->orderByDesc('committed_at')->orderByDesc('id')->limit(15)->get() : collect();
+        $githubUserIds = $recentCommits->pluck('author_github_user_id')->filter()->unique()->all();
+        // Identity is global, but names are only exposed for current project members
+        // and active workspace administrators. Avoid leaking users from other teams.
+        $linkedAuthors = $githubUserIds === [] ? collect() : GitHubAccount::query()
+            ->whereIn('github_user_id', $githubUserIds)
+            ->whereHas('user', function ($query) use ($project): void {
+                $query->whereNull('disabled_at')->where(function ($eligible) use ($project): void {
+                    $eligible->whereHas('projectMemberships', fn ($membership) => $membership->where('project_id', $project->id))
+                        ->orWhereHas('workspaceMemberships', fn ($membership) => $membership
+                            ->where('workspace_id', $project->workspace_id)
+                            ->whereNull('suspended_at')
+                            ->whereIn('role', [WorkspaceRole::OWNER->value, WorkspaceRole::ADMIN->value]));
+                });
+            })
+            ->with('user:id,name')->get()->keyBy('github_user_id');
+
         return Inertia::render('projects/integrations/GitHub', [
             'project' => [
                 'id' => $project->id,
@@ -49,14 +71,23 @@ class ProjectGitHubController extends Controller
                 'last_synced_at' => $connected->last_synced_at?->toIso8601String(),
             ] : null,
             // Existing workspace installation may be reused by another project in the same workspace.
-            'commits' => $connected ? $connected->commits()
-                ->orderByDesc('committed_at')->orderByDesc('id')->limit(15)->get()
-                ->map(fn ($commit) => [
+            'commits' => $recentCommits->map(function (GitHubCommit $commit) use ($linkedAuthors): array {
+                $matched = $commit->author_github_user_id !== null
+                    ? $linkedAuthors->get($commit->author_github_user_id) : null;
+
+                return [
                     'sha' => $commit->sha,
                     'subject' => explode("\n", $commit->message, 2)[0],
                     'author' => $commit->author_name ?? $commit->author_login,
+                    'taskflow_author' => $matched?->user ? [
+                        'id' => $matched->user->id,
+                        'name' => $matched->user->name,
+                    ] : null,
                     'committed_at' => $commit->committed_at?->toIso8601String(),
-                ])->values() : [],
+                ];
+            })->values(),
+            'legacy_authors_pending' => $connected && $request->user()->can('manageManagers', $project)
+                ? $connected->commits()->whereNull('author_identity_checked_at')->count() : 0,
             'commits_count' => $connected ? $connected->commits()->count() : 0,
             'sync_runs' => $connected ? $connected->syncRuns()
                 ->orderByDesc('id')->limit(5)->get()
@@ -184,6 +215,33 @@ class ProjectGitHubController extends Controller
                 : ($imported > 0
                     ? 'Imported '.$imported.' new GitHub commits.'
                     : 'GitHub synchronization complete. No new commits.'),
+        ]);
+
+        return to_route('projects.github.index', $project);
+    }
+
+
+    public function backfillAuthors(Request $request, Project $project, GitHubAuthorBackfiller $backfiller): RedirectResponse
+    {
+        Gate::forUser($request->user())->authorize('manageManagers', $project);
+        $repository = GitHubRepository::query()->where('project_id', $project->id)->firstOrFail();
+
+        try {
+            $result = $backfiller->backfill($repository);
+        } catch (ConnectionException|RequestException|RuntimeException $exception) {
+            report($exception);
+            throw ValidationException::withMessages([
+                'authors' => app()->getLocale() === 'pl'
+                    ? 'Nie udało się uzupełnić autorów. Spróbuj ponownie później.'
+                    : 'Could not refresh commit authors. Please try again later.',
+            ]);
+        }
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => app()->getLocale() === 'pl'
+                ? 'Sprawdzono autorów '.$result['checked'].' commitów. Pozostało: '.$result['remaining'].'.'
+                : 'Checked authors for '.$result['checked'].' commits. Remaining: '.$result['remaining'].'.',
         ]);
 
         return to_route('projects.github.index', $project);

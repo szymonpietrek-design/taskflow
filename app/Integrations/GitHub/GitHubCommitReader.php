@@ -12,7 +12,7 @@ class GitHubCommitReader extends GitHubAppClient
     private const MAX_COMMITS = 500;
 
     /**
-     * @return array{head_sha: string, commits: list<array{sha:string,message:string,author_name:?string,author_login:?string,committed_at:?string}>}
+     * @return array{head_sha: string, commits: list<array{sha:string,message:string,author_name:?string,author_login:?string,committed_at:?string,author_github_user_id:?int}>}
      */
     public function changesSince(int $installationId, string $fullName, string $branch, string $baseSha, int $expectedRepositoryId): array
     {
@@ -75,6 +75,8 @@ class GitHubCommitReader extends GitHubAppClient
                     'message' => mb_substr($message, 0, 16000),
                     'author_name' => is_string($authorName) ? mb_substr($authorName, 0, 190) : null,
                     'author_login' => is_string($authorLogin) ? mb_substr($authorLogin, 0, 190) : null,
+                    // Never infer identity from author name, email, or login.
+                    'author_github_user_id' => self::githubUserId($item['author']['id'] ?? null),
                     'committed_at' => is_string($committedAt) ? $committedAt : null,
                 ];
             }
@@ -95,4 +97,53 @@ class GitHubCommitReader extends GitHubAppClient
 
         return ['head_sha' => $head, 'commits' => array_values($commits)];
     }
+
+    /**
+     * Recheck identities only for SHAs already stored by TaskFlow.
+     * We never list or import repository history during author backfill.
+     *
+     * @param list<string> $shas
+     * @return array<string, ?int> SHA => verified GitHub author ID (or null)
+     */
+    public function authorIdentitiesForStoredCommits(int $installationId, string $fullName, int $expectedRepositoryId, array $shas): array
+    {
+        if (! preg_match('~\A[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\z~D', $fullName)
+            || $expectedRepositoryId < 1 || count($shas) > 10) {
+            throw new RuntimeException('Invalid tracked repository or author lookup batch.');
+        }
+        foreach ($shas as $sha) {
+            if (! is_string($sha) || ! preg_match('/\A[a-fA-F0-9]{40}\z/D', $sha)) {
+                throw new RuntimeException('Invalid stored commit SHA.');
+            }
+        }
+        if ($shas === []) {
+            return [];
+        }
+
+        $client = $this->api()->withToken($this->installationToken($installationId));
+        $prefix = '/repos/'.$fullName;
+        $metadata = $client->get($prefix)->throw()->json();
+        if ((int) ($metadata['id'] ?? 0) !== $expectedRepositoryId
+            || strcasecmp((string) ($metadata['full_name'] ?? ''), $fullName) !== 0) {
+            throw new RuntimeException('Repository identity changed. Author lookup was stopped.');
+        }
+
+        $identities = [];
+        foreach ($shas as $sha) {
+            $sha = strtolower($sha);
+            $item = $client->get($prefix.'/commits/'.$sha)->throw()->json();
+            if (! is_array($item) || strcasecmp((string) ($item['sha'] ?? ''), $sha) !== 0) {
+                throw new RuntimeException('GitHub returned mismatched commit metadata.');
+            }
+            $identities[$sha] = self::githubUserId($item['author']['id'] ?? null);
+        }
+
+        return $identities;
+    }
+
+    private static function githubUserId(mixed $id): ?int
+    {
+        return is_int($id) && $id > 0 ? $id : null;
+    }
+
 }

@@ -44,7 +44,7 @@ class GitHubRepositorySyncTest extends TestCase
             ->assertRedirect(route('projects.github.index', $project));
 
         $this->assertDatabaseCount('github_commits', 2);
-        $this->assertDatabaseHas('github_commits', ['github_repository_id' => $repo->id, 'sha' => self::HEAD]);
+        $this->assertDatabaseHas('github_commits', ['github_repository_id' => $repo->id, 'sha' => self::HEAD, 'author_github_user_id' => 54321]);
         $this->assertDatabaseHas('github_repositories', ['id' => $repo->id, 'start_sha' => self::BASE, 'last_synced_sha' => self::HEAD]);
         $this->assertDatabaseHas('github_sync_runs', ['github_repository_id' => $repo->id, 'status' => 'completed', 'imported_count' => 2]);
     }
@@ -148,7 +148,7 @@ class GitHubRepositorySyncTest extends TestCase
     /** @return array{sha:string,message:string,author_name:?string,author_login:?string,committed_at:?string} */
     private function commit(string $sha, string $message): array
     {
-        return ['sha' => $sha, 'message' => $message, 'author_name' => 'Dev', 'author_login' => 'dev', 'committed_at' => '2026-10-21T09:00:00Z'];
+        return ['sha' => $sha, 'message' => $message, 'author_name' => 'Dev', 'author_login' => 'dev', 'author_github_user_id' => 54321, 'committed_at' => '2026-10-21T09:00:00Z'];
     }
 
     /** @param array{string, array} ...$responses */

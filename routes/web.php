@@ -86,6 +86,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('throttle:10,1')->name('projects.github.store');
     Route::post('projects/{project}/integrations/github/sync', [ProjectGitHubController::class, 'sync'])
         ->middleware('throttle:6,1')->name('projects.github.sync');
+    Route::post('projects/{project}/integrations/github/authors', [ProjectGitHubController::class, 'backfillAuthors'])
+        ->middleware('throttle:4,1')->name('projects.github.authors');
     Route::delete('projects/{project}/integrations/github', [ProjectGitHubController::class, 'destroy'])
         ->name('projects.github.destroy');
     Route::get('projects/{project}/members', [ProjectMemberController::class, 'index'])->name('projects.members.index');

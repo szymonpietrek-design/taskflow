@@ -35,6 +35,7 @@ class GitHubCommitReaderTest extends TestCase
         ]);
         $result = $this->reader()->changesSince(456, 'example/api', 'main', self::BASE, 123);
         $this->assertCount(101, $result['commits']);
+        $this->assertSame(12345, $result['commits'][0]['author_github_user_id']);
         $this->assertSame(self::HEAD, $result['head_sha']);
         Http::assertSent(fn (Request $req): bool => str_contains($req->url(), 'page=2'));
     }
@@ -47,6 +48,51 @@ class GitHubCommitReaderTest extends TestCase
         ]]);
         $this->expectException(RuntimeException::class);
         $this->reader()->changesSince(456, 'example/api', 'main', self::BASE, 123);
+    }
+
+    public function test_commit_without_a_recognized_github_author_remains_unassigned(): void
+    {
+        $item = $this->commit(self::HEAD);
+        $item['author'] = null;
+        $this->fakeRepository(self::HEAD, [[
+            'status' => 'ahead', 'ahead_by' => 1, 'behind_by' => 0,
+            'total_commits' => 1, 'commits' => [$item],
+        ]]);
+
+        $result = $this->reader()->changesSince(456, 'example/api', 'main', self::BASE, 123);
+
+        $this->assertNull($result['commits'][0]['author_github_user_id']);
+    }
+
+    public function test_legacy_lookup_only_requests_given_commit_shas_and_checks_repository_identity(): void
+    {
+        $sha = self::HEAD;
+        Http::fake([
+            'https://api.github.com/repos/example/api' => Http::response([
+                'id' => 123, 'full_name' => 'example/api',
+            ]),
+            'https://api.github.com/repos/example/api/commits/'.$sha => Http::response([
+                'sha' => $sha, 'author' => ['login' => 'renamed-dev', 'id' => 54321],
+            ]),
+        ]);
+
+        $result = $this->reader()->authorIdentitiesForStoredCommits(456, 'example/api', 123, [$sha]);
+
+        $this->assertSame([$sha => 54321], $result);
+        Http::assertSentCount(2);
+        Http::assertNotSent(fn (Request $request): bool => str_contains($request->url(), '/compare/'));
+    }
+
+    public function test_legacy_lookup_rejects_mismatched_repository_identity(): void
+    {
+        Http::fake([
+            'https://api.github.com/repos/example/api' => Http::response([
+                'id' => 555, 'full_name' => 'example/api',
+            ]),
+        ]);
+
+        $this->expectException(RuntimeException::class);
+        $this->reader()->authorIdentitiesForStoredCommits(456, 'example/api', 123, [self::HEAD]);
     }
 
     private function reader(): GitHubCommitReader
@@ -82,7 +128,8 @@ class GitHubCommitReaderTest extends TestCase
     {
         return [
             'sha' => $sha,
-            'author' => ['login' => 'dev'],
+            'author' => ['login' => 'dev', 'id' => 12345],
+            'committer' => ['login' => 'maintainer', 'id' => 99999],
             'commit' => [
                 'message' => 'New change',
                 'author' => ['name' => 'Developer'],

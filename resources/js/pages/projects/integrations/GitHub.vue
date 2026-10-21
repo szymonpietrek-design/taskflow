@@ -18,7 +18,7 @@ type Repository = {
     connected_at: string;
     last_synced_at: string | null;
 };
-type GitHubCommit = { sha: string; subject: string; author: string | null; committed_at: string | null };
+type GitHubCommit = { sha: string; subject: string; author: string | null; taskflow_author: { id: number; name: string } | null; committed_at: string | null };
 type SyncRun = {
     id: number;
     status: 'completed' | 'running' | 'failed';
@@ -35,6 +35,7 @@ const props = defineProps<{
     installations: { installation_id: number; account_login: string }[];
     commits: GitHubCommit[];
     commits_count: number;
+    legacy_authors_pending: number;
     sync_runs: SyncRun[];
 }>();
 const { locale } = useI18n();
@@ -44,6 +45,8 @@ const form = useForm({ installation_id: props.installations.length === 1 ? Strin
 const disconnecting = ref(false);
 const confirmDisconnect = ref(false);
 const syncing = ref(false);
+const checkingAuthors = ref(false);
+const authorsError = ref('');
 const syncError = ref('');
 const dateFormatter = computed(() => new Intl.DateTimeFormat(isPl.value ? 'pl-PL' : 'en-US', { dateStyle: 'medium', timeStyle: 'short' }));
 function formatDate(value: string | null): string {
@@ -59,6 +62,17 @@ function sync(): void {
         preserveScroll: true,
         onError: (errors) => { syncError.value = errors.sync || (isPl.value ? 'Synchronizacja nie powiodła się.' : 'Synchronization failed.'); },
         onFinish: () => { syncing.value = false; },
+    });
+}
+
+function backfillAuthors(): void {
+    if (!props.repository || !props.can_connect || props.project.is_archived || checkingAuthors.value) return;
+    authorsError.value = '';
+    checkingAuthors.value = true;
+    router.post(`${base.value}/authors`, {}, {
+        preserveScroll: true,
+        onError: (errors) => { authorsError.value = errors.authors || (isPl.value ? 'Nie udało się sprawdzić autorów.' : 'Author lookup failed.'); },
+        onFinish: () => { checkingAuthors.value = false; },
     });
 }
 
@@ -175,12 +189,24 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
                         <span class="text-muted-foreground">{{ isPl ? 'Pobrane commity' : 'Stored commits' }}</span>
                         <span class="font-semibold tabular-nums">{{ commits_count }}</span>
                     </div>
+                    <div v-if="legacy_authors_pending > 0 && can_connect && !project.is_archived" class="rounded-lg border border-dashed p-3 text-sm">
+                        <p class="text-muted-foreground">{{ isPl ? `Wcześniej pobrane commity bez identyfikatora autora: ${legacy_authors_pending}. Możesz sprawdzić po 10 na raz.` : `Previously imported commits without checked author identity: ${legacy_authors_pending}. Check up to 10 at a time.` }}</p>
+                        <Button class="mt-2" variant="outline" size="sm" type="button" :disabled="checkingAuthors || !configured" @click="backfillAuthors">
+                            <RefreshCw class="size-4" :class="checkingAuthors ? 'animate-spin' : ''" />
+                            {{ checkingAuthors ? (isPl ? 'Sprawdzanie…' : 'Checking…') : (isPl ? 'Uzupełnij autorów' : 'Check existing authors') }}
+                        </Button>
+                        <p v-if="authorsError" role="alert" class="mt-2 text-sm text-destructive">{{ authorsError }}</p>
+                    </div>
                     <div v-if="commits.length" class="divide-y rounded-lg border">
                         <a v-for="commit in commits" :key="commit.sha" :href="`https://github.com/${repository.full_name}/commit/${commit.sha}`"
                            target="_blank" rel="noopener noreferrer" class="flex items-start justify-between gap-3 px-4 py-3 transition-colors hover:bg-muted/40">
                             <div class="min-w-0 space-y-1">
                                 <p class="break-words text-sm font-medium">{{ commit.subject || commit.sha.slice(0, 7) }}</p>
                                 <p class="text-xs text-muted-foreground">{{ commit.author || 'GitHub' }} · {{ formatDate(commit.committed_at) }}</p>
+                                <p v-if="commit.taskflow_author" class="text-xs text-foreground">
+                                    {{ isPl ? 'Użytkownik TaskFlow:' : 'TaskFlow user:' }} <span class="font-medium">{{ commit.taskflow_author.name }}</span>
+                                </p>
+                                <p v-else class="text-xs text-muted-foreground">{{ isPl ? 'Nieprzypisany do użytkownika TaskFlow' : 'Not linked to a TaskFlow user' }}</p>
                             </div>
                             <span class="shrink-0 font-mono text-xs text-muted-foreground">{{ commit.sha.slice(0, 7) }}</span>
                         </a>

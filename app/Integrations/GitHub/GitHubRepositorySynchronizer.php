@@ -61,6 +61,8 @@ class GitHubRepositorySynchronizer
                             'message' => $commit['message'],
                             'author_name' => $commit['author_name'],
                             'author_login' => $commit['author_login'],
+                            'author_github_user_id' => $commit['author_github_user_id'] ?? null,
+                            'author_identity_checked_at' => now(),
                             'committed_at' => $commit['committed_at'] !== null
                                 ? Carbon::parse($commit['committed_at'])->utc()->toDateTimeString()
                                 : null,
