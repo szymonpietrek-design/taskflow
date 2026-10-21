@@ -112,5 +112,14 @@
     "Attachment removed.": "Usunięto załącznik.",
     "This file is still used by messages. Remove it from those messages first.": "Ten plik jest używany w wiadomościach. Najpierw odłącz go od tych wiadomości.",
     "File removed from message.": "Odłączono plik od wiadomości.",
-    "Attachment unavailable.": "Załącznik niedostępny."
+    "Attachment unavailable.": "Załącznik niedostępny.",
+    "GitHub user authorization is not configured.": "Autoryzacja użytkowników GitHub nie jest skonfigurowana.",
+    "Disconnect the current GitHub account before linking another.": "Przed połączeniem innego konta odłącz obecne konto GitHub.",
+    "GitHub authorization expired or is invalid. Try again.": "Autoryzacja GitHub wygasła lub jest nieprawidłowa. Spróbuj ponownie.",
+    "GitHub authorization was canceled or denied.": "Autoryzacja GitHub została anulowana lub odrzucona.",
+    "GitHub did not return a valid authorization code.": "GitHub nie zwrócił prawidłowego kodu autoryzacji.",
+    "Could not verify your GitHub account. Try again.": "Nie udało się zweryfikować konta GitHub. Spróbuj ponownie.",
+    "This GitHub account is already linked or your profile has a linked account.": "To konto GitHub jest już powiązane albo Twój profil ma już połączone konto.",
+    "GitHub account connected.": "Konto GitHub zostało połączone.",
+    "GitHub account disconnected.": "Konto GitHub zostało odłączone."
 }

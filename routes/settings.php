@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Settings\GitHubAccountController;
 use App\Http\Controllers\Settings\LocaleController;
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\SecurityController;
@@ -17,6 +18,14 @@ Route::middleware(['auth'])->group(function () {
 });
 
 Route::middleware(['auth', 'verified'])->group(function () {
+
+    // 3A.2: Account identity connection; profile UI is handled in 3A.3.
+    Route::get('settings/github/connect', [GitHubAccountController::class, 'connect'])
+        ->middleware('throttle:10,1')->name('github.account.connect');
+    Route::get('settings/github/callback', [GitHubAccountController::class, 'callback'])
+        ->middleware('throttle:20,1')->name('github.account.callback');
+    Route::delete('settings/github', [GitHubAccountController::class, 'disconnect'])
+        ->middleware('throttle:10,1')->name('github.account.disconnect');
 
     Route::get('settings/security', [SecurityController::class, 'edit'])
         ->middleware(RequirePassword::class)
