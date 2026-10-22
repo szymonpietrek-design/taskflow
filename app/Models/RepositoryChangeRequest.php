@@ -66,6 +66,11 @@ class RepositoryChangeRequest extends Model
         return $this->hasMany(RepositoryChangeRequestFile::class, 'repository_change_request_id');
     }
 
+    public function aiAnalyses(): HasMany
+    {
+        return $this->hasMany(PullRequestAiAnalysis::class, 'repository_change_request_id');
+    }
+
     public function reviews(): HasMany
     {
         return $this->hasMany(RepositoryChangeRequestReview::class, 'repository_change_request_id');

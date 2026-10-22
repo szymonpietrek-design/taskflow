@@ -91,6 +91,12 @@ class Project extends Model
         return $this->hasMany(TaskStatus::class);
     }
 
+    /** Stored AI analyses survive repository disconnection. */
+    public function pullRequestAiAnalyses(): HasMany
+    {
+        return $this->hasMany(PullRequestAiAnalysis::class);
+    }
+
     public function reports(): HasMany
     {
         return $this->hasMany(Report::class);
