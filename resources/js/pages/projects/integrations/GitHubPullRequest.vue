@@ -1,12 +1,16 @@
 <script setup lang="ts">
 import { Head, Link, router } from '@inertiajs/vue3';
-import { computed, ref } from 'vue';
-import { ArrowLeft, ExternalLink, GitBranch, GitMerge, History, RefreshCw, FileDiff } from '@lucide/vue';
+import { computed, ref, watch } from 'vue';
+import { ArrowLeft, ExternalLink, GitBranch, GitMerge, History, RefreshCw, FileDiff, Sparkles } from '@lucide/vue';
 import { useI18n } from '@/composables/useI18n';
 import '@/components/tasks/task-markdown-typography.css';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 type LinkedUser = { id: number; name: string } | null;
 type Participant = { login: string | null; taskflow_user: LinkedUser };
@@ -49,6 +53,27 @@ type Review = {
     body: string | null;
     submitted_at: string | null;
 };
+type AiHistoryEntry = {
+    id: number;
+    version: number;
+    status: 'pending' | 'running' | 'completed' | 'failed';
+    language: string;
+    source_head_sha: string;
+    include_patch_excerpts: boolean;
+    ai_provider: string | null;
+    ai_model: string | null;
+    prompt_tokens: number | null;
+    completion_tokens: number | null;
+    created_at: string | null;
+    finished_at: string | null;
+    result_html: string;
+};
+type AiProps = {
+    can_generate: boolean;
+    ready: boolean;
+    history_limit: number;
+    history: AiHistoryEntry[];
+};
 const props = defineProps<{
     project: { id: number; name: string; is_archived: boolean };
     repository: { full_name: string };
@@ -62,7 +87,56 @@ const props = defineProps<{
     files_current: boolean;
     files_synced_at: string | null;
     can_sync_files: boolean;
+    ai: AiProps;
 }>();
+const { locale } = useI18n();
+const selectedLanguage = ref(locale.value === 'pl' ? 'pl' : 'en');
+const customLanguage = ref('');
+const includeCode = ref(false);
+const approveMetadata = ref(false);
+const approveCode = ref(false);
+const generating = ref(false);
+const aiError = ref('');
+const selectedAnalysisId = ref<number | null>(props.ai.history[0]?.id ?? null);
+const currentAnalysis = computed(() => props.ai.history.find(item => item.id === selectedAnalysisId.value) ?? props.ai.history[0] ?? null);
+const languageToSend = computed(() => (selectedLanguage.value === 'other' ? customLanguage.value.trim() : selectedLanguage.value).toLowerCase());
+const languageValid = computed(() => /^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/i.test(languageToSend.value) && languageToSend.value.length <= 35);
+const canSubmitAi = computed(() => props.ai.can_generate && props.ai.ready && !generating.value && approveMetadata.value
+    && (!includeCode.value || approveCode.value) && languageValid.value);
+watch(() => props.ai.history[0]?.id, id => { if (id !== undefined) selectedAnalysisId.value = id; });
+watch(includeCode, enabled => { if (!enabled) approveCode.value = false; });
+function generateAiAnalysis(): void {
+    if (!canSubmitAi.value) return;
+    generating.value = true;
+    aiError.value = '';
+    router.post(`/projects/${props.project.id}/integrations/github/pulls/${props.pull_request.number}/ai-analyses`, {
+        language: languageToSend.value,
+        include_patches: includeCode.value,
+        approve_external_sharing: approveMetadata.value,
+        approve_code_sharing: includeCode.value && approveCode.value,
+    }, {
+        preserveScroll: true,
+        onSuccess: () => {
+            approveMetadata.value = false;
+            approveCode.value = false;
+            includeCode.value = false;
+        },
+        onError: errors => {
+            aiError.value = errors.analysis || errors.approve_external_sharing || errors.approve_code_sharing || errors.language
+                || (isPl.value ? 'Analiza nie została wykonana.' : 'Analysis was not completed.');
+        },
+        onFinish: () => { generating.value = false; },
+    });
+}
+function aiStatusLabel(status: AiHistoryEntry['status']): string {
+    const labels = {
+        completed: isPl.value ? 'Zakończono' : 'Completed',
+        failed: isPl.value ? 'Nieudana' : 'Failed',
+        pending: isPl.value ? 'Oczekuje' : 'Pending',
+        running: isPl.value ? 'W trakcie' : 'Running',
+    };
+    return labels[status];
+}
 const syncingFiles = ref(false);
 const filesError = ref('');
 function refreshFiles(): void {
@@ -77,7 +151,6 @@ function refreshFiles(): void {
         onFinish: () => { syncingFiles.value = false; },
     });
 }
-const { locale } = useI18n();
 const isPl = computed(() => locale.value === 'pl');
 const repositoryUrl = computed(() => `/projects/${props.project.id}/integrations/github?tab=pulls`);
 const longDescription = computed(() => props.pull_request.body_html.length > 7000);
@@ -219,6 +292,127 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
                     </div>
                     <p v-if="files_count > files.length" class="text-xs text-muted-foreground">{{ isPl ? `Pokazano pierwsze ${files_limit} plików. Pozostałe są zapisane w bazie.` : `Showing the first ${files_limit} files. Others are stored in the database.` }}</p>
                 </template>
+            </CardContent>
+        </Card>
+
+        <Card class="gap-3" id="ai-analysis">
+            <CardHeader class="space-y-2">
+                <CardTitle class="flex items-center gap-2 text-base"><Sparkles class="size-4" /> {{ isPl ? 'Agent AI — analiza Pull Requesta' : 'AI Agent — pull request analysis' }}</CardTitle>
+                <p class="text-sm text-muted-foreground">
+                    {{ isPl ? 'Analizy są prywatne i zapisane jako kolejne wersje. DeepSeek nie jest uruchamiany automatycznie.' : 'Analyses are private and versioned. DeepSeek does not run automatically.' }}
+                </p>
+            </CardHeader>
+            <CardContent class="space-y-5">
+                <form v-if="ai.can_generate" class="space-y-4 rounded-lg border p-4" @submit.prevent="generateAiAnalysis">
+                    <div class="space-y-1">
+                        <h3 class="text-sm font-semibold">{{ isPl ? 'Nowa analiza' : 'New analysis' }}</h3>
+                        <p class="text-xs text-muted-foreground">
+                            {{ isPl ? 'Przed wysłaniem sprawdź zakres danych. Dane trafią do zewnętrznego dostawcy DeepSeek.' : 'Review the data scope. Selected information will be sent to external provider DeepSeek.' }}
+                        </p>
+                    </div>
+                    <p v-if="!ai.ready" class="rounded-md border border-dashed p-3 text-sm text-muted-foreground" role="status">
+                        {{ isPl ? 'PR lub zmienione pliki wymagają odświeżenia. Zsynchronizuj PR i pliki (PR musi być zsynchronizowany w ciągu ostatnich 30 minut).' : 'PR or file snapshot is outdated. Sync the PR and its files (PR must be refreshed within the last 30 minutes).' }}
+                    </p>
+                    <div class="max-w-sm space-y-1.5">
+                        <Label for="pr-ai-language">{{ isPl ? 'Język analizy' : 'Analysis language' }}</Label>
+                        <Select v-model="selectedLanguage">
+                            <SelectTrigger id="pr-ai-language" class="w-full"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="pl">Polski</SelectItem>
+                                <SelectItem value="en">English</SelectItem>
+                                <SelectItem value="de">Deutsch</SelectItem>
+                                <SelectItem value="es">Español</SelectItem>
+                                <SelectItem value="other">{{ isPl ? 'Inny język…' : 'Other language…' }}</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <Input v-if="selectedLanguage === 'other'" v-model="customLanguage" maxlength="35" placeholder="np. fr, pt-br, uk" :aria-label="isPl ? 'Kod języka' : 'Language code'" />
+                    </div>
+                    <div class="space-y-2 rounded-md bg-muted/40 p-3 text-sm">
+                        <p class="font-medium">{{ isPl ? 'Dane przygotowane do udostępnienia' : 'Data prepared for sharing' }}</p>
+                        <p class="text-xs text-muted-foreground">
+                            {{ isPl ? 'Metadane PR-a, nazwy i statystyki zmienionych plików, stany recenzji (bez ich komentarzy).' : 'PR metadata, changed file names and statistics, review states (without review comments).' }}
+                        </p>
+                        <p class="text-xs font-medium">
+                            {{ isPl ? `Dostępny snapshot: ${files_count} plików, ${reviews_count} przesłanych recenzji. HEAD: ${pull_request.head_sha?.slice(0, 12) || '—'}.` : `Available snapshot: ${files_count} files, ${reviews_count} submitted reviews. HEAD: ${pull_request.head_sha?.slice(0, 12) || '—'}.` }}
+                        </p>
+                        <p class="text-xs text-muted-foreground">
+                            {{ isPl ? 'Nie wysyłamy opisów PR, surowych komentarzy, danych kont TaskFlow ani niepowiązanych commitów.' : 'PR descriptions, raw review comments, TaskFlow account data and unrelated commits are excluded.' }}
+                        </p>
+                        <div class="flex items-start gap-2 pt-1">
+                            <Checkbox id="pr-ai-include-code" :model-value="includeCode" @update:model-value="value => { includeCode = value === true; }" />
+                            <Label for="pr-ai-include-code" class="cursor-pointer text-sm leading-snug font-normal">
+                                {{ isPl ? 'Dołącz dodatkowo sprawdzone, ograniczone fragmenty kodu (opcjonalnie).' : 'Also include screened, bounded code excerpts (optional).' }}
+                            </Label>
+                        </div>
+                        <p v-if="includeCode" class="text-xs text-muted-foreground">
+                            {{ isPl ? 'Filtrowanie poufnych danych nie daje pełnej gwarancji ich wykrycia. Sprawdź kod przed udzieleniem zgody.' : 'Sensitive-data screening cannot guarantee detection of every secret. Review your code before consenting.' }}
+                        </p>
+                    </div>
+                    <div class="space-y-3">
+                        <div class="flex items-start gap-2">
+                            <Checkbox id="pr-ai-consent-meta" :model-value="approveMetadata" @update:model-value="value => { approveMetadata = value === true; }" />
+                            <Label for="pr-ai-consent-meta" class="cursor-pointer text-sm leading-snug font-normal">
+                                {{ isPl ? 'Zgadzam się na jednorazowe wysłanie wskazanych metadanych PR do DeepSeek.' : 'I approve a one-time transfer of the listed PR metadata to DeepSeek.' }}
+                            </Label>
+                        </div>
+                        <div v-if="includeCode" class="flex items-start gap-2">
+                            <Checkbox id="pr-ai-consent-code" :model-value="approveCode" @update:model-value="value => { approveCode = value === true; }" />
+                            <Label for="pr-ai-consent-code" class="cursor-pointer text-sm leading-snug font-normal">
+                                {{ isPl ? 'Osobno zgadzam się na wysłanie sprawdzonych fragmentów kodu do DeepSeek.' : 'I separately approve sending screened code excerpts to DeepSeek.' }}
+                            </Label>
+                        </div>
+                    </div>
+                    <p v-if="aiError" role="alert" class="text-sm text-destructive">{{ aiError }}</p>
+                    <Button type="submit" :disabled="!canSubmitAi">
+                        <Sparkles class="size-4" /> {{ generating ? (isPl ? 'Generowanie…' : 'Generating…') : (isPl ? 'Generuj analizę AI' : 'Generate AI analysis') }}
+                    </Button>
+                    <p class="text-xs text-muted-foreground">{{ isPl ? 'Żądanie może potrwać. Każde uruchomienie może zużywać płatne tokeny. Zgody nie są zapamiętywane.' : 'The request may take time and incur token charges. Consent is never remembered.' }}</p>
+                </form>
+                <div v-else class="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">
+                    {{ isPl ? 'Tylko uprawniony administrator aktywnego projektu może uruchamiać nowe analizy.' : 'Only an authorized administrator of an active project can start analyses.' }}
+                </div>
+                <div class="space-y-3">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <h3 class="text-sm font-semibold">{{ isPl ? 'Historia analiz' : 'Analysis history' }}</h3>
+                        <span class="text-xs text-muted-foreground">{{ ai.history.length }} / {{ ai.history_limit }}</span>
+                    </div>
+                    <p v-if="ai.history.length === 0" class="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+                        {{ isPl ? 'Nie wygenerowano jeszcze analizy tego PR-a.' : 'No analysis has been generated for this PR yet.' }}
+                    </p>
+                    <template v-else>
+                        <div class="max-w-sm space-y-1.5">
+                            <Label for="pr-ai-history-version">{{ isPl ? 'Wybierz wersję' : 'Choose version' }}</Label>
+                            <Select :model-value="currentAnalysis ? String(currentAnalysis.id) : undefined" @update:model-value="value => { selectedAnalysisId = Number(value); }">
+                                <SelectTrigger id="pr-ai-history-version" class="w-full"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem v-for="entry in ai.history" :key="entry.id" :value="String(entry.id)">
+                                        v{{ entry.version }} · {{ aiStatusLabel(entry.status) }} · {{ entry.language }}
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <article v-if="currentAnalysis" class="space-y-4 rounded-lg border p-4">
+                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <span class="font-semibold">v{{ currentAnalysis.version }}</span>
+                                    <Badge :variant="currentAnalysis.status === 'failed' ? 'destructive' : 'secondary'">{{ aiStatusLabel(currentAnalysis.status) }}</Badge>
+                                    <Badge variant="outline">{{ currentAnalysis.language }}</Badge>
+                                    <Badge v-if="currentAnalysis.include_patch_excerpts" variant="outline">{{ isPl ? 'Z kodem' : 'With code' }}</Badge>
+                                </div>
+                                <span class="text-xs text-muted-foreground">{{ formatDate(currentAnalysis.finished_at || currentAnalysis.created_at) }}</span>
+                            </div>
+                            <p class="break-all text-xs text-muted-foreground">HEAD: {{ currentAnalysis.source_head_sha.slice(0, 12) }} · {{ currentAnalysis.ai_model || currentAnalysis.ai_provider || '—' }}</p>
+                            <div v-if="currentAnalysis.status === 'completed' && currentAnalysis.result_html" class="task-markdown taskflow-pr-markdown min-w-0 break-words text-sm" v-html="currentAnalysis.result_html" />
+                            <p v-else class="text-sm text-muted-foreground">
+                                {{ currentAnalysis.status === 'failed' ? (isPl ? 'Generowanie nie powiodło się. Nie zapisano wyniku ani szczegółów błędu dostawcy.' : 'Generation failed. No result or provider error details were stored.') : (isPl ? 'Wynik nie jest jeszcze dostępny.' : 'No result available yet.') }}
+                            </p>
+                            <p v-if="currentAnalysis.status === 'completed'" class="text-xs text-muted-foreground">
+                                {{ isPl ? 'Tokeny wejścia / wyjścia' : 'Input / output tokens' }}:
+                                {{ currentAnalysis.prompt_tokens ?? '—' }} / {{ currentAnalysis.completion_tokens ?? '—' }}
+                            </p>
+                        </article>
+                    </template>
+                </div>
             </CardContent>
         </Card>
 

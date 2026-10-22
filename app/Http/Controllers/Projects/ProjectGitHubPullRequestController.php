@@ -4,6 +4,9 @@ namespace App\Http\Controllers\Projects;
 
 use App\Http\Controllers\Controller;
 use App\Integrations\Vcs\Providers\GitHubInstance;
+use App\Integrations\Vcs\Ai\PullRequestAiAnalysisHistory;
+use App\Models\PullRequestAiAnalysis;
+use App\Support\Tasks\TaskMarkdown;
 use App\Integrations\Vcs\RepositoryChangeRequestParticipantResolver;
 use App\Integrations\Vcs\RepositoryChangeRequestReviewResolver;
 use App\Integrations\Vcs\RepositoryChangeRequestFileSynchronizer;
@@ -22,7 +25,7 @@ use Inertia\Response;
 /** Read-only details of a stored GitHub pull request; does not contact GitHub. */
 final class ProjectGitHubPullRequestController extends Controller
 {
-    public function __invoke(Request $request, Project $project, int $number, PullRequestBodyMarkdown $bodyMarkdown): Response
+    public function __invoke(Request $request, Project $project, int $number, PullRequestBodyMarkdown $bodyMarkdown, PullRequestAiAnalysisHistory $history, TaskMarkdown $safeMarkdown): Response
     {
         Gate::forUser($request->user())->authorize('view', $project);
 
@@ -56,6 +59,13 @@ final class ProjectGitHubPullRequestController extends Controller
             && $pull->head_sha === $pull->files_head_sha;
         $filesCount = $filesCurrent ? $pull->files()->count() : 0;
         $files = $filesCurrent ? $pull->files()->orderBy('path')->limit(100)->get() : collect();
+
+        $analyses = $history->forPull($request->user(), $project, $pull, 12);
+        $canAnalyze = $request->user()->can('manageManagers', $project)
+            && $request->user()->disabled_at === null
+            && $project->archived_at === null;
+        $filesReadyForAi = $filesCurrent && $pull->synced_at !== null
+            && $pull->synced_at->gte(now()->subMinutes(30));
 
         return Inertia::render('projects/integrations/GitHubPullRequest', [
             'project' => [
@@ -103,6 +113,32 @@ final class ProjectGitHubPullRequestController extends Controller
                 'submitted_at' => $review->submitted_at?->toIso8601String(),
             ])->values(),
             'reviews_limit' => 50,
+            'ai' => [
+                'can_generate' => $canAnalyze,
+                'ready' => $filesReadyForAi,
+                'history_limit' => 12,
+                'history' => $analyses->map(static function (PullRequestAiAnalysis $analysis) use ($safeMarkdown): array {
+                    return [
+                        'id' => $analysis->id,
+                        'version' => $analysis->version,
+                        'status' => $analysis->status,
+                        'language' => $analysis->language,
+                        'source_head_sha' => $analysis->source_head_sha,
+                        'include_patch_excerpts' => $analysis->include_patch_excerpts,
+                        'ai_provider' => $analysis->ai_provider,
+                        'ai_model' => $analysis->ai_model,
+                        'prompt_tokens' => $analysis->prompt_tokens,
+                        'completion_tokens' => $analysis->completion_tokens,
+                        'created_at' => $analysis->created_at?->toIso8601String(),
+                        'finished_at' => $analysis->finished_at?->toIso8601String(),
+                        // Only project-authorized viewers receive safely rendered Markdown.
+                        // Never expose raw Markdown, input digest, source snippets or provider errors.
+                        'result_html' => $analysis->status === PullRequestAiAnalysis::STATUS_COMPLETED
+                            ? $safeMarkdown->render($analysis->result_markdown)
+                            : '',
+                    ];
+                })->values(),
+            ],
             'can_sync_files' => $request->user()->can('manageManagers', $project) && $project->archived_at === null,
             'files_current' => $filesCurrent,
             'files_count' => $filesCount,

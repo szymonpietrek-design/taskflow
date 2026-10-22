@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\GitIntegrationsController;
 use App\Http\Controllers\Projects\ProjectController;
 use App\Http\Controllers\Projects\ProjectGitHubController;
 use App\Http\Controllers\Projects\ProjectGitHubPullRequestController;
+use App\Http\Controllers\Projects\ProjectPullRequestAiAnalysisController;
 use App\Http\Controllers\Projects\ProjectRepositoryIntegrationController;
 use App\Http\Controllers\Projects\ProjectLogoController;
 use App\Http\Controllers\Projects\ProjectMemberController;
@@ -94,6 +95,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->whereNumber('number')->name('projects.github.pull.show');
     Route::post('projects/{project}/integrations/github', [ProjectGitHubController::class, 'store'])
         ->middleware('throttle:10,1')->name('projects.github.store');
+    Route::post('projects/{project}/integrations/github/pulls/{number}/ai-analyses', [ProjectPullRequestAiAnalysisController::class, 'store'])
+        ->whereNumber('number')->middleware('throttle:3,1')->name('projects.github.pull.ai.analyze');
     Route::post('projects/{project}/integrations/github/pulls/{number}/files/sync', [ProjectGitHubPullRequestController::class, 'syncFiles'])
         ->whereNumber('number')->middleware('throttle:4,1')->name('projects.github.pull.files.sync');
     Route::post('projects/{project}/integrations/github/pulls/sync', [ProjectGitHubController::class, 'syncPulls'])
