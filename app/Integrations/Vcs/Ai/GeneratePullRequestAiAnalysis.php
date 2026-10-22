@@ -15,7 +15,7 @@ use InvalidArgumentException;
 use RuntimeException;
 use Throwable;
 
-/** Stage 4.2. A CLI-only, opt-in external disclosure and append-only analysis runner. */
+/** Stage 4.2. Explicitly approved, append-only PR analysis runner (CLI or queued). */
 final class GeneratePullRequestAiAnalysis
 {
     public function __construct(
@@ -32,6 +32,7 @@ final class GeneratePullRequestAiAnalysis
         bool $includePatches = false,
         bool $approveExternalSharing = false,
         bool $approveCodeSharing = false,
+        ?PullRequestAiAnalysis $pendingAnalysis = null,
     ): PullRequestAiAnalysis {
         // Approval is always per invocation. Consent is not persisted as a reusable permission.
         if (! $approveExternalSharing) {
@@ -60,10 +61,27 @@ final class GeneratePullRequestAiAnalysis
             throw new InvalidArgumentException('AI evidence exceeds the supported limit.');
         }
 
-        $analysis = $this->history->createPending($actor, $project, $pull, $language, $includePatches);
+        if ($pendingAnalysis !== null) {
+            // The job contains only an ID. Verify it cannot be reused for another user,
+            // repository, language, revision, or patch-sharing scope.
+            if ($pendingAnalysis->status !== PullRequestAiAnalysis::STATUS_PENDING
+                || (int) $pendingAnalysis->requested_by !== (int) $actor->id
+                || (int) $pendingAnalysis->project_id !== (int) $project->id
+                || (int) $pendingAnalysis->repository_change_request_id !== (int) $pull->id
+                || (bool) $pendingAnalysis->include_patch_excerpts !== $includePatches
+                || $pendingAnalysis->language !== strtolower($language)
+                || ! hash_equals(strtolower((string) $pendingAnalysis->source_head_sha), strtolower((string) $pull->head_sha))) {
+                throw new StalePullRequestAiEvidence('The queued request no longer matches its approved source.');
+            }
+            $this->assertAnalysisSourceIsCurrent($pendingAnalysis);
+        }
+        $analysis = $pendingAnalysis ?? $this->history->createPending($actor, $project, $pull, $language, $includePatches);
         $lock = Cache::lock('taskflow:pr-ai:'.(string) $analysis->source_key, 120);
         if (! $lock->get()) {
-            $this->fail($analysis, 'already_running');
+            // A second worker must not alter the row currently owned by the first.
+            if ($pendingAnalysis === null) {
+                $this->fail($analysis, 'already_running');
+            }
             throw new RuntimeException('Another analysis for this PR is already running.');
         }
 
@@ -117,6 +135,18 @@ final class GeneratePullRequestAiAnalysis
             throw new RuntimeException('PR analysis failed. Check source freshness and AI configuration; no raw provider error is exposed.', 0);
         } finally {
             $lock->release();
+        }
+    }
+
+    /** Validate freshness and the bounded disclosure scope before creating a queued request. */
+    public function validateForQueue(Project $project, RepositoryChangeRequest $pull, bool $includePatches): void
+    {
+        $this->assertReady($pull);
+        $raw = $this->builder->build($project, (int) $pull->number, $includePatches);
+        $this->assertEvidence($raw, (string) $pull->head_sha, $includePatches);
+        $json = json_encode($this->boundedExternalEvidence($raw), JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE | JSON_UNESCAPED_SLASHES);
+        if (strlen($json) > 50000) {
+            throw new InvalidArgumentException('AI evidence exceeds the supported limit.');
         }
     }
 

@@ -5,6 +5,8 @@ namespace Tests\Feature\Projects;
 use App\Contracts\Ai\PullRequestAnalysisGenerator;
 use App\Enums\WorkspaceRole;
 use App\Integrations\Vcs\Providers\GitHubInstance;
+use App\Jobs\GeneratePullRequestAiAnalysisJob;
+use App\Integrations\Vcs\Ai\GeneratePullRequestAiAnalysis;
 use App\Models\Project;
 use App\Models\PullRequestAiAnalysis;
 use App\Models\RepositoryChangeRequest;
@@ -14,6 +16,7 @@ use App\Models\VcsConnection;
 use App\Models\WorkspaceMember;
 use App\Services\Ai\GeneratedPullRequestAnalysis;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Queue;
 use Inertia\Testing\AssertableInertia as Assert;
 use RuntimeException;
 use Tests\TestCase;
@@ -28,6 +31,7 @@ class ProjectPullRequestAiAnalysisUiTest extends TestCase
     {
         parent::setUp();
         $this->withoutVite();
+        Queue::fake();
     }
 
     public function test_admin_sees_ready_state_but_consent_is_not_preselected(): void
@@ -64,7 +68,7 @@ class ProjectPullRequestAiAnalysisUiTest extends TestCase
         $this->assertDatabaseCount('pull_request_ai_analyses', 0);
     }
 
-    public function test_successful_metadata_only_submission_creates_private_version_and_html_history(): void
+    public function test_approved_submission_queues_only_an_id_and_worker_saves_versioned_history(): void
     {
         [$project, , $owner] = $this->fixture();
         $fake = $this->fake();
@@ -75,16 +79,27 @@ class ProjectPullRequestAiAnalysisUiTest extends TestCase
         ];
         $this->actingAs($owner)->post($url, $payload)
             ->assertRedirect(route('projects.github.pull.show', [$project, 10]));
-        $this->actingAs($owner)->post($url, $payload)
-            ->assertRedirect(route('projects.github.pull.show', [$project, 10]));
-        $this->assertSame(2, $fake->calls);
-        $this->assertDatabaseCount('pull_request_ai_analyses', 2);
-        $this->assertSame([1, 2], PullRequestAiAnalysis::query()->orderBy('version')->pluck('version')->all());
+
+        $this->assertSame(0, $fake->calls); // Never call DeepSeek during HTTP.
+        Queue::assertPushed(GeneratePullRequestAiAnalysisJob::class, 1);
+        $queued = PullRequestAiAnalysis::query()->firstOrFail();
+        $this->assertSame('pending', $queued->status);
+
+        // Same PR cannot be double-queued while pending (potential double charge).
+        $this->actingAs($owner)->post($url, $payload)->assertSessionHasErrors('analysis');
+        Queue::assertPushed(GeneratePullRequestAiAnalysisJob::class, 1);
+        $this->assertDatabaseCount('pull_request_ai_analyses', 1);
+
+        // Explicitly simulate the database worker consuming that ID-only job.
+        (new GeneratePullRequestAiAnalysisJob((int) $queued->id))
+            ->handle(app(GeneratePullRequestAiAnalysis::class));
+        $this->assertSame(1, $fake->calls);
+        $this->assertSame('completed', $queued->fresh()->status);
 
         $this->actingAs($owner)->get(route('projects.github.pull.show', [$project, 10]))
             ->assertOk()->assertInertia(fn (Assert $page) => $page
-                ->has('ai.history', 2)
-                ->where('ai.history.0.version', 2)
+                ->has('ai.history', 1)
+                ->where('ai.history.0.version', 1)
                 ->where('ai.history.0.status', 'completed')
                 ->where('ai.history.0.include_patch_excerpts', false)
                 ->where('ai.history.0.result_html', fn ($html) => str_contains($html, '<strong>')
@@ -102,9 +117,13 @@ class ProjectPullRequestAiAnalysisUiTest extends TestCase
             'language' => 'en', 'include_patches' => true,
             'approve_external_sharing' => true, 'approve_code_sharing' => true,
         ])->assertRedirect();
+        $this->assertSame(0, $fake->calls);
+        $analysis = PullRequestAiAnalysis::query()->firstOrFail();
+        $this->assertTrue($analysis->include_patch_excerpts);
+        (new GeneratePullRequestAiAnalysisJob((int) $analysis->id))
+            ->handle(app(GeneratePullRequestAiAnalysis::class));
         $this->assertSame(1, $fake->calls);
         $this->assertSame(1, $fake->patchCalls);
-        $this->assertTrue(PullRequestAiAnalysis::query()->firstOrFail()->include_patch_excerpts);
     }
 
     public function test_outsiders_and_archived_projects_cannot_start_analysis(): void
@@ -144,9 +163,13 @@ class ProjectPullRequestAiAnalysisUiTest extends TestCase
         $this->actingAs($owner)->post(route('projects.github.pull.ai.analyze', [$project, 10]), [
             'language' => 'pl', 'include_patches' => false,
             'approve_external_sharing' => true, 'approve_code_sharing' => false,
-        ])->assertSessionHasErrors('analysis');
+        ])->assertRedirect();
+        $this->assertSame(0, $fake->calls);
+        $analysis = PullRequestAiAnalysis::query()->firstOrFail();
+        (new GeneratePullRequestAiAnalysisJob((int) $analysis->id))
+            ->handle(app(GeneratePullRequestAiAnalysis::class));
         $this->assertSame(1, $fake->calls);
-        $this->assertSame('failed', PullRequestAiAnalysis::query()->firstOrFail()->status);
+        $this->assertSame('failed', $analysis->fresh()->status);
         $response = $this->actingAs($owner)->get(route('projects.github.pull.show', [$project, 10]));
         $response->assertOk()->assertDontSee('TOKEN_SECRET', false)->assertInertia(fn (Assert $page) => $page
             ->where('ai.history.0.result_html', '')
@@ -166,6 +189,56 @@ class ProjectPullRequestAiAnalysisUiTest extends TestCase
             'approve_external_sharing' => true, 'approve_code_sharing' => false,
         ])->assertSessionHasErrors('analysis');
         $this->assertSame(0, $fake->calls);
+        Queue::assertNotPushed(GeneratePullRequestAiAnalysisJob::class);
+    }
+
+    public function test_queued_job_rechecks_source_before_external_api_call(): void
+    {
+        [$project, $pull, $owner] = $this->fixture();
+        $fake = $this->fake();
+        $this->actingAs($owner)->post(route('projects.github.pull.ai.analyze', [$project, 10]), [
+            'language' => 'pl', 'include_patches' => false,
+            'approve_external_sharing' => true, 'approve_code_sharing' => false,
+        ])->assertRedirect();
+        $analysis = PullRequestAiAnalysis::query()->firstOrFail();
+        $pull->forceFill(['head_sha' => str_repeat('b', 40)])->save();
+        (new GeneratePullRequestAiAnalysisJob((int) $analysis->id))
+            ->handle(app(GeneratePullRequestAiAnalysis::class));
+        $this->assertSame(0, $fake->calls);
+        $this->assertSame('failed', $analysis->fresh()->status);
+    }
+
+    public function test_queued_job_rechecks_permission_and_cannot_run_for_archived_project(): void
+    {
+        [$project, , $owner] = $this->fixture();
+        $fake = $this->fake();
+        $this->actingAs($owner)->post(route('projects.github.pull.ai.analyze', [$project, 10]), [
+            'language' => 'en', 'include_patches' => false,
+            'approve_external_sharing' => true, 'approve_code_sharing' => false,
+        ])->assertRedirect();
+        $analysis = PullRequestAiAnalysis::query()->firstOrFail();
+        $project->forceFill(['archived_at' => now()])->save();
+        (new GeneratePullRequestAiAnalysisJob((int) $analysis->id))
+            ->handle(app(GeneratePullRequestAiAnalysis::class));
+        $this->assertSame(0, $fake->calls);
+        $this->assertSame('failed', $analysis->fresh()->status);
+    }
+
+    public function test_duplicate_delivery_does_not_regenerate_completed_analysis(): void
+    {
+        [$project, , $owner] = $this->fixture();
+        $fake = $this->fake();
+        $this->actingAs($owner)->post(route('projects.github.pull.ai.analyze', [$project, 10]), [
+            'language' => 'pl', 'include_patches' => false,
+            'approve_external_sharing' => true, 'approve_code_sharing' => false,
+        ])->assertRedirect();
+        $analysis = PullRequestAiAnalysis::query()->firstOrFail();
+        $job = new GeneratePullRequestAiAnalysisJob((int) $analysis->id);
+        $job->handle(app(GeneratePullRequestAiAnalysis::class));
+        $job->handle(app(GeneratePullRequestAiAnalysis::class));
+        $this->assertSame(1, $fake->calls);
+        $this->assertSame('completed', $analysis->fresh()->status);
+        $this->assertDatabaseCount('pull_request_ai_analyses', 1);
     }
 
     /** @return array{Project, RepositoryChangeRequest, User} */

@@ -44,6 +44,17 @@ return [
             'after_commit' => false,
         ],
 
+        // Dedicated DB worker for PR analysis: timeout=120, retry_after=180.
+        // Always asynchronous even if the application's default queue is "sync".
+        'ai_analyses' => [
+            'driver' => 'database',
+            'connection' => env('DB_QUEUE_CONNECTION'),
+            'table' => env('DB_QUEUE_TABLE', 'jobs'),
+            'queue' => 'ai-analyses',
+            'retry_after' => 180,
+            'after_commit' => true,
+        ],
+
         'beanstalkd' => [
             'driver' => 'beanstalkd',
             'host' => env('BEANSTALKD_QUEUE_HOST', 'localhost'),

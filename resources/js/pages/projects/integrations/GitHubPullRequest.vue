@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, Link, router } from '@inertiajs/vue3';
-import { computed, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { ArrowLeft, ExternalLink, GitBranch, GitMerge, History, RefreshCw, FileDiff, Sparkles } from '@lucide/vue';
 import { useI18n } from '@/composables/useI18n';
 import '@/components/tasks/task-markdown-typography.css';
@@ -101,7 +101,8 @@ const selectedAnalysisId = ref<number | null>(props.ai.history[0]?.id ?? null);
 const currentAnalysis = computed(() => props.ai.history.find(item => item.id === selectedAnalysisId.value) ?? props.ai.history[0] ?? null);
 const languageToSend = computed(() => (selectedLanguage.value === 'other' ? customLanguage.value.trim() : selectedLanguage.value).toLowerCase());
 const languageValid = computed(() => /^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/i.test(languageToSend.value) && languageToSend.value.length <= 35);
-const canSubmitAi = computed(() => props.ai.can_generate && props.ai.ready && !generating.value && approveMetadata.value
+const hasActiveAnalysis = computed(() => props.ai.history.some(item => item.status === 'pending' || item.status === 'running'));
+const canSubmitAi = computed(() => props.ai.can_generate && props.ai.ready && !generating.value && !hasActiveAnalysis.value && approveMetadata.value
     && (!includeCode.value || approveCode.value) && languageValid.value);
 watch(() => props.ai.history[0]?.id, id => { if (id !== undefined) selectedAnalysisId.value = id; });
 watch(includeCode, enabled => { if (!enabled) approveCode.value = false; });
@@ -137,6 +138,17 @@ function aiStatusLabel(status: AiHistoryEntry['status']): string {
     };
     return labels[status];
 }
+// Poll only while this PR has an active queued analysis. Inertia refreshes
+// only the ai prop, preserving form state, scroll and the selected tab.
+let aiPollTimer: ReturnType<typeof setInterval> | null = null;
+onMounted(() => {
+    aiPollTimer = setInterval(() => {
+        if (hasActiveAnalysis.value && !generating.value) {
+            router.reload({ only: ['ai'], preserveScroll: true, preserveState: true });
+        }
+    }, 5000);
+});
+onUnmounted(() => { if (aiPollTimer) clearInterval(aiPollTimer); });
 const syncingFiles = ref(false);
 const filesError = ref('');
 function refreshFiles(): void {
@@ -362,11 +374,14 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
                             </Label>
                         </div>
                     </div>
+                    <p v-if="hasActiveAnalysis" role="status" class="text-sm text-muted-foreground">
+                        {{ isPl ? 'Analiza oczekuje lub trwa. Wynik pojawi się tutaj po zakończeniu.' : 'Analysis queued or running. The result will appear here when complete.' }}
+                    </p>
                     <p v-if="aiError" role="alert" class="text-sm text-destructive">{{ aiError }}</p>
                     <Button type="submit" :disabled="!canSubmitAi">
-                        <Sparkles class="size-4" /> {{ generating ? (isPl ? 'Generowanie…' : 'Generating…') : (isPl ? 'Generuj analizę AI' : 'Generate AI analysis') }}
+                        <Sparkles class="size-4" /> {{ generating ? (isPl ? 'Zlecanie…' : 'Queuing…') : (isPl ? 'Zleć analizę AI' : 'Queue AI analysis') }}
                     </Button>
-                    <p class="text-xs text-muted-foreground">{{ isPl ? 'Żądanie może potrwać. Każde uruchomienie może zużywać płatne tokeny. Zgody nie są zapamiętywane.' : 'The request may take time and incur token charges. Consent is never remembered.' }}</p>
+                    <p class="text-xs text-muted-foreground">{{ isPl ? 'Analiza uruchomi się w kolejce. Odświeżamy status automatycznie. Każde uruchomienie może zużywać płatne tokeny; zgody nie są zapamiętywane.' : 'Analysis runs in a background queue and status refreshes automatically. Each run can incur token charges; consent is never remembered.' }}</p>
                 </form>
                 <div v-else class="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">
                     {{ isPl ? 'Tylko uprawniony administrator aktywnego projektu może uruchamiać nowe analizy.' : 'Only an authorized administrator of an active project can start analyses.' }}

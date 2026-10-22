@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Projects;
 
 use App\Http\Controllers\Controller;
-use App\Integrations\Vcs\Ai\GeneratePullRequestAiAnalysis;
+use App\Integrations\Vcs\Ai\QueuePullRequestAiAnalysis;
 use App\Integrations\Vcs\Ai\StalePullRequestAiEvidence;
 use App\Integrations\Vcs\Providers\GitHubInstance;
 use App\Models\Project;
@@ -22,7 +22,7 @@ final class ProjectPullRequestAiAnalysisController extends Controller
         Request $request,
         Project $project,
         int $number,
-        GeneratePullRequestAiAnalysis $analyze,
+        QueuePullRequestAiAnalysis $queue,
     ): RedirectResponse {
         Gate::forUser($request->user())->authorize('manageManagers', $project);
         abort_if($project->archived_at !== null || $request->user()->disabled_at !== null, 403);
@@ -54,14 +54,12 @@ final class ProjectPullRequestAiAnalysisController extends Controller
         }
 
         try {
-            $analysis = $analyze->run(
+            $analysis = $queue->enqueue(
                 actor: $request->user(),
                 project: $project,
                 pull: $pull,
                 language: strtolower($validated['language']),
                 includePatches: $patches,
-                approveExternalSharing: true,
-                approveCodeSharing: $codeConsent,
             );
         } catch (StalePullRequestAiEvidence) {
             throw ValidationException::withMessages([
@@ -84,8 +82,8 @@ final class ProjectPullRequestAiAnalysisController extends Controller
         Inertia::flash('toast', [
             'type' => 'success',
             'message' => $this->message(
-                "Analiza AI v{$analysis->version} została zapisana.",
-                "AI analysis v{$analysis->version} has been saved.",
+                "Analiza AI v{$analysis->version} została dodana do kolejki.",
+                "AI analysis v{$analysis->version} has been queued.",
             ),
         ]);
 
