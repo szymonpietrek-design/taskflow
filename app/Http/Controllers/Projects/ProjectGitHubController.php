@@ -8,6 +8,7 @@ use App\Integrations\GitHub\GitHubAppClient;
 use App\Integrations\Vcs\Providers\GitHubInstance;
 use App\Integrations\Vcs\RepositoryAuthorBackfiller;
 use App\Integrations\Vcs\RepositorySynchronizer;
+use App\Integrations\Vcs\RepositorySyncLock;
 use App\Models\Project;
 use App\Models\RepositoryCommit;
 use App\Models\RepositoryConnection;
@@ -20,6 +21,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -235,7 +237,23 @@ class ProjectGitHubController extends Controller
     public function destroy(Request $request, Project $project): RedirectResponse
     {
         Gate::forUser($request->user())->authorize('manageManagers', $project);
-        $this->repository($project)?->delete();
+        $repository = $this->repository($project);
+        if ($repository !== null) {
+            // A concurrent sync must not lose its run or imported commits halfway through.
+            $lock = Cache::lock(RepositorySyncLock::key($repository->id), 120);
+            if (! $lock->get()) {
+                throw ValidationException::withMessages([
+                    'repository' => app()->getLocale() === 'pl'
+                        ? 'Trwa synchronizacja repozytorium. Spróbuj odłączyć je po jej zakończeniu.'
+                        : 'Repository synchronization is in progress. Disconnect after it finishes.',
+                ]);
+            }
+            try {
+                $repository->delete();
+            } finally {
+                $lock->release();
+            }
+        }
         // The workspace installation is shared with other projects and remains registered.
         return to_route('projects.github.index', $project);
     }

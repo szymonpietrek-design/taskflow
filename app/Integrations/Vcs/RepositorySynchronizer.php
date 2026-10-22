@@ -23,7 +23,7 @@ final class RepositorySynchronizer
     /** @return array{fetched:int,imported:int,head_sha:string} */
     public function synchronize(RepositoryConnection $repository): array
     {
-        $lock = Cache::lock('vcs-repo-sync-'.$repository->id, 120);
+        $lock = Cache::lock(RepositorySyncLock::key($repository->id), 120);
         if (! $lock->get()) {
             throw new RuntimeException('Repository synchronization is already running.');
         }
@@ -116,6 +116,7 @@ final class RepositorySynchronizer
         if ($batch['commits'] === [] && strcasecmp($batch['head_sha'], $initialSha) !== 0) {
             throw new RuntimeException('Provider returned a new HEAD without its commits.');
         }
+        $seenShas = [];
         foreach ($batch['commits'] as $commit) {
             if (! is_array($commit) || ! is_string($commit['sha'] ?? null)
                 || ! preg_match('/\A[a-f0-9]{40}\z/iD', $commit['sha'])
@@ -126,11 +127,17 @@ final class RepositorySynchronizer
                 || ! array_key_exists('author_external_user_id', $commit)
                 || ! array_key_exists('committed_at', $commit)
                 || (isset($commit['author_name']) && ! is_string($commit['author_name']))
-                || (isset($commit['author_login']) && ! is_string($commit['author_login']))
+                || (isset($commit['author_login']) && (! is_string($commit['author_login']) || mb_strlen($commit['author_login']) > 190))
+                || (isset($commit['author_name']) && mb_strlen($commit['author_name']) > 190)
                 || (isset($commit['committed_at']) && ! is_string($commit['committed_at']))
-                || (isset($commit['author_external_user_id']) && (! is_string($commit['author_external_user_id']) || strlen($commit['author_external_user_id']) > 190))) {
+                || (isset($commit['author_external_user_id']) && (! is_string($commit['author_external_user_id']) || $commit['author_external_user_id'] === '' || strlen($commit['author_external_user_id']) > 190))) {
                 throw new RuntimeException('Provider returned invalid commit metadata.');
             }
+            $sha = strtolower($commit['sha']);
+            if (isset($seenShas[$sha])) {
+                throw new RuntimeException('Provider returned duplicate commit SHAs.');
+            }
+            $seenShas[$sha] = true;
         }
         if ($batch['commits'] !== [] && ! in_array(strtolower($batch['head_sha']), array_map(
             static fn (array $c): string => strtolower($c['sha']), $batch['commits'],

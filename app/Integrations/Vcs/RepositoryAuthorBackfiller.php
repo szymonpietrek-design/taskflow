@@ -18,7 +18,7 @@ final class RepositoryAuthorBackfiller
     /** @return array{checked:int,remaining:int} */
     public function backfill(RepositoryConnection $repository): array
     {
-        $lock = Cache::lock('vcs-repo-sync-'.$repository->id, 120);
+        $lock = Cache::lock(RepositorySyncLock::key($repository->id), 120);
         if (! $lock->get()) {
             throw new RuntimeException('Repository synchronization is already running.');
         }

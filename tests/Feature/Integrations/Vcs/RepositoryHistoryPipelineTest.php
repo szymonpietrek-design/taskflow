@@ -82,6 +82,43 @@ class RepositoryHistoryPipelineTest extends TestCase
         }
     }
 
+    public function test_duplicate_provider_commits_cannot_advance_cursor(): void
+    {
+        [$repository] = $this->repository();
+        $this->mockReader()->shouldReceive('changesSince')->once()->andReturn([
+            'head_sha' => self::HEAD,
+            'commits' => [$this->commit(), $this->commit()],
+        ]);
+
+        $this->expectExceptionMessage('Provider returned duplicate commit SHAs.');
+        try {
+            app(RepositorySynchronizer::class)->synchronize($repository);
+        } finally {
+            $this->assertSame(self::BASE, $repository->fresh()->last_synced_sha);
+            $this->assertDatabaseCount('repository_commits', 0);
+            $this->assertDatabaseHas('repository_sync_runs', ['status' => 'failed']);
+        }
+    }
+
+    public function test_oversized_author_metadata_is_rejected_before_database_writes(): void
+    {
+        [$repository] = $this->repository();
+        $commit = $this->commit();
+        $commit['author_name'] = str_repeat('x', 191);
+        $this->mockReader()->shouldReceive('changesSince')->once()->andReturn([
+            'head_sha' => self::HEAD, 'commits' => [$commit],
+        ]);
+
+        $this->expectExceptionMessage('Provider returned invalid commit metadata.');
+        try {
+            app(RepositorySynchronizer::class)->synchronize($repository);
+        } finally {
+            $this->assertSame(self::BASE, $repository->fresh()->last_synced_sha);
+            $this->assertDatabaseCount('repository_commits', 0);
+            $this->assertDatabaseHas('repository_sync_runs', ['status' => 'failed']);
+        }
+    }
+
     public function test_remote_failure_does_not_advance_cursor_and_records_failure(): void
     {
         [$repository] = $this->repository();

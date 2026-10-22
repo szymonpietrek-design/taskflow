@@ -13,6 +13,8 @@ use App\Models\ProjectMember;
 use App\Models\User;
 use App\Models\WorkspaceMember;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
+use App\Integrations\Vcs\RepositorySyncLock;
 use Inertia\Testing\AssertableInertia as Assert;
 use Mockery;
 use RuntimeException;
@@ -181,6 +183,24 @@ class ProjectGitHubConnectionTest extends TestCase
         $this->assertDatabaseCount('repository_connections', 0);
         $this->assertDatabaseCount('vcs_connections', 1);
         $this->assertDatabaseHas('projects', ['id' => $project->id]);
+    }
+
+    public function test_repository_cannot_be_disconnected_while_sync_lock_is_held(): void
+    {
+        [$project, $owner] = $this->projectWithOwner();
+        $this->createLinkedRepository($project);
+        $repository = RepositoryConnection::query()->sole();
+        $lock = Cache::lock(RepositorySyncLock::key($repository->id), 120);
+        $this->assertTrue($lock->get());
+        try {
+            $this->actingAs($owner)->from(route('projects.github.index', $project))
+                ->delete(route('projects.github.destroy', $project))
+                ->assertRedirect(route('projects.github.index', $project))
+                ->assertSessionHasErrors('repository');
+            $this->assertDatabaseHas('repository_connections', ['id' => $repository->id]);
+        } finally {
+            $lock->release();
+        }
     }
 
     public function test_missing_github_app_configuration_blocks_connection(): void
