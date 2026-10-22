@@ -56,8 +56,14 @@ class RepositoryChangeRequest extends Model
             'merged_at' => 'datetime',
             'merged_by_checked_at' => 'datetime',
             'reviews_checked_at' => 'datetime',
+            'files_synced_at' => 'datetime',
             'synced_at' => 'datetime',
         ];
+    }
+
+    public function files(): HasMany
+    {
+        return $this->hasMany(RepositoryChangeRequestFile::class, 'repository_change_request_id');
     }
 
     public function reviews(): HasMany
