@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /** Provider-neutral PR / MR snapshot; no network access or author inference. */
 #[Fillable([
@@ -54,8 +55,14 @@ class RepositoryChangeRequest extends Model
             'closed_at' => 'datetime',
             'merged_at' => 'datetime',
             'merged_by_checked_at' => 'datetime',
+            'reviews_checked_at' => 'datetime',
             'synced_at' => 'datetime',
         ];
+    }
+
+    public function reviews(): HasMany
+    {
+        return $this->hasMany(RepositoryChangeRequestReview::class, 'repository_change_request_id');
     }
 
     public function repository(): BelongsTo

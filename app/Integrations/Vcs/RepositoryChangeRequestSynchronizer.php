@@ -75,6 +75,10 @@ final class RepositoryChangeRequestSynchronizer
                     if ($existing !== null) {
                         $existing->fill($snapshot);
                         $changed = $existing->isDirty();
+                        if ($changed) {
+                            // Refetch reviews after any newly observed PR update (dismissals, merge, etc.).
+                            $existing->reviews_checked_at = null;
+                        }
                         $existing->synced_at = now();
                         $existing->save();
                         if ($changed) {
