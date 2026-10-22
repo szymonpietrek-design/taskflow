@@ -88,7 +88,7 @@ class GitHubAppClient
         ];
     }
 
-    protected function installationToken(int $installationId): string
+    protected function installationToken(int $installationId, array $permissions = ['contents' => 'read']): string
     {
         if (! $this->configured() || $installationId < 1) {
             throw new RuntimeException('GitHub App is not configured.');
@@ -96,7 +96,7 @@ class GitHubAppClient
 
         $response = $this->api()->withToken($this->appJwt())
             ->post('/app/installations/'.$installationId.'/access_tokens', [
-                'permissions' => ['contents' => 'read'],
+                'permissions' => $permissions,
             ])->throw()->json();
 
         if (! is_string($response['token'] ?? null) || $response['token'] === '') {
