@@ -50,6 +50,11 @@ class RepositoryConnection extends Model
         return $this->hasMany(RepositoryCommit::class);
     }
 
+    public function changeRequests(): HasMany
+    {
+        return $this->hasMany(RepositoryChangeRequest::class);
+    }
+
     public function syncRuns(): HasMany
     {
         return $this->hasMany(RepositorySyncRun::class);
