@@ -94,6 +94,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->whereNumber('number')->name('projects.github.pull.show');
     Route::post('projects/{project}/integrations/github', [ProjectGitHubController::class, 'store'])
         ->middleware('throttle:10,1')->name('projects.github.store');
+    Route::post('projects/{project}/integrations/github/pulls/{number}/files/sync', [ProjectGitHubPullRequestController::class, 'syncFiles'])
+        ->whereNumber('number')->middleware('throttle:4,1')->name('projects.github.pull.files.sync');
     Route::post('projects/{project}/integrations/github/pulls/sync', [ProjectGitHubController::class, 'syncPulls'])
         ->middleware('throttle:6,1')->name('projects.github.pulls.sync');
     Route::post('projects/{project}/integrations/github/reviews/sync', [ProjectGitHubController::class, 'syncReviews'])

@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { Head, Link } from '@inertiajs/vue3';
-import { computed } from 'vue';
-import { ArrowLeft, ExternalLink, GitBranch, GitMerge, History } from '@lucide/vue';
+import { Head, Link, router } from '@inertiajs/vue3';
+import { computed, ref } from 'vue';
+import { ArrowLeft, ExternalLink, GitBranch, GitMerge, History, RefreshCw, FileDiff } from '@lucide/vue';
 import { useI18n } from '@/composables/useI18n';
 import '@/components/tasks/task-markdown-typography.css';
 import { Badge } from '@/components/ui/badge';
@@ -32,6 +32,15 @@ type PullRequest = {
     synced_at: string | null;
     reviews_checked_at: string | null;
 };
+type ChangedFile = {
+    path: string;
+    previous_path: string | null;
+    status: string;
+    additions: number;
+    deletions: number;
+    patch: string | null;
+    patch_truncated: boolean;
+};
 type Review = {
     id: number;
     state: 'approved' | 'changes_requested' | 'commented' | 'dismissed';
@@ -47,7 +56,27 @@ const props = defineProps<{
     reviews: Review[];
     reviews_count: number;
     reviews_limit: number;
+    files: ChangedFile[];
+    files_count: number;
+    files_limit: number;
+    files_current: boolean;
+    files_synced_at: string | null;
+    can_sync_files: boolean;
 }>();
+const syncingFiles = ref(false);
+const filesError = ref('');
+function refreshFiles(): void {
+    if (!props.can_sync_files || syncingFiles.value) return;
+    filesError.value = '';
+    syncingFiles.value = true;
+    router.post(`/projects/${props.project.id}/integrations/github/pulls/${props.pull_request.number}/files/sync`, {}, {
+        preserveScroll: true,
+        onError: (errors) => {
+            filesError.value = errors.files || (isPl.value ? 'Nie udało się pobrać zmian.' : 'Could not fetch changes.');
+        },
+        onFinish: () => { syncingFiles.value = false; },
+    });
+}
 const { locale } = useI18n();
 const isPl = computed(() => locale.value === 'pl');
 const repositoryUrl = computed(() => `/projects/${props.project.id}/integrations/github?tab=pulls`);
@@ -147,6 +176,49 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
                     </template>
                     <p v-else class="text-sm text-muted-foreground">{{ isPl ? 'Brak opisu w zapisanym Pull Requeście.' : 'No description stored for this pull request.' }}</p>
                 </div>
+            </CardContent>
+        </Card>
+
+        <Card class="gap-3">
+            <CardHeader class="space-y-2">
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                    <CardTitle class="flex items-center gap-2 text-base"><FileDiff class="size-4" /> {{ isPl ? 'Zmiany w plikach' : 'Changed files' }}</CardTitle>
+                    <Button v-if="can_sync_files" type="button" size="sm" variant="outline" :disabled="syncingFiles" @click="refreshFiles">
+                        <RefreshCw class="size-4" :class="{ 'animate-spin': syncingFiles }" /> {{ syncingFiles ? (isPl ? 'Pobieranie…' : 'Fetching…') : (isPl ? 'Synchronizuj pliki' : 'Sync files') }}
+                    </Button>
+                </div>
+                <p class="text-sm text-muted-foreground">
+                    {{ isPl ? 'Zmiany w plikach dotyczą aktualnej wersji HEAD. Podgląd diffu jest ograniczony rozmiarem.' : 'Files refer to the current HEAD revision. Diff previews are size-limited.' }}
+                </p>
+                <p v-if="filesError" role="alert" class="text-sm text-destructive">{{ filesError }}</p>
+            </CardHeader>
+            <CardContent class="space-y-3">
+                <p v-if="!files_current" class="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+                    {{ isPl ? 'Brak aktualnej migawki zmian. Synchronizuj pliki (po wcześniejszej synchronizacji PR-a).' : 'No current file snapshot. Sync files after refreshing the PR.' }}
+                </p>
+                <template v-else>
+                    <div class="flex flex-wrap items-center justify-between gap-2 text-sm">
+                        <span class="text-muted-foreground">{{ isPl ? 'Zmienione pliki' : 'Changed files' }}: <strong class="text-foreground">{{ files_count }}</strong></span>
+                        <time class="text-xs text-muted-foreground">{{ formatDate(files_synced_at) }}</time>
+                    </div>
+                    <p v-if="files_count === 0" class="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+                        {{ isPl ? 'GitHub nie zwrócił zmienionych plików dla tej wersji PR-a.' : 'GitHub returned no changed files for this PR revision.' }}
+                    </p>
+                    <div v-else class="divide-y rounded-lg border">
+                        <details v-for="file in files" :key="file.path" class="group min-w-0 px-3 py-3">
+                            <summary class="flex cursor-pointer list-none flex-wrap items-center justify-between gap-2 text-sm marker:hidden">
+                                <span class="min-w-0 break-all font-mono text-xs"><span class="mr-2 text-muted-foreground">{{ file.status }}</span>{{ file.path }}</span>
+                                <span class="flex shrink-0 gap-2 font-mono text-xs"><span class="text-green-700 dark:text-green-400">+{{ file.additions }}</span><span class="text-red-700 dark:text-red-400">-{{ file.deletions }}</span></span>
+                            </summary>
+                            <div class="mt-3 space-y-2 border-t pt-3">
+                                <p v-if="file.previous_path" class="break-all text-xs text-muted-foreground">{{ isPl ? 'Poprzednia ścieżka' : 'Previous path' }}: {{ file.previous_path }}</p>
+                                <pre v-if="file.patch" class="max-h-[34rem] overflow-auto rounded-md bg-muted p-3 font-mono text-xs leading-relaxed"><code>{{ file.patch }}</code></pre>
+                                <p v-else class="text-xs text-muted-foreground">{{ isPl ? 'Podgląd diffu niedostępny (plik binarny lub limit rozmiaru).' : 'Diff preview unavailable (binary file or size limit).' }}</p>
+                            </div>
+                        </details>
+                    </div>
+                    <p v-if="files_count > files.length" class="text-xs text-muted-foreground">{{ isPl ? `Pokazano pierwsze ${files_limit} plików. Pozostałe są zapisane w bazie.` : `Showing the first ${files_limit} files. Others are stored in the database.` }}</p>
+                </template>
             </CardContent>
         </Card>
 
