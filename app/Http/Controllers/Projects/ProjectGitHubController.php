@@ -7,10 +7,13 @@ use App\Http\Controllers\Controller;
 use App\Integrations\GitHub\GitHubAppClient;
 use App\Integrations\Vcs\Providers\GitHubInstance;
 use App\Integrations\Vcs\RepositoryAuthorBackfiller;
+use App\Integrations\Vcs\RepositoryChangeRequestParticipantResolver;
 use App\Integrations\Vcs\RepositorySynchronizer;
 use App\Integrations\Vcs\RepositorySyncLock;
 use App\Models\Project;
 use App\Models\RepositoryCommit;
+use App\Models\RepositoryChangeRequest;
+use App\Models\RepositoryChangeRequestReview;
 use App\Models\RepositoryConnection;
 use App\Models\UserVcsAccount;
 use App\Models\VcsConnection;
@@ -46,6 +49,14 @@ class ProjectGitHubController extends Controller
         $connected = $this->repository($project);
         $recentCommits = $connected ? $connected->commits()
             ->orderByDesc('committed_at')->orderByDesc('id')->limit(15)->get() : collect();
+        // Show only a small provider-neutral snapshot. Reviews are counted without draft/PENDING items.
+        $recentPulls = $connected ? $connected->changeRequests()
+            ->withCount(['reviews as submitted_reviews_count' => fn ($query) => $query
+                ->where('state', '!=', RepositoryChangeRequestReview::STATE_PENDING)])
+            ->orderByDesc('remote_updated_at')->orderByDesc('id')->limit(15)->get() : collect();
+        $pullParticipants = $connected && $recentPulls->isNotEmpty()
+            ? app(RepositoryChangeRequestParticipantResolver::class)->resolve($connected, $recentPulls)
+            : [];
         $ids = $recentCommits->pluck('author_external_user_id')->filter()->unique()->all();
         $linkedAuthors = $connected && $ids !== [] ? UserVcsAccount::query()
             ->where('vcs_instance_id', $connected->connection->vcs_instance_id)
@@ -89,6 +100,23 @@ class ProjectGitHubController extends Controller
                         'name' => $matched->user->name,
                     ] : null,
                     'committed_at' => $commit->committed_at?->toIso8601String(),
+                ];
+            })->values(),
+            'pull_requests_count' => $connected ? $connected->changeRequests()->count() : 0,
+            'pull_requests' => $recentPulls->map(function (RepositoryChangeRequest $pull) use ($connected, $pullParticipants): array {
+                return [
+                    'number' => $pull->number,
+                    'title' => $pull->title,
+                    // Do not expose untrusted stored URLs or PR bodies to the browser.
+                    'web_url' => 'https://github.com/'.$connected->full_name.'/pull/'.$pull->number,
+                    'state' => $pull->state,
+                    'is_draft' => $pull->is_draft,
+                    'author_login' => $pull->author_login,
+                    'taskflow_author' => $pullParticipants[$pull->id]['author'] ?? null,
+                    'source_branch' => $pull->source_branch,
+                    'target_branch' => $pull->target_branch,
+                    'reviews_count' => (int) $pull->submitted_reviews_count,
+                    'remote_updated_at' => $pull->remote_updated_at?->toIso8601String(),
                 ];
             })->values(),
             'legacy_authors_pending' => $connected && $request->user()->can('manageManagers', $project)

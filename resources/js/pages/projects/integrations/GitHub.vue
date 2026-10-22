@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Head, Link, useForm, router } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
-import { ArrowLeft, GitBranch, History, LockKeyhole, RefreshCw, ShieldCheck, Trash2 } from '@lucide/vue';
+import { ArrowLeft, ExternalLink, GitBranch, GitMerge, History, LockKeyhole, RefreshCw, ShieldCheck, Trash2 } from '@lucide/vue';
 import { useI18n } from '@/composables/useI18n';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -19,6 +19,19 @@ type Repository = {
     last_synced_at: string | null;
 };
 type GitHubCommit = { sha: string; subject: string; author: string | null; taskflow_author: { id: number; name: string } | null; committed_at: string | null };
+type PullRequest = {
+    number: number;
+    title: string;
+    web_url: string;
+    state: 'open' | 'closed' | 'merged';
+    is_draft: boolean;
+    author_login: string | null;
+    taskflow_author: { id: number; name: string } | null;
+    source_branch: string | null;
+    target_branch: string | null;
+    reviews_count: number;
+    remote_updated_at: string | null;
+};
 type SyncRun = {
     id: number;
     status: 'completed' | 'running' | 'failed';
@@ -35,6 +48,8 @@ const props = defineProps<{
     installations: { installation_id: number; account_login: string }[];
     commits: GitHubCommit[];
     commits_count: number;
+    pull_requests: PullRequest[];
+    pull_requests_count: number;
     legacy_authors_pending: number;
     sync_runs: SyncRun[];
 }>();
@@ -42,6 +57,7 @@ const { locale } = useI18n();
 const isPl = computed(() => locale.value === 'pl');
 const base = computed(() => `/projects/${props.project.id}/integrations/github`);
 const form = useForm({ installation_id: props.installations.length === 1 ? String(props.installations[0].installation_id) : '', repository: '' });
+const activeHistory = ref<'commits' | 'pulls'>('commits');
 const disconnecting = ref(false);
 const confirmDisconnect = ref(false);
 const syncing = ref(false);
@@ -170,7 +186,19 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
             </CardContent>
         </Card>
         <template v-if="repository">
-            <Card class="gap-3">
+            <div class="flex flex-wrap gap-2" role="group" :aria-label="isPl ? 'Widok aktywności repozytorium' : 'Repository activity view'">
+                <Button type="button" :variant="activeHistory === 'commits' ? 'secondary' : 'outline'"
+                    :aria-pressed="activeHistory === 'commits'" @click="activeHistory = 'commits'">
+                    <History class="size-4" /> {{ isPl ? 'Commity' : 'Commits' }}
+                    <span class="text-xs tabular-nums opacity-70">{{ commits_count }}</span>
+                </Button>
+                <Button type="button" :variant="activeHistory === 'pulls' ? 'secondary' : 'outline'"
+                    :aria-pressed="activeHistory === 'pulls'" @click="activeHistory = 'pulls'">
+                    <GitMerge class="size-4" /> Pull Requests
+                    <span class="text-xs tabular-nums opacity-70">{{ pull_requests_count }}</span>
+                </Button>
+            </div>
+            <Card v-if="activeHistory === 'commits'" class="gap-3">
                 <CardHeader class="space-y-2">
                     <div class="flex flex-wrap items-center justify-between gap-3">
                         <div>
@@ -217,7 +245,64 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
                     <p v-if="commits_count > commits.length" class="text-xs text-muted-foreground">{{ isPl ? 'Pokazano ostatnie 15 commitów. Pozostałe są zapisane w bazie.' : 'Showing the latest 15 commits. The rest are stored in the database.' }}</p>
                 </CardContent>
             </Card>
-            <Card v-if="sync_runs.length" class="gap-3">
+            <Card v-else class="gap-3">
+                <CardHeader class="space-y-2">
+                    <CardTitle class="flex items-center gap-2 text-base">
+                        <GitMerge class="size-4" /> Pull Requests
+                    </CardTitle>
+                    <p class="text-sm text-muted-foreground">
+                        {{ isPl ? 'Zgłoszenia pobrane z GitHuba. Synchronizacja PR jest obecnie dostępna przez polecenie Artisan.' : 'Requests imported from GitHub. PR synchronization is currently available through Artisan.' }}
+                    </p>
+                </CardHeader>
+                <CardContent class="space-y-4">
+                    <div class="flex items-center justify-between gap-2 text-sm">
+                        <span class="text-muted-foreground">{{ isPl ? 'Zapisane Pull Requesty' : 'Stored pull requests' }}</span>
+                        <span class="font-semibold tabular-nums">{{ pull_requests_count }}</span>
+                    </div>
+                    <div v-if="pull_requests.length" class="divide-y rounded-lg border">
+                        <a v-for="pull in pull_requests" :key="pull.number" :href="pull.web_url" target="_blank" rel="noopener noreferrer"
+                            class="block space-y-2 px-4 py-3 transition-colors hover:bg-muted/40">
+                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                <div class="flex min-w-0 flex-wrap items-center gap-2">
+                                    <span class="font-mono text-xs text-muted-foreground">#{{ pull.number }}</span>
+                                    <Badge :variant="pull.state === 'open' ? 'outline' : 'secondary'">
+                                        {{ pull.is_draft && pull.state === 'open' ? (isPl ? 'Szkic' : 'Draft') :
+                                            pull.state === 'merged' ? (isPl ? 'Scalony' : 'Merged') :
+                                            pull.state === 'closed' ? (isPl ? 'Zamknięty' : 'Closed') :
+                                            (isPl ? 'Otwarty' : 'Open') }}
+                                    </Badge>
+                                </div>
+                                <ExternalLink class="size-4 shrink-0 text-muted-foreground" />
+                            </div>
+                            <p class="break-words text-sm font-medium">{{ pull.title }}</p>
+                            <p class="text-xs text-muted-foreground">
+                                {{ pull.author_login || (isPl ? 'Nieznany autor' : 'Unknown author') }}
+                                · {{ isPl ? 'Aktualizacja' : 'Updated' }}: {{ formatDate(pull.remote_updated_at) }}
+                            </p>
+                            <p v-if="pull.taskflow_author" class="text-xs text-foreground">
+                                {{ isPl ? 'Użytkownik TaskFlow:' : 'TaskFlow user:' }}
+                                <span class="font-medium">{{ pull.taskflow_author.name }}</span>
+                            </p>
+                            <p v-else class="text-xs text-muted-foreground">
+                                {{ isPl ? 'Autor niepowiązany z użytkownikiem TaskFlow' : 'Author not linked to a TaskFlow user' }}
+                            </p>
+                            <div class="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+                                <span v-if="pull.source_branch && pull.target_branch" class="break-all font-mono">
+                                    {{ pull.source_branch }} → {{ pull.target_branch }}
+                                </span>
+                                <span>{{ isPl ? 'Recenzje:' : 'Reviews:' }} {{ pull.reviews_count }}</span>
+                            </div>
+                        </a>
+                    </div>
+                    <p v-else class="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+                        {{ isPl ? 'Brak pobranych Pull Requestów. Uruchom vcs:sync-pulls dla tego projektu.' : 'No pull requests imported yet. Run vcs:sync-pulls for this project.' }}
+                    </p>
+                    <p v-if="pull_requests_count > pull_requests.length" class="text-xs text-muted-foreground">
+                        {{ isPl ? 'Pokazano ostatnie 15 PR-ów. Pozostałe są zapisane w bazie.' : 'Showing the 15 most recently updated pull requests. The rest are stored in the database.' }}
+                    </p>
+                </CardContent>
+            </Card>
+            <Card v-if="sync_runs.length && activeHistory === 'commits'" class="gap-3">
                 <CardHeader><CardTitle class="text-base">{{ isPl ? 'Historia synchronizacji' : 'Synchronization history' }}</CardTitle></CardHeader>
                 <CardContent class="divide-y">
                     <div v-for="run in sync_runs" :key="run.id" class="flex flex-wrap items-start justify-between gap-3 py-3 first:pt-0 last:pb-0">
@@ -232,7 +317,7 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
             </Card>
         </template>
         <p class="text-sm text-muted-foreground">
-            {{ isPl ? 'Pull requesty, analiza zmian w kodzie i wykorzystanie ich w raportach oraz wydaniach pojawią się w kolejnych etapach.' : 'Pull requests, code analysis, report and release integration will be added in later stages.' }}
+            {{ isPl ? 'Szczegóły PR, historia recenzji i analiza zmian w kodzie pojawią się w kolejnych etapach.' : 'PR details, review history and code analysis will be added in later stages.' }}
         </p>
     </div>
 </template>
