@@ -4,8 +4,10 @@ namespace App\Providers;
 
 use App\Contracts\Ai\ChangelogTextGenerator;
 use App\Contracts\Ai\ReportTextGenerator;
+use App\Contracts\Ai\PullRequestAnalysisGenerator;
 use App\Services\Ai\PrismChangelogGenerator;
 use App\Services\Ai\PrismReportGenerator;
+use App\Services\Ai\PrismPullRequestAnalysisGenerator;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
@@ -23,6 +25,7 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->bind(ChangelogTextGenerator::class, PrismChangelogGenerator::class);
         $this->app->bind(ReportTextGenerator::class, PrismReportGenerator::class);
+        $this->app->bind(PullRequestAnalysisGenerator::class, PrismPullRequestAnalysisGenerator::class);
     }
 
     /**
