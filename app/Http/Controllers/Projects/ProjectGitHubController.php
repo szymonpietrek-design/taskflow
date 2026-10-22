@@ -7,6 +7,8 @@ use App\Http\Controllers\Controller;
 use App\Integrations\GitHub\GitHubAppClient;
 use App\Integrations\Vcs\Providers\GitHubInstance;
 use App\Integrations\Vcs\RepositoryAuthorBackfiller;
+use App\Integrations\Vcs\RepositoryChangeRequestSynchronizer;
+use App\Integrations\Vcs\RepositoryChangeRequestReviewSynchronizer;
 use App\Integrations\Vcs\RepositoryChangeRequestParticipantResolver;
 use App\Integrations\Vcs\RepositorySynchronizer;
 use App\Integrations\Vcs\RepositorySyncLock;
@@ -102,6 +104,7 @@ class ProjectGitHubController extends Controller
                     'committed_at' => $commit->committed_at?->toIso8601String(),
                 ];
             })->values(),
+            'initial_tab' => $request->query('tab') === 'pulls' ? 'pulls' : 'commits',
             'pull_requests_count' => $connected ? $connected->changeRequests()->count() : 0,
             'pull_requests' => $recentPulls->map(function (RepositoryChangeRequest $pull) use ($connected, $pullParticipants): array {
                 return [
@@ -237,6 +240,57 @@ class ProjectGitHubController extends Controller
                 : ($count > 0 ? 'Imported '.$count.' new GitHub commits.' : 'GitHub synchronization complete. No new commits.'),
         ]);
         return to_route('projects.github.index', $project);
+    }
+
+    /** Synchronize PR metadata without advancing the commit cursor. */
+    public function syncPulls(Request $request, Project $project, RepositoryChangeRequestSynchronizer $synchronizer): RedirectResponse
+    {
+        Gate::forUser($request->user())->authorize('manageManagers', $project);
+        abort_if($project->archived_at !== null, 403);
+        $repository = $this->repository($project) ?? abort(404);
+        try {
+            $result = $synchronizer->synchronize($repository);
+        } catch (\Throwable $exception) {
+            report($exception);
+            throw ValidationException::withMessages([
+                'pulls' => app()->getLocale() === 'pl'
+                    ? 'Nie udało się zsynchronizować Pull Requestów. Sprawdź uprawnienia GitHub App lub spróbuj ponownie.'
+                    : 'Could not sync pull requests. Check GitHub App permissions and try again.',
+            ]);
+        }
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => app()->getLocale() === 'pl'
+                ? "Synchronizacja PR zakończona. Pobrano: {$result['fetched']}, nowych: {$result['created']}, zaktualizowanych: {$result['updated']}."
+                : "PR sync complete. Fetched: {$result['fetched']}, created: {$result['created']}, updated: {$result['updated']}.",
+        ]);
+        return to_route('projects.github.index', ['project' => $project, 'tab' => 'pulls']);
+    }
+
+    /** Refresh a bounded batch of stored PR review histories. */
+    public function syncReviews(Request $request, Project $project, RepositoryChangeRequestReviewSynchronizer $synchronizer): RedirectResponse
+    {
+        Gate::forUser($request->user())->authorize('manageManagers', $project);
+        abort_if($project->archived_at !== null, 403);
+        $repository = $this->repository($project) ?? abort(404);
+        try {
+            // This button explicitly requests a fresh check, even within the regular TTL.
+            $result = $synchronizer->synchronize($repository, force: true);
+        } catch (\Throwable $exception) {
+            report($exception);
+            throw ValidationException::withMessages([
+                'reviews' => app()->getLocale() === 'pl'
+                    ? 'Nie udało się odświeżyć recenzji. Spróbuj ponownie później.'
+                    : 'Could not refresh reviews. Please try again.',
+            ]);
+        }
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => app()->getLocale() === 'pl'
+                ? "Sprawdzono {$result['checked']} PR-ów. Recenzje: {$result['fetched']}, nowych: {$result['created']}, zmienionych: {$result['updated']}."
+                : "Checked {$result['checked']} PRs. Reviews: {$result['fetched']}, created: {$result['created']}, updated: {$result['updated']}.",
+        ]);
+        return to_route('projects.github.index', ['project' => $project, 'tab' => 'pulls']);
     }
 
     public function backfillAuthors(Request $request, Project $project, RepositoryAuthorBackfiller $backfiller): RedirectResponse

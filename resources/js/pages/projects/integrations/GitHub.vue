@@ -50,6 +50,7 @@ const props = defineProps<{
     commits_count: number;
     pull_requests: PullRequest[];
     pull_requests_count: number;
+    initial_tab: 'commits' | 'pulls';
     legacy_authors_pending: number;
     sync_runs: SyncRun[];
 }>();
@@ -57,13 +58,29 @@ const { locale } = useI18n();
 const isPl = computed(() => locale.value === 'pl');
 const base = computed(() => `/projects/${props.project.id}/integrations/github`);
 const form = useForm({ installation_id: props.installations.length === 1 ? String(props.installations[0].installation_id) : '', repository: '' });
-const activeHistory = ref<'commits' | 'pulls'>('commits');
+const activeHistory = ref<'commits' | 'pulls'>(props.initial_tab);
 const disconnecting = ref(false);
 const confirmDisconnect = ref(false);
 const syncing = ref(false);
 const checkingAuthors = ref(false);
 const authorsError = ref('');
 const syncError = ref('');
+const activitySync = ref<'pulls' | 'reviews' | null>(null);
+const activityError = ref('');
+function syncActivity(kind: 'pulls' | 'reviews'): void {
+    if (!props.repository || !props.configured || !props.can_connect || props.project.is_archived || activitySync.value || syncing.value || checkingAuthors.value) return;
+    activitySync.value = kind;
+    activityError.value = '';
+    router.post(`${base.value}/${kind}/sync`, {}, {
+        preserveScroll: true,
+        preserveState: true,
+        onError: (errors) => {
+            activityError.value = errors[kind] || (isPl.value ? 'Nie udało się zsynchronizować danych.' : 'Could not synchronize data.');
+        },
+        onFinish: () => { activitySync.value = null; },
+    });
+}
+
 const dateFormatter = computed(() => new Intl.DateTimeFormat(isPl.value ? 'pl-PL' : 'en-US', { dateStyle: 'medium', timeStyle: 'short' }));
 function formatDate(value: string | null): string {
     if (!value) return '—';
@@ -205,7 +222,7 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
                             <CardTitle class="flex items-center gap-2 text-base"><History class="size-4" /> {{ isPl ? 'Commity GitHub' : 'GitHub commits' }}</CardTitle>
                             <p class="mt-1 text-sm text-muted-foreground">{{ isPl ? 'Wyłącznie zmiany po zapisanym punkcie startowym, bez analizy AI.' : 'Only changes after the saved baseline. No AI analysis.' }}</p>
                         </div>
-                        <Button v-if="can_connect && !project.is_archived" type="button" :disabled="syncing || !configured" @click="sync">
+                        <Button v-if="can_connect && !project.is_archived" type="button" :disabled="syncing || !!activitySync || !configured" @click="sync">
                             <RefreshCw class="size-4" :class="syncing ? 'animate-spin' : ''" />
                             {{ syncing ? (isPl ? 'Synchronizacja…' : 'Synchronizing…') : (isPl ? 'Synchronizuj teraz' : 'Sync now') }}
                         </Button>
@@ -219,7 +236,7 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
                     </div>
                     <div v-if="legacy_authors_pending > 0 && can_connect && !project.is_archived" class="rounded-lg border border-dashed p-3 text-sm">
                         <p class="text-muted-foreground">{{ isPl ? `Wcześniej pobrane commity bez identyfikatora autora: ${legacy_authors_pending}. Możesz sprawdzić po 10 na raz.` : `Previously imported commits without checked author identity: ${legacy_authors_pending}. Check up to 10 at a time.` }}</p>
-                        <Button class="mt-2" variant="outline" size="sm" type="button" :disabled="checkingAuthors || !configured" @click="backfillAuthors">
+                        <Button class="mt-2" variant="outline" size="sm" type="button" :disabled="checkingAuthors || !!activitySync || !configured" @click="backfillAuthors">
                             <RefreshCw class="size-4" :class="checkingAuthors ? 'animate-spin' : ''" />
                             {{ checkingAuthors ? (isPl ? 'Sprawdzanie…' : 'Checking…') : (isPl ? 'Uzupełnij autorów' : 'Check existing authors') }}
                         </Button>
@@ -246,13 +263,25 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
                 </CardContent>
             </Card>
             <Card v-else class="gap-3">
-                <CardHeader class="space-y-2">
-                    <CardTitle class="flex items-center gap-2 text-base">
-                        <GitMerge class="size-4" /> Pull Requests
-                    </CardTitle>
-                    <p class="text-sm text-muted-foreground">
-                        {{ isPl ? 'Zgłoszenia pobrane z GitHuba. Synchronizacja PR jest obecnie dostępna przez polecenie Artisan.' : 'Requests imported from GitHub. PR synchronization is currently available through Artisan.' }}
-                    </p>
+                <CardHeader class="space-y-3">
+                    <div class="flex flex-wrap items-start justify-between gap-3">
+                        <div class="space-y-1">
+                            <CardTitle class="flex items-center gap-2 text-base"><GitMerge class="size-4" /> Pull Requests</CardTitle>
+                            <p class="text-sm text-muted-foreground">{{ isPl ? 'Zgłoszenia i recenzje zapisane w TaskFlow.' : 'Pull requests and reviews stored in TaskFlow.' }}</p>
+                        </div>
+                        <div v-if="can_connect && !project.is_archived" class="flex flex-wrap gap-2">
+                            <Button type="button" size="sm" :disabled="!!activitySync || syncing || checkingAuthors || !configured" @click="syncActivity('pulls')">
+                                <RefreshCw class="size-4" :class="activitySync === 'pulls' ? 'animate-spin' : ''" />
+                                {{ activitySync === 'pulls' ? (isPl ? 'Pobieranie PR…' : 'Syncing PRs…') : (isPl ? 'Synchronizuj PR-y' : 'Sync pull requests') }}
+                            </Button>
+                            <Button type="button" size="sm" variant="outline" :disabled="!!activitySync || syncing || checkingAuthors || !configured || pull_requests_count === 0" @click="syncActivity('reviews')">
+                                <RefreshCw class="size-4" :class="activitySync === 'reviews' ? 'animate-spin' : ''" />
+                                {{ activitySync === 'reviews' ? (isPl ? 'Sprawdzanie recenzji…' : 'Refreshing reviews…') : (isPl ? 'Odśwież recenzje' : 'Refresh reviews') }}
+                            </Button>
+                        </div>
+                    </div>
+                    <p class="text-xs text-muted-foreground">{{ isPl ? 'Najpierw pobierz PR-y, następnie odśwież recenzje (do 10 PR-ów w jednym przebiegu).' : 'Sync PRs first, then refresh reviews (up to 10 PRs per request).' }}</p>
+                    <p v-if="activityError" role="alert" class="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{{ activityError }}</p>
                 </CardHeader>
                 <CardContent class="space-y-4">
                     <div class="flex items-center justify-between gap-2 text-sm">
@@ -260,8 +289,8 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
                         <span class="font-semibold tabular-nums">{{ pull_requests_count }}</span>
                     </div>
                     <div v-if="pull_requests.length" class="divide-y rounded-lg border">
-                        <a v-for="pull in pull_requests" :key="pull.number" :href="pull.web_url" target="_blank" rel="noopener noreferrer"
-                            class="block space-y-2 px-4 py-3 transition-colors hover:bg-muted/40">
+                        <div v-for="pull in pull_requests" :key="pull.number"
+                            class="space-y-2 px-4 py-3 transition-colors hover:bg-muted/40">
                             <div class="flex flex-wrap items-center justify-between gap-2">
                                 <div class="flex min-w-0 flex-wrap items-center gap-2">
                                     <span class="font-mono text-xs text-muted-foreground">#{{ pull.number }}</span>
@@ -272,9 +301,15 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
                                             (isPl ? 'Otwarty' : 'Open') }}
                                     </Badge>
                                 </div>
-                                <ExternalLink class="size-4 shrink-0 text-muted-foreground" />
+                                <a :href="pull.web_url" target="_blank" rel="noopener noreferrer"
+                                    class="rounded p-1 text-muted-foreground hover:text-foreground"
+                                    :aria-label="isPl ? 'Otwórz Pull Request na GitHubie' : 'Open pull request on GitHub'">
+                                    <ExternalLink class="size-4" />
+                                </a>
                             </div>
-                            <p class="break-words text-sm font-medium">{{ pull.title }}</p>
+                            <Link :href="`${base}/pulls/${pull.number}`" class="block break-words text-sm font-medium hover:underline">
+                                {{ pull.title }}
+                            </Link>
                             <p class="text-xs text-muted-foreground">
                                 {{ pull.author_login || (isPl ? 'Nieznany autor' : 'Unknown author') }}
                                 · {{ isPl ? 'Aktualizacja' : 'Updated' }}: {{ formatDate(pull.remote_updated_at) }}
@@ -292,10 +327,13 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
                                 </span>
                                 <span>{{ isPl ? 'Recenzje:' : 'Reviews:' }} {{ pull.reviews_count }}</span>
                             </div>
-                        </a>
+                            <Link :href="`${base}/pulls/${pull.number}`" class="inline-flex items-center text-xs font-medium underline underline-offset-4 hover:text-foreground">
+                                {{ isPl ? 'Zobacz szczegóły i recenzje' : 'View details and reviews' }}
+                            </Link>
+                        </div>
                     </div>
                     <p v-else class="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-                        {{ isPl ? 'Brak pobranych Pull Requestów. Uruchom vcs:sync-pulls dla tego projektu.' : 'No pull requests imported yet. Run vcs:sync-pulls for this project.' }}
+                        {{ isPl ? 'Brak pobranych Pull Requestów. Kliknij „Synchronizuj PR-y”.' : 'No pull requests imported yet. Click “Sync pull requests”.' }}
                     </p>
                     <p v-if="pull_requests_count > pull_requests.length" class="text-xs text-muted-foreground">
                         {{ isPl ? 'Pokazano ostatnie 15 PR-ów. Pozostałe są zapisane w bazie.' : 'Showing the 15 most recently updated pull requests. The rest are stored in the database.' }}
@@ -317,7 +355,7 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
             </Card>
         </template>
         <p class="text-sm text-muted-foreground">
-            {{ isPl ? 'Szczegóły PR, historia recenzji i analiza zmian w kodzie pojawią się w kolejnych etapach.' : 'PR details, review history and code analysis will be added in later stages.' }}
+            {{ isPl ? 'Historia recenzji jest dostępna w szczegółach PR. Analizę zmian w plikach dodamy później.' : 'Review history is available in PR details. File change analysis will be added later.' }}
         </p>
     </div>
 </template>

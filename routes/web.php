@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\GitHubAppSettingsController;
 use App\Http\Controllers\Admin\GitIntegrationsController;
 use App\Http\Controllers\Projects\ProjectController;
 use App\Http\Controllers\Projects\ProjectGitHubController;
+use App\Http\Controllers\Projects\ProjectGitHubPullRequestController;
 use App\Http\Controllers\Projects\ProjectRepositoryIntegrationController;
 use App\Http\Controllers\Projects\ProjectLogoController;
 use App\Http\Controllers\Projects\ProjectMemberController;
@@ -89,8 +90,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('projects.repository.index');
     Route::get('projects/{project}/integrations/github', [ProjectGitHubController::class, 'index'])
         ->name('projects.github.index');
+    Route::get('projects/{project}/integrations/github/pulls/{number}', ProjectGitHubPullRequestController::class)
+        ->whereNumber('number')->name('projects.github.pull.show');
     Route::post('projects/{project}/integrations/github', [ProjectGitHubController::class, 'store'])
         ->middleware('throttle:10,1')->name('projects.github.store');
+    Route::post('projects/{project}/integrations/github/pulls/sync', [ProjectGitHubController::class, 'syncPulls'])
+        ->middleware('throttle:6,1')->name('projects.github.pulls.sync');
+    Route::post('projects/{project}/integrations/github/reviews/sync', [ProjectGitHubController::class, 'syncReviews'])
+        ->middleware('throttle:6,1')->name('projects.github.reviews.sync');
     Route::post('projects/{project}/integrations/github/sync', [ProjectGitHubController::class, 'sync'])
         ->middleware('throttle:6,1')->name('projects.github.sync');
     Route::post('projects/{project}/integrations/github/authors', [ProjectGitHubController::class, 'backfillAuthors'])
