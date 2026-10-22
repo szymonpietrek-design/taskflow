@@ -15,7 +15,10 @@ use RuntimeException;
  */
 final class RepositoryChangeRequestSynchronizer
 {
-    public function __construct(private readonly RepositoryChangeRequestProviders $providers) {}
+    public function __construct(
+        private readonly RepositoryChangeRequestProviders $providers,
+        private readonly RepositoryChangeRequestSnapshotValidator $validator,
+    ) {}
 
     /** @return array{fetched:int,created:int,updated:int} */
     public function synchronize(RepositoryConnection $repository): array
@@ -34,15 +37,16 @@ final class RepositoryChangeRequestSynchronizer
             $since = $highWatermark === null ? null : Carbon::parse($highWatermark)->utc()->subMinutes(5);
             $provider = $this->providers->forRepository($repository);
             $snapshots = $provider->updatedSince($repository, $since);
+            if (! is_array($snapshots) || ! array_is_list($snapshots)) {
+                throw new RuntimeException('Invalid provider change request response.');
+            }
             if (count($snapshots) > 500) {
                 throw new RuntimeException('Pull request batch exceeded the safety limit.');
             }
             $externalIds = [];
             $numbers = [];
             foreach ($snapshots as $snapshot) {
-                if (! is_array($snapshot) || ! isset($snapshot['external_change_request_id'], $snapshot['number'], $snapshot['remote_updated_at'])) {
-                    throw new RuntimeException('Invalid change request batch.');
-                }
+                $this->validator->assertValid($snapshot);
                 if (isset($externalIds[$snapshot['external_change_request_id']]) || isset($numbers[$snapshot['number']])) {
                     throw new RuntimeException('Duplicated pull request in provider batch.');
                 }
@@ -96,4 +100,6 @@ final class RepositoryChangeRequestSynchronizer
             $lock->release();
         }
     }
+
+
 }

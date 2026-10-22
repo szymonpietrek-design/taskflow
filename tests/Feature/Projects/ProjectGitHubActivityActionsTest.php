@@ -5,6 +5,8 @@ namespace Tests\Feature\Projects;
 use App\Enums\ProjectRole;
 use App\Enums\WorkspaceRole;
 use App\Integrations\GitHub\GitHubPullRequestReader;
+use App\Integrations\GitHub\GitHubPullRequestReviewReader;
+use App\Integrations\Vcs\RepositorySyncLock;
 use App\Integrations\Vcs\Providers\GitHubInstance;
 use App\Models\Project;
 use App\Models\ProjectMember;
@@ -13,6 +15,7 @@ use App\Models\User;
 use App\Models\VcsConnection;
 use App\Models\WorkspaceMember;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Mockery;
 use RuntimeException;
 use Tests\TestCase;
@@ -78,6 +81,45 @@ class ProjectGitHubActivityActionsTest extends TestCase
         $response = $this->actingAs($owner)->post(route('projects.github.pulls.sync', $project));
         $response->assertSessionHasErrors(['pulls']);
         $this->assertStringNotContainsString('SECRET_TOKEN_VALUE', implode(' ', session('errors')->get('pulls')));
+    }
+
+    public function test_concurrent_repository_operation_rejects_both_manual_refreshes(): void
+    {
+        [$project, $repository, $owner] = $this->repository();
+        $lock = Cache::lock(RepositorySyncLock::key($repository->id), 120);
+        $this->assertTrue($lock->get());
+        try {
+            $this->actingAs($owner)->post(route('projects.github.pulls.sync', $project))
+                ->assertSessionHasErrors(['pulls']);
+            $this->actingAs($owner)->post(route('projects.github.reviews.sync', $project))
+                ->assertSessionHasErrors(['reviews']);
+            $this->assertSame(str_repeat('a', 40), $repository->fresh()->last_synced_sha);
+            $this->assertDatabaseCount('repository_change_requests', 0);
+        } finally {
+            $lock->release();
+        }
+    }
+
+    public function test_review_refresh_failure_does_not_expose_provider_error_to_browser(): void
+    {
+        [$project, $repository, $owner] = $this->repository();
+        $repository->changeRequests()->create([
+            'external_change_request_id' => '501', 'number' => 1,
+            'title' => 'Example PR', 'web_url' => 'https://github.com/example/repo/pull/1',
+            'state' => 'open', 'remote_updated_at' => now(),
+        ]);
+        $reader = Mockery::mock(GitHubPullRequestReviewReader::class);
+        $reader->shouldReceive('reviewsForStoredPullRequests')->once()
+            ->andThrow(new RuntimeException('SECRET_PROVIDER_CREDENTIAL'));
+        $this->app->instance(GitHubPullRequestReviewReader::class, $reader);
+
+        $this->actingAs($owner)->post(route('projects.github.reviews.sync', $project))
+            ->assertSessionHasErrors(['reviews']);
+        $this->assertStringNotContainsString(
+            'SECRET_PROVIDER_CREDENTIAL', implode(' ', session('errors')->get('reviews')),
+        );
+        $this->assertDatabaseCount('repository_change_request_reviews', 0);
+        $this->assertSame(str_repeat('a', 40), $repository->fresh()->last_synced_sha);
     }
 
     /** @return array{Project,RepositoryConnection,User} */
