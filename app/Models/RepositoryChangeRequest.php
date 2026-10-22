@@ -27,6 +27,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'author_login',
     'merged_by_external_user_id',
     'merged_by_login',
+    'merged_by_checked_at',
     'remote_created_at',
     'remote_updated_at',
     'closed_at',
@@ -52,6 +53,7 @@ class RepositoryChangeRequest extends Model
             'remote_updated_at' => 'datetime',
             'closed_at' => 'datetime',
             'merged_at' => 'datetime',
+            'merged_by_checked_at' => 'datetime',
             'synced_at' => 'datetime',
         ];
     }

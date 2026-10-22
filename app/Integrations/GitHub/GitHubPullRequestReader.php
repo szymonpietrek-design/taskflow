@@ -75,4 +75,65 @@ class GitHubPullRequestReader extends GitHubAppClient
 
         return $items;
     }
+
+    /**
+     * Fetch only the merging identities of PRs that TaskFlow has already stored.
+     * GitHub's PR listing is not authoritative for `merged_by`; GET /pulls/{number} is.
+     *
+     * @param list<int> $numbers
+     * @return array<int, array{external_user_id:?string,login:?string}>
+     */
+    public function mergedByForStoredPullRequests(
+        int $installationId,
+        string $fullName,
+        int $expectedRepositoryId,
+        array $numbers,
+    ): array {
+        if ($installationId < 1 || $expectedRepositoryId < 1
+            || ! preg_match('~\A[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\z~D', $fullName)
+            || $numbers === [] || count($numbers) > 10 || ! array_is_list($numbers)
+            || count(array_unique($numbers)) !== count($numbers)) {
+            throw new RuntimeException('Invalid GitHub pull request participant batch.');
+        }
+        foreach ($numbers as $number) {
+            if (! is_int($number) || $number < 1) {
+                throw new RuntimeException('Invalid GitHub pull request number.');
+            }
+        }
+
+        $client = $this->api()->withToken($this->installationToken($installationId, ['pull_requests' => 'read']));
+        $prefix = '/repos/'.$fullName;
+        $metadata = $client->get($prefix)->throw()->json();
+        if (! is_array($metadata) || (int) ($metadata['id'] ?? 0) !== $expectedRepositoryId
+            || strcasecmp((string) ($metadata['full_name'] ?? ''), $fullName) !== 0) {
+            throw new RuntimeException('The GitHub repository identity changed. No participants were saved.');
+        }
+
+        $result = [];
+        foreach ($numbers as $number) {
+            $detail = $client->get($prefix.'/pulls/'.$number)->throw()->json();
+            if (! is_array($detail) || ($detail['number'] ?? null) !== $number
+                || ($detail['merged'] ?? null) !== true
+                || ! is_string($detail['merged_at'] ?? null)
+                || ! array_key_exists('merged_by', $detail)) {
+                throw new RuntimeException('GitHub returned invalid merged pull request details.');
+            }
+            $mergedBy = $detail['merged_by'];
+            if ($mergedBy === null) {
+                $result[$number] = ['external_user_id' => null, 'login' => null];
+                continue;
+            }
+            if (! is_array($mergedBy) || ! is_int($mergedBy['id'] ?? null)
+                || $mergedBy['id'] < 1 || ! is_string($mergedBy['login'] ?? null)
+                || trim($mergedBy['login']) === '' || mb_strlen($mergedBy['login']) > 190) {
+                throw new RuntimeException('GitHub returned an invalid merging account.');
+            }
+            $result[$number] = [
+                'external_user_id' => (string) $mergedBy['id'],
+                'login' => $mergedBy['login'],
+            ];
+        }
+        return $result;
+    }
+
 }
