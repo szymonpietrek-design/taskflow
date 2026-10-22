@@ -15,6 +15,7 @@ final class GeneratePullRequestAiAnalysisJob implements ShouldQueue
 
     public int $tries = 1;
     public int $timeout = 120;
+    public bool $failOnTimeout = true;
 
     public function __construct(public readonly int $analysisId) {}
 
@@ -55,15 +56,26 @@ final class GeneratePullRequestAiAnalysisJob implements ShouldQueue
 
     private function markFailed(bool $workerTerminated): void
     {
-        PullRequestAiAnalysis::query()->whereKey($this->analysisId)
-            ->whereIn('status', $workerTerminated
-                ? [PullRequestAiAnalysis::STATUS_PENDING, PullRequestAiAnalysis::STATUS_RUNNING]
-                : [PullRequestAiAnalysis::STATUS_PENDING])
-            ->update([
-                'status' => PullRequestAiAnalysis::STATUS_FAILED,
-                'error_code' => 'generation_failed',
-                'result_markdown' => null,
-                'finished_at' => now(),
-            ]);
+        // The worker can be killed AFTER DeepSeek receives the request but
+        // BEFORE a response is persisted. Do not promise a free retry.
+        $pending = PullRequestAiAnalysis::query()->whereKey($this->analysisId)
+            ->where('status', PullRequestAiAnalysis::STATUS_PENDING);
+        $pending->update([
+            'status' => PullRequestAiAnalysis::STATUS_FAILED,
+            'error_code' => $workerTerminated ? 'queue_failed' : 'generation_failed',
+            'result_markdown' => null,
+            'finished_at' => now(),
+        ]);
+
+        if ($workerTerminated) {
+            PullRequestAiAnalysis::query()->whereKey($this->analysisId)
+                ->where('status', PullRequestAiAnalysis::STATUS_RUNNING)
+                ->update([
+                    'status' => PullRequestAiAnalysis::STATUS_FAILED,
+                    'error_code' => 'outcome_unknown',
+                    'result_markdown' => null,
+                    'finished_at' => now(),
+                ]);
+        }
     }
 }
