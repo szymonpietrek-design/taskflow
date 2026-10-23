@@ -139,6 +139,9 @@ function formatUsd(amount: string | null): string {
     const number = Number(amount);
     return Number.isFinite(number) ? number.toFixed(8) : '—';
 }
+function analysisVersionLabel(entry: AiHistoryEntry): string {
+    return `v${entry.version} · ${aiStatusLabel(entry.status)} · ${entry.language}`;
+}
 function aiStatusLabel(status: AiHistoryEntry['status']): string {
     const labels = {
         completed: isPl.value ? 'Zakończono' : 'Completed',
@@ -420,7 +423,10 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
                     <h3 class="font-semibold">{{ isPl ? 'Wykorzystanie AI w projekcie — ostatnie 30 dni' : 'Project AI usage — last 30 days' }}</h3>
                     <p class="text-muted-foreground">{{ isPl ? 'Zakończone' : 'Completed' }}: {{ ai.usage_30d.completed }} · {{ isPl ? 'Nieudane' : 'Failed' }}: {{ ai.usage_30d.failed }}</p>
                     <p class="text-muted-foreground">{{ isPl ? 'Tokeny wejścia / wyjścia' : 'Input / output tokens' }}: {{ ai.usage_30d.prompt_tokens.toLocaleString() }} / {{ ai.usage_30d.completion_tokens.toLocaleString() }}</p>
-                    <p>{{ isPl ? 'Oszacowany koszt' : 'Estimated cost' }}: <strong>{{ formatUsd(ai.usage_30d.estimated_cost_usd) }} USD</strong></p>
+                    <p>{{ isPl ? 'Oszacowany koszt' : 'Estimated cost' }}:
+                        <strong v-if="ai.usage_30d.estimated_cost_usd !== null">{{ formatUsd(ai.usage_30d.estimated_cost_usd) }} USD</strong>
+                        <span v-else class="text-muted-foreground">{{ isPl ? 'Brak danych do wyceny' : 'No pricing data' }}</span>
+                    </p>
                     <p class="text-xs text-muted-foreground">{{ isPl
                         ? `Szacunek tylko dla analiz z zapisaną ceną. Brak wyceny: ${ai.usage_30d.unknown_cost}. Nie obejmuje ewentualnych opłat za nieudane próby, cache i różnic w cenniku dostawcy. To nie faktura.`
                         : `Estimate covers only analyses with recorded pricing. Unpriced: ${ai.usage_30d.unknown_cost}. Excludes possible failed requests, cache and provider pricing differences. Not a billing statement.` }}</p>
@@ -437,10 +443,10 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
                         <div class="max-w-sm space-y-1.5">
                             <Label for="pr-ai-history-version">{{ isPl ? 'Wybierz wersję' : 'Choose version' }}</Label>
                             <Select :model-value="currentAnalysis ? String(currentAnalysis.id) : undefined" @update:model-value="value => { selectedAnalysisId = Number(value); }">
-                                <SelectTrigger id="pr-ai-history-version" class="w-full"><SelectValue /></SelectTrigger>
+                                <SelectTrigger id="pr-ai-history-version" class="w-full"><SelectValue>{{ currentAnalysis ? analysisVersionLabel(currentAnalysis) : '' }}</SelectValue></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem v-for="entry in ai.history" :key="entry.id" :value="String(entry.id)">
-                                        v{{ entry.version }} · {{ aiStatusLabel(entry.status) }} · {{ entry.language }}
+                                        {{ analysisVersionLabel(entry) }}
                                     </SelectItem>
                                 </SelectContent>
                             </Select>
@@ -457,7 +463,7 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
                             </div>
                             <p class="break-all text-xs text-muted-foreground">HEAD: {{ currentAnalysis.source_head_sha.slice(0, 12) }} · {{ currentAnalysis.ai_model || currentAnalysis.ai_provider || '—' }}</p>
                             <p v-if="currentAnalysis.status === 'completed'" class="text-xs text-muted-foreground">
-                                {{ isPl ? 'Koszt szacunkowy' : 'Estimated cost' }}: {{ currentAnalysis.estimated_cost_usd !== null ? formatUsd(currentAnalysis.estimated_cost_usd) + ' USD' : '—' }}
+                                {{ isPl ? 'Koszt szacunkowy' : 'Estimated cost' }}: {{ currentAnalysis.estimated_cost_usd !== null ? formatUsd(currentAnalysis.estimated_cost_usd) + ' USD' : (isPl ? 'Brak danych do wyceny' : 'No pricing data') }}
                             </p>
                             <div v-if="currentAnalysis.status === 'completed' && currentAnalysis.result_html" class="task-markdown taskflow-pr-markdown min-w-0 break-words text-sm" v-html="currentAnalysis.result_html" />
                             <p v-else class="text-sm text-muted-foreground">

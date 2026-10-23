@@ -54,7 +54,7 @@ final class GeneratePullRequestAiAnalysis
         // Reuse the versioned identity and SHA verification created in stage 4.1.
         // Do not create an analysis entry for invalid consent or stale source data.
         $this->assertReady($pull);
-        $rawEvidence = $this->builder->build($project, (int) $pull->number, $includePatches);
+        $rawEvidence = $this->builder->buildForPull($project, $pull, $includePatches);
         $this->assertEvidence($rawEvidence, (string) $pull->head_sha, $includePatches);
         $evidence = $this->boundedExternalEvidence($rawEvidence);
         $json = json_encode($evidence, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE | JSON_UNESCAPED_SLASHES);
@@ -155,7 +155,7 @@ final class GeneratePullRequestAiAnalysis
     public function validateForQueue(Project $project, RepositoryChangeRequest $pull, bool $includePatches): void
     {
         $this->assertReady($pull);
-        $raw = $this->builder->build($project, (int) $pull->number, $includePatches);
+        $raw = $this->builder->buildForPull($project, $pull, $includePatches);
         $this->assertEvidence($raw, (string) $pull->head_sha, $includePatches);
         $json = json_encode($this->boundedExternalEvidence($raw), JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE | JSON_UNESCAPED_SLASHES);
         if (strlen($json) > 50000) {

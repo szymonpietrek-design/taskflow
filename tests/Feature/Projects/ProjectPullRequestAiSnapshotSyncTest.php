@@ -134,6 +134,32 @@ class ProjectPullRequestAiSnapshotSyncTest extends TestCase
         $this->actingAs($owner)->post($url)->assertForbidden();
     }
 
+    public function test_disabled_project_owner_cannot_refresh_pr_or_files(): void
+    {
+        [$project, , $owner] = $this->fixture();
+        $owner->forceFill(['disabled_at' => now()])->save();
+        $this->githubPull()->shouldNotReceive('pullRequest');
+        $this->githubFiles()->shouldNotReceive('filesForStoredPullRequests');
+
+        // Browser requests are intercepted by EnsureAccountActive before reaching the controller.
+        // The middleware logs the disabled user out and redirects to login with an email error.
+        $this->actingAs($owner)->post(route('projects.github.pull.sync', [$project, 10]))
+            ->assertRedirect(route('login'))
+            ->assertSessionHasErrors('email');
+        $this->assertGuest();
+
+        $this->actingAs($owner)->post(route('projects.github.pull.files.sync', [$project, 10]))
+            ->assertRedirect(route('login'))
+            ->assertSessionHasErrors('email');
+        $this->assertGuest();
+
+        // JSON clients receive a direct forbidden response instead of a redirect.
+        $this->actingAs($owner)->postJson(route('projects.github.pull.sync', [$project, 10]))
+            ->assertForbidden();
+        $this->actingAs($owner)->postJson(route('projects.github.pull.files.sync', [$project, 10]))
+            ->assertForbidden();
+    }
+
     public function test_repository_sync_lock_blocks_competing_refresh(): void
     {
         [$project, $repository, $owner, $pull] = $this->fixture();

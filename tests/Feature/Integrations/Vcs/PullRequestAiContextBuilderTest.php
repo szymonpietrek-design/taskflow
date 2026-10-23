@@ -126,6 +126,27 @@ final class PullRequestAiContextBuilderTest extends TestCase
         $this->assertStringNotContainsString('Internal discussion that is not approved', $json);
     }
 
+    public function test_explicit_pr_identity_is_scoped_to_its_project(): void
+    {
+        [$firstProject, , $firstPull] = $this->seedRepository();
+        [$secondProject, $secondRepository, $secondPull] = $this->seedRepository('11');
+        $this->file($firstPull, 'src/First.php', "@@ -1 +1 @@\n-old\n+first");
+        $this->file($secondPull, 'src/Second.php', "@@ -1 +1 @@\n-old\n+second");
+        $firstPull->forceFill(['files_synced_at' => now(), 'files_head_sha' => self::SHA])->save();
+        $secondPull->forceFill(['files_synced_at' => now(), 'files_head_sha' => self::SHA])->save();
+
+        $builder = app(PullRequestAiContextBuilder::class);
+        $context = $builder->buildForPull($secondProject, $secondPull, includePatches: true);
+
+        $this->assertSame($secondRepository->id, $context['repository_id']);
+        $this->assertSame('src/Second.php', $context['files'][0]['path']);
+        $this->assertStringContainsString('+second', $context['files'][0]['untrusted_patch']);
+        $this->assertStringNotContainsString('src/First.php', json_encode($context));
+
+        $this->expectException(ModelNotFoundException::class);
+        $builder->buildForPull($firstProject, $secondPull, includePatches: true);
+    }
+
     public function test_does_not_cross_project_boundary(): void
     {
         [$project] = $this->seedRepository();
@@ -249,13 +270,13 @@ final class PullRequestAiContextBuilderTest extends TestCase
     }
 
     /** @return array{Project,RepositoryConnection,RepositoryChangeRequest} */
-    private function seedRepository(): array
+    private function seedRepository(string $externalConnectionId = '10'): array
     {
         $project = Project::factory()->create();
         $connection = VcsConnection::query()->create([
             'workspace_id' => $project->workspace_id,
             'vcs_instance_id' => GitHubInstance::get()->id,
-            'external_connection_id' => '10', 'account_login' => 'example', 'connected_at' => now(),
+            'external_connection_id' => $externalConnectionId, 'account_login' => 'example', 'connected_at' => now(),
         ]);
         $repository = RepositoryConnection::query()->create([
             'project_id' => $project->id, 'vcs_connection_id' => $connection->id,

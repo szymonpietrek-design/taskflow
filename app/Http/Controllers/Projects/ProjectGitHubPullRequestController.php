@@ -146,7 +146,8 @@ final class ProjectGitHubPullRequestController extends Controller
                     ];
                 })->values(),
             ],
-            'can_sync_files' => $request->user()->can('manageManagers', $project) && $project->archived_at === null,
+            'can_sync_files' => $request->user()->can('manageManagers', $project)
+                && $request->user()->disabled_at === null && $project->archived_at === null,
             'files_current' => $filesCurrent,
             'files_count' => $filesCount,
             'files_limit' => 100,
@@ -199,7 +200,7 @@ final class ProjectGitHubPullRequestController extends Controller
     public function syncFiles(Request $request, Project $project, int $number, RepositoryChangeRequestFileSynchronizer $synchronizer): RedirectResponse
     {
         Gate::forUser($request->user())->authorize('manageManagers', $project);
-        abort_if($project->archived_at !== null, 403);
+        abort_if($project->archived_at !== null || $request->user()->disabled_at !== null, 403);
         $repository = RepositoryConnection::query()->where('project_id', $project->id)
             ->whereHas('connection.instance', fn ($q) => $q
                 ->where('provider', 'github')->where('instance_key', GitHubInstance::key())
@@ -208,7 +209,13 @@ final class ProjectGitHubPullRequestController extends Controller
         try {
             $result = $synchronizer->synchronize($repository, force: true, pullNumber: $number);
         } catch (\Throwable $exception) {
-            report($exception);
+            // Even GitHub exceptions can include token-bearing URLs or patch data.
+            // The exception class is enough for diagnostics; never log its message.
+            \Illuminate\Support\Facades\Log::warning('PR file synchronization failed', [
+                'project_id' => $project->id,
+                'pull_number' => $number,
+                'exception_type' => $exception::class,
+            ]);
             throw ValidationException::withMessages([
                 'files' => app()->getLocale() === 'pl'
                     ? 'Nie udało się pobrać zmian plików. Zsynchronizuj najpierw PR-y lub spróbuj ponownie.'

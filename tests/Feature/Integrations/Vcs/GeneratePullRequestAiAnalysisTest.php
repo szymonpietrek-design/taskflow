@@ -100,6 +100,43 @@ class GeneratePullRequestAiAnalysisTest extends TestCase
         $this->assertStringNotContainsString('password=hidden', json_encode($fake->contexts[0]));
     }
 
+    public function test_generated_evidence_is_isolated_between_projects_with_same_pr_number(): void
+    {
+        [$firstProject, $firstPull] = $this->fixture();
+        [$secondProject, $secondPull, $secondActor] = $this->fixture();
+        // The two projects both have PR #10. The generator must derive evidence
+        // from the approved PR identity rather than a different project's records.
+        $otherHead = str_repeat('b', 40);
+        $secondPull->forceFill([
+            'title' => 'Distinct second project change',
+            'head_sha' => $otherHead,
+            'files_head_sha' => $otherHead,
+            'files_synced_at' => now(),
+        ])->save();
+        $secondPull->files()->delete();
+        $secondPull->files()->create([
+            'path' => 'src/Second.php',
+            'path_hash' => hash('sha256', 'src/Second.php'),
+            'status' => 'modified', 'additions' => 1, 'deletions' => 1,
+            'changes' => 2, 'patch' => "@@ -1 +1 @@\n-before\n+after",
+            'patch_truncated' => false,
+        ]);
+
+        $fake = $this->fake();
+        $analysis = app(GeneratePullRequestAiAnalysis::class)->run(
+            $secondActor, $secondProject, $secondPull,
+            language: 'pl', includePatches: true,
+            approveExternalSharing: true, approveCodeSharing: true,
+        );
+
+        $this->assertSame(PullRequestAiAnalysis::STATUS_COMPLETED, $analysis->status);
+        $this->assertSame($otherHead, $analysis->source_head_sha);
+        $this->assertSame(1, $fake->calls);
+        $this->assertSame('Distinct second project change', $fake->contexts[0]['pull_request']['title']);
+        $this->assertSame('src/Second.php', $fake->contexts[0]['files'][0]['path']);
+        $this->assertStringNotContainsString('src/Logic.php', json_encode($fake->contexts[0]));
+    }
+
     public function test_missing_or_stale_file_snapshot_never_calls_the_provider(): void
     {
         [$project, $pull, $actor] = $this->fixture();

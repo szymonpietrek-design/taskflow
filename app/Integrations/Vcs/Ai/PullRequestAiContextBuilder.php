@@ -37,6 +37,23 @@ final class PullRequestAiContextBuilder
             ->firstOrFail();
         $pull = $repository->changeRequests()->where('number', $pullNumber)->firstOrFail();
 
+        return $this->buildForPull($project, $pull, $includePatches);
+    }
+
+    /**
+     * Build evidence for the exact change request being analyzed. Current schema
+     * allows one repository per project, but this explicit binding prevents
+     * accidentally using another source if that restriction changes later.
+     *
+     * @return array<string, mixed>
+     */
+    public function buildForPull(Project $project, RepositoryChangeRequest $pull, bool $includePatches = false): array
+    {
+        $repository = $pull->repository()->firstOrFail();
+        if ((int) $repository->project_id !== (int) $project->getKey()) {
+            throw (new ModelNotFoundException())->setModel(RepositoryChangeRequest::class);
+        }
+
         // Database snapshots are valid only for the exact HEAD they were collected from.
         $current = $pull->files_synced_at !== null
             && is_string($pull->head_sha) && $pull->head_sha !== ''
