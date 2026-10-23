@@ -241,6 +241,110 @@ class ProjectPullRequestAiAnalysisUiTest extends TestCase
         $this->assertDatabaseCount('pull_request_ai_analyses', 1);
     }
 
+    public function test_project_quota_blocks_paid_request_before_creating_a_job(): void
+    {
+        config()->set('ai_pr.limits.per_project_1h', 1);
+        config()->set('ai_pr.limits.per_project_24h', 2);
+        [$project, , $owner] = $this->fixture();
+        $payload = [
+            'language' => 'pl', 'include_patches' => false,
+            'approve_external_sharing' => true, 'approve_code_sharing' => false,
+        ];
+        $url = route('projects.github.pull.ai.analyze', [$project, 10]);
+        $this->actingAs($owner)->post($url, $payload)->assertRedirect();
+        $this->actingAs($owner)->post($url, $payload)->assertSessionHasErrors('analysis');
+        Queue::assertPushed(GeneratePullRequestAiAnalysisJob::class, 1);
+        $this->assertDatabaseCount('pull_request_ai_analyses', 1);
+        $this->actingAs($owner)->get(route('projects.github.pull.show', [$project, 10]))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('ai.quota.allowed', false)
+                ->where('ai.quota.used_1h', 1)
+                ->where('ai.quota.limit_1h', 1)
+                ->etc());
+        [$otherProject, , $otherOwner] = $this->fixture();
+        $this->actingAs($otherOwner)->get(route('projects.github.pull.show', [$otherProject, 10]))
+            ->assertInertia(fn (Assert $page) => $page->where('ai.quota.allowed', true)->etc());
+    }
+
+    public function test_failed_analysis_still_counts_toward_24_hour_budget(): void
+    {
+        config()->set('ai_pr.limits.per_project_1h', 0);
+        config()->set('ai_pr.limits.per_project_24h', 1);
+        [$project, , $owner] = $this->fixture();
+        $fake = $this->fake();
+        $fake->fail = true;
+        $url = route('projects.github.pull.ai.analyze', [$project, 10]);
+        $payload = [
+            'language' => 'pl', 'include_patches' => false,
+            'approve_external_sharing' => true, 'approve_code_sharing' => false,
+        ];
+        $this->actingAs($owner)->post($url, $payload)->assertRedirect();
+        $analysis = PullRequestAiAnalysis::query()->firstOrFail();
+        (new GeneratePullRequestAiAnalysisJob((int) $analysis->id))
+            ->handle(app(GeneratePullRequestAiAnalysis::class));
+        $this->assertSame('failed', $analysis->fresh()->status);
+        $this->actingAs($owner)->post($url, $payload)->assertSessionHasErrors('analysis');
+        Queue::assertPushed(GeneratePullRequestAiAnalysisJob::class, 1);
+        $this->actingAs($owner)->get(route('projects.github.pull.show', [$project, 10]))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('ai.quota.used_24h', 1)
+                ->where('ai.quota.allowed', false)
+                ->where('ai.usage_30d.failed', 1)
+                ->etc());
+    }
+
+    public function test_cost_estimate_is_snapshotted_and_project_usage_is_visible(): void
+    {
+        config()->set('ai_pr.prices.deepseek.deepseek-chat', [
+            'input_per_million_usd' => '0.300000',
+            'output_per_million_usd' => '1.000000',
+        ]);
+        [$project, , $owner] = $this->fixture();
+        $this->fake();
+        $this->actingAs($owner)->post(route('projects.github.pull.ai.analyze', [$project, 10]), [
+            'language' => 'pl', 'include_patches' => false,
+            'approve_external_sharing' => true, 'approve_code_sharing' => false,
+        ])->assertRedirect();
+        $analysis = PullRequestAiAnalysis::query()->firstOrFail();
+        (new GeneratePullRequestAiAnalysisJob((int) $analysis->id))
+            ->handle(app(GeneratePullRequestAiAnalysis::class));
+        $this->assertSame('0.00000960', $analysis->fresh()->estimated_cost_usd);
+        $this->assertSame('0.300000', $analysis->fresh()->input_price_per_million_usd);
+        $this->assertSame('1.000000', $analysis->fresh()->output_price_per_million_usd);
+        config()->set('ai_pr.prices.deepseek.deepseek-chat.input_per_million_usd', '4.000000');
+        $this->assertSame('0.00000960', $analysis->fresh()->estimated_cost_usd);
+        $this->actingAs($owner)->get(route('projects.github.pull.show', [$project, 10]))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('ai.usage_30d.completed', 1)
+                ->where('ai.usage_30d.prompt_tokens', 12)
+                ->where('ai.usage_30d.completion_tokens', 6)
+                ->where('ai.usage_30d.unknown_cost', 0)
+                ->where('ai.history.0.estimated_cost_usd', '0.00000960')
+                ->etc());
+    }
+
+    public function test_unpriced_analysis_keeps_cost_unknown_not_zero(): void
+    {
+        config()->set('ai_pr.prices.deepseek.deepseek-chat', [
+            'input_per_million_usd' => null, 'output_per_million_usd' => null,
+        ]);
+        [$project, , $owner] = $this->fixture();
+        $this->fake();
+        $this->actingAs($owner)->post(route('projects.github.pull.ai.analyze', [$project, 10]), [
+            'language' => 'pl', 'include_patches' => false,
+            'approve_external_sharing' => true, 'approve_code_sharing' => false,
+        ])->assertRedirect();
+        $analysis = PullRequestAiAnalysis::query()->firstOrFail();
+        (new GeneratePullRequestAiAnalysisJob((int) $analysis->id))
+            ->handle(app(GeneratePullRequestAiAnalysis::class));
+        $this->assertNull($analysis->fresh()->estimated_cost_usd);
+        $this->actingAs($owner)->get(route('projects.github.pull.show', [$project, 10]))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('ai.usage_30d.unknown_cost', 1)
+                ->where('ai.usage_30d.estimated_cost_usd', null)
+                ->etc());
+    }
+
     /** @return array{Project, RepositoryChangeRequest, User} */
     private function fixture(): array
     {

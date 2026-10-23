@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'include_patch_excerpts', 'input_digest', 'status', 'ai_provider',
     'ai_model', 'prompt_tokens', 'completion_tokens', 'result_markdown',
     'error_code', 'started_at', 'finished_at',
+    'estimated_cost_usd', 'input_price_per_million_usd', 'output_price_per_million_usd',
 ])]
 class PullRequestAiAnalysis extends Model
 {
@@ -38,6 +39,9 @@ class PullRequestAiAnalysis extends Model
             'include_patch_excerpts' => 'boolean',
             'prompt_tokens' => 'integer',
             'completion_tokens' => 'integer',
+            'estimated_cost_usd' => 'decimal:8',
+            'input_price_per_million_usd' => 'decimal:6',
+            'output_price_per_million_usd' => 'decimal:6',
             'started_at' => 'datetime',
             'finished_at' => 'datetime',
         ];

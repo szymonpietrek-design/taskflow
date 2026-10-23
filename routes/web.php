@@ -97,6 +97,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('throttle:10,1')->name('projects.github.store');
     Route::post('projects/{project}/integrations/github/pulls/{number}/ai-analyses', [ProjectPullRequestAiAnalysisController::class, 'store'])
         ->whereNumber('number')->middleware('throttle:3,1')->name('projects.github.pull.ai.analyze');
+    Route::post('projects/{project}/integrations/github/pulls/{number}/sync', [ProjectGitHubPullRequestController::class, 'syncForAi'])
+        ->whereNumber('number')->middleware('throttle:4,1')->name('projects.github.pull.sync');
     Route::post('projects/{project}/integrations/github/pulls/{number}/files/sync', [ProjectGitHubPullRequestController::class, 'syncFiles'])
         ->whereNumber('number')->middleware('throttle:4,1')->name('projects.github.pull.files.sync');
     Route::post('projects/{project}/integrations/github/pulls/sync', [ProjectGitHubController::class, 'syncPulls'])

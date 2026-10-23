@@ -5,11 +5,13 @@ namespace App\Http\Controllers\Projects;
 use App\Http\Controllers\Controller;
 use App\Integrations\Vcs\Providers\GitHubInstance;
 use App\Integrations\Vcs\Ai\PullRequestAiAnalysisHistory;
+use App\Integrations\Vcs\Ai\PullRequestAiUsage;
 use App\Models\PullRequestAiAnalysis;
 use App\Support\Tasks\TaskMarkdown;
 use App\Integrations\Vcs\RepositoryChangeRequestParticipantResolver;
 use App\Integrations\Vcs\RepositoryChangeRequestReviewResolver;
 use App\Integrations\Vcs\RepositoryChangeRequestFileSynchronizer;
+use App\Integrations\Vcs\RepositoryChangeRequestAiSnapshotSynchronizer;
 use App\Models\Project;
 use App\Models\RepositoryChangeRequest;
 use App\Models\RepositoryChangeRequestReview;
@@ -25,7 +27,7 @@ use Inertia\Response;
 /** Read-only details of a stored GitHub pull request; does not contact GitHub. */
 final class ProjectGitHubPullRequestController extends Controller
 {
-    public function __invoke(Request $request, Project $project, int $number, PullRequestBodyMarkdown $bodyMarkdown, PullRequestAiAnalysisHistory $history, TaskMarkdown $safeMarkdown): Response
+    public function __invoke(Request $request, Project $project, int $number, PullRequestBodyMarkdown $bodyMarkdown, PullRequestAiAnalysisHistory $history, TaskMarkdown $safeMarkdown, PullRequestAiUsage $usage): Response
     {
         Gate::forUser($request->user())->authorize('view', $project);
 
@@ -61,11 +63,13 @@ final class ProjectGitHubPullRequestController extends Controller
         $files = $filesCurrent ? $pull->files()->orderBy('path')->limit(100)->get() : collect();
 
         $analyses = $history->forPull($request->user(), $project, $pull, 12);
+        $quota = $usage->quota($project);
         $canAnalyze = $request->user()->can('manageManagers', $project)
             && $request->user()->disabled_at === null
             && $project->archived_at === null;
         $filesReadyForAi = $filesCurrent && $pull->synced_at !== null
-            && $pull->synced_at->gte(now()->subMinutes(30));
+            && $pull->synced_at->gte(now()->subMinutes(30))
+            && $pull->files_synced_at?->gte(now()->subMinutes(30));
 
         return Inertia::render('projects/integrations/GitHubPullRequest', [
             'project' => [
@@ -115,6 +119,8 @@ final class ProjectGitHubPullRequestController extends Controller
             'reviews_limit' => 50,
             'ai' => [
                 'can_generate' => $canAnalyze,
+                'quota' => $quota,
+                'usage_30d' => $usage->last30Days($project),
                 'ready' => $filesReadyForAi,
                 'history_limit' => 12,
                 'history' => $analyses->map(static function (PullRequestAiAnalysis $analysis) use ($safeMarkdown): array {
@@ -129,6 +135,7 @@ final class ProjectGitHubPullRequestController extends Controller
                         'ai_model' => $analysis->ai_model,
                         'prompt_tokens' => $analysis->prompt_tokens,
                         'completion_tokens' => $analysis->completion_tokens,
+                        'estimated_cost_usd' => $analysis->estimated_cost_usd,
                         'created_at' => $analysis->created_at?->toIso8601String(),
                         'finished_at' => $analysis->finished_at?->toIso8601String(),
                         // Only project-authorized viewers receive safely rendered Markdown.
@@ -152,6 +159,42 @@ final class ProjectGitHubPullRequestController extends Controller
             ])->values(),
         ]);
     }
+    /** Refresh this exact PR and its HEAD-bound files for AI without triggering DeepSeek. */
+    public function syncForAi(Request $request, Project $project, int $number, RepositoryChangeRequestAiSnapshotSynchronizer $synchronizer): RedirectResponse
+    {
+        Gate::forUser($request->user())->authorize('manageManagers', $project);
+        abort_if($project->archived_at !== null || $request->user()->disabled_at !== null, 403);
+        $repository = RepositoryConnection::query()->where('project_id', $project->id)
+            ->whereHas('connection.instance', fn ($query) => $query
+                ->where('provider', 'github')->where('instance_key', GitHubInstance::key())
+                ->where('base_url', GitHubInstance::BASE_URL))->firstOrFail();
+        $repository->changeRequests()->where('number', $number)->firstOrFail();
+
+        try {
+            $result = $synchronizer->synchronize($repository, $number);
+        } catch (\Throwable $exception) {
+            // GitHub errors can include secrets or source fragments; never log raw messages.
+            \Illuminate\Support\Facades\Log::warning('PR snapshot synchronization failed', [
+                'project_id' => $project->id,
+                'pull_number' => $number,
+                'exception_type' => $exception::class,
+            ]);
+            throw ValidationException::withMessages([
+                'sync' => app()->getLocale() === 'pl'
+                    ? 'Nie udało się odświeżyć PR-a i plików. Spróbuj ponownie za chwilę.'
+                    : 'Could not refresh the PR and its files. Please try again shortly.',
+            ]);
+        }
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => app()->getLocale() === 'pl'
+                ? "PR i pliki zsynchronizowane ({$result['files']} plików). Możesz zlecić analizę AI."
+                : "PR and files synced ({$result['files']} files). AI analysis is ready.",
+        ]);
+        return to_route('projects.github.pull.show', ['project' => $project, 'number' => $number]);
+    }
+
     /** Refresh the selected PR only; no other project's data can be touched. */
     public function syncFiles(Request $request, Project $project, int $number, RepositoryChangeRequestFileSynchronizer $synchronizer): RedirectResponse
     {

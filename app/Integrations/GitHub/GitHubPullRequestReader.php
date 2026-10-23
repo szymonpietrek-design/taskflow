@@ -76,6 +76,31 @@ class GitHubPullRequestReader extends GitHubAppClient
         return $items;
     }
 
+    /** @return array<string, mixed> Raw snapshot for a single previously stored PR. */
+    public function pullRequest(int $installationId, string $fullName, int $expectedRepositoryId, int $number): array
+    {
+        if ($installationId < 1 || $expectedRepositoryId < 1 || $number < 1
+            || ! preg_match('~\A[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\z~D', $fullName)) {
+            throw new RuntimeException('Invalid GitHub pull request identifier.');
+        }
+
+        $client = $this->api()->withToken($this->installationToken($installationId, ['pull_requests' => 'read']));
+        $prefix = '/repos/'.$fullName;
+        $metadata = $client->get($prefix)->throw()->json();
+        if (! is_array($metadata)
+            || (int) ($metadata['id'] ?? 0) !== $expectedRepositoryId
+            || strcasecmp((string) ($metadata['full_name'] ?? ''), $fullName) !== 0) {
+            throw new RuntimeException('The GitHub repository identity changed. No pull requests were saved.');
+        }
+
+        $pull = $client->get($prefix.'/pulls/'.$number)->throw()->json();
+        if (! is_array($pull) || (int) ($pull['number'] ?? 0) !== $number) {
+            throw new RuntimeException('GitHub returned a mismatched pull request.');
+        }
+
+        return $pull;
+    }
+
     /**
      * Fetch only the merging identities of PRs that TaskFlow has already stored.
      * GitHub's PR listing is not authoritative for `merged_by`; GET /pulls/{number} is.

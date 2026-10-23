@@ -19,6 +19,7 @@ final class QueuePullRequestAiAnalysis
     public function __construct(
         private readonly PullRequestAiAnalysisHistory $history,
         private readonly GeneratePullRequestAiAnalysis $analyze,
+        private readonly PullRequestAiUsage $usage,
     ) {}
 
     public function enqueue(User $actor, Project $project, RepositoryChangeRequest $pull, string $language, bool $includePatches): PullRequestAiAnalysis
@@ -34,6 +35,10 @@ final class QueuePullRequestAiAnalysis
             // Serialize competing requests for this project in the same way as
             // the version allocator; do not queue another paid request while active.
             Project::query()->whereKey($project->id)->lockForUpdate()->firstOrFail();
+            $quota = $this->usage->quota($project);
+            if (! $quota['allowed']) {
+                throw new PullRequestAiQuotaExceeded('Project AI analysis quota exceeded.');
+            }
             $latest = $this->history->forPull($actor, $project, $pull, 1)->first();
             if ($latest !== null && in_array($latest->status, [PullRequestAiAnalysis::STATUS_PENDING, PullRequestAiAnalysis::STATUS_RUNNING], true)) {
                 throw new RuntimeException('Analysis already queued or running.');

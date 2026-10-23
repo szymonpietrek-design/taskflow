@@ -64,11 +64,16 @@ type AiHistoryEntry = {
     ai_model: string | null;
     prompt_tokens: number | null;
     completion_tokens: number | null;
+    estimated_cost_usd: string | null;
     created_at: string | null;
     finished_at: string | null;
     result_html: string;
 };
+type AiQuota = { used_24h: number; used_1h: number; limit_24h: number; limit_1h: number; allowed: boolean };
+type AiUsage = { completed: number; failed: number; unknown_cost: number; prompt_tokens: number; completion_tokens: number; estimated_cost_usd: string | null };
 type AiProps = {
+    quota: AiQuota;
+    usage_30d: AiUsage;
     can_generate: boolean;
     ready: boolean;
     history_limit: number;
@@ -102,7 +107,7 @@ const currentAnalysis = computed(() => props.ai.history.find(item => item.id ===
 const languageToSend = computed(() => (selectedLanguage.value === 'other' ? customLanguage.value.trim() : selectedLanguage.value).toLowerCase());
 const languageValid = computed(() => /^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/i.test(languageToSend.value) && languageToSend.value.length <= 35);
 const hasActiveAnalysis = computed(() => props.ai.history.some(item => item.status === 'pending' || item.status === 'running'));
-const canSubmitAi = computed(() => props.ai.can_generate && props.ai.ready && !generating.value && !hasActiveAnalysis.value && approveMetadata.value
+const canSubmitAi = computed(() => props.ai.can_generate && props.ai.ready && props.ai.quota.allowed && !generating.value && !hasActiveAnalysis.value && approveMetadata.value
     && (!includeCode.value || approveCode.value) && languageValid.value);
 watch(() => props.ai.history[0]?.id, id => { if (id !== undefined) selectedAnalysisId.value = id; });
 watch(includeCode, enabled => { if (!enabled) approveCode.value = false; });
@@ -129,6 +134,11 @@ function generateAiAnalysis(): void {
         onFinish: () => { generating.value = false; },
     });
 }
+function formatUsd(amount: string | null): string {
+    if (amount === null) return '—';
+    const number = Number(amount);
+    return Number.isFinite(number) ? number.toFixed(8) : '—';
+}
 function aiStatusLabel(status: AiHistoryEntry['status']): string {
     const labels = {
         completed: isPl.value ? 'Zakończono' : 'Completed',
@@ -140,27 +150,34 @@ function aiStatusLabel(status: AiHistoryEntry['status']): string {
 }
 // Poll only while this PR has an active queued analysis. Inertia refreshes
 // only the ai prop, preserving form state, scroll and the selected tab.
+const syncingSnapshot = ref(false);
 let aiPollTimer: ReturnType<typeof setInterval> | null = null;
 onMounted(() => {
     aiPollTimer = setInterval(() => {
-        if (hasActiveAnalysis.value && !generating.value) {
-            router.reload({ only: ['ai'], preserveScroll: true, preserveState: true });
+        if (hasActiveAnalysis.value && !generating.value && !syncingSnapshot.value) {
+            router.reload({ only: ['ai'] });
         }
     }, 5000);
 });
 onUnmounted(() => { if (aiPollTimer) clearInterval(aiPollTimer); });
-const syncingFiles = ref(false);
-const filesError = ref('');
-function refreshFiles(): void {
-    if (!props.can_sync_files || syncingFiles.value) return;
-    filesError.value = '';
-    syncingFiles.value = true;
-    router.post(`/projects/${props.project.id}/integrations/github/pulls/${props.pull_request.number}/files/sync`, {}, {
+const syncError = ref('');
+function syncPullAndFiles(): void {
+    if (!props.can_sync_files || syncingSnapshot.value) return;
+    syncError.value = '';
+    syncingSnapshot.value = true;
+    router.post(`/projects/${props.project.id}/integrations/github/pulls/${props.pull_request.number}/sync`, {}, {
         preserveScroll: true,
-        onError: (errors) => {
-            filesError.value = errors.files || (isPl.value ? 'Nie udało się pobrać zmian.' : 'Could not fetch changes.');
+        preserveState: true,
+        onSuccess: () => {
+            // Refresh only dependent Inertia props, without replacing the page or form state.
+            router.reload({
+                only: ['pull_request', 'files', 'files_count', 'files_current', 'files_synced_at', 'ai'],
+            });
         },
-        onFinish: () => { syncingFiles.value = false; },
+        onError: errors => {
+            syncError.value = errors.sync || (isPl.value ? 'Nie udało się odświeżyć PR-a i plików.' : 'Could not refresh the PR and files.');
+        },
+        onFinish: () => { syncingSnapshot.value = false; },
     });
 }
 const isPl = computed(() => locale.value === 'pl');
@@ -268,18 +285,15 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
             <CardHeader class="space-y-2">
                 <div class="flex flex-wrap items-center justify-between gap-3">
                     <CardTitle class="flex items-center gap-2 text-base"><FileDiff class="size-4" /> {{ isPl ? 'Zmiany w plikach' : 'Changed files' }}</CardTitle>
-                    <Button v-if="can_sync_files" type="button" size="sm" variant="outline" :disabled="syncingFiles" @click="refreshFiles">
-                        <RefreshCw class="size-4" :class="{ 'animate-spin': syncingFiles }" /> {{ syncingFiles ? (isPl ? 'Pobieranie…' : 'Fetching…') : (isPl ? 'Synchronizuj pliki' : 'Sync files') }}
-                    </Button>
                 </div>
                 <p class="text-sm text-muted-foreground">
                     {{ isPl ? 'Zmiany w plikach dotyczą aktualnej wersji HEAD. Podgląd diffu jest ograniczony rozmiarem.' : 'Files refer to the current HEAD revision. Diff previews are size-limited.' }}
                 </p>
-                <p v-if="filesError" role="alert" class="text-sm text-destructive">{{ filesError }}</p>
+                <p v-if="syncError" role="alert" class="text-sm text-destructive">{{ syncError }}</p>
             </CardHeader>
             <CardContent class="space-y-3">
                 <p v-if="!files_current" class="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-                    {{ isPl ? 'Brak aktualnej migawki zmian. Synchronizuj pliki (po wcześniejszej synchronizacji PR-a).' : 'No current file snapshot. Sync files after refreshing the PR.' }}
+                    {{ isPl ? 'Brak aktualnej migawki zmian. Użyj „Synchronizuj PR i pliki” w sekcji Agenta AI.' : 'No current file snapshot. Use “Sync PR and files” in the AI Agent section.' }}
                 </p>
                 <template v-else>
                     <div class="flex flex-wrap items-center justify-between gap-2 text-sm">
@@ -322,9 +336,25 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
                             {{ isPl ? 'Przed wysłaniem sprawdź zakres danych. Dane trafią do zewnętrznego dostawcy DeepSeek.' : 'Review the data scope. Selected information will be sent to external provider DeepSeek.' }}
                         </p>
                     </div>
-                    <p v-if="!ai.ready" class="rounded-md border border-dashed p-3 text-sm text-muted-foreground" role="status">
-                        {{ isPl ? 'PR lub zmienione pliki wymagają odświeżenia. Zsynchronizuj PR i pliki (PR musi być zsynchronizowany w ciągu ostatnich 30 minut).' : 'PR or file snapshot is outdated. Sync the PR and its files (PR must be refreshed within the last 30 minutes).' }}
-                    </p>
+                    <div class="space-y-3 rounded-md border border-dashed p-3" role="status">
+                        <p v-if="!ai.ready" class="text-sm text-muted-foreground">
+                            {{ isPl ? 'PR i pliki wymagają odświeżenia przed analizą. Zrobisz to jednym kliknięciem, bez opuszczania strony.' : 'Refresh this PR and its files before analyzing, without leaving the page.' }}
+                        </p>
+                        <p v-else class="text-sm text-muted-foreground">
+                            {{ isPl ? 'Dane PR i plików są aktualne. Możesz zlecić analizę po wyrażeniu zgód.' : 'PR and file snapshots are current. You can queue analysis after giving consent.' }}
+                        </p>
+                        <Button type="button" size="sm" variant="outline" :disabled="syncingSnapshot" @click="syncPullAndFiles">
+                            <RefreshCw class="size-4" :class="{ 'animate-spin': syncingSnapshot }" />
+                            {{ syncingSnapshot ? (isPl ? 'Synchronizowanie…' : 'Syncing…') : (isPl ? 'Synchronizuj PR i pliki' : 'Sync PR and files') }}
+                        </Button>
+                    </div>
+                    <p v-if="syncError" role="alert" class="text-sm text-destructive">{{ syncError }}</p>
+                    <div class="rounded-md border p-3 text-xs text-muted-foreground space-y-1" role="status">
+                        <p class="font-medium text-foreground">{{ isPl ? 'Limit analiz dla projektu' : 'Project analysis quota' }}</p>
+                        <p>{{ ai.quota.used_1h }} / {{ ai.quota.limit_1h || '∞' }} {{ isPl ? 'w ostatniej godzinie' : 'in the last hour' }} ·
+                            {{ ai.quota.used_24h }} / {{ ai.quota.limit_24h || '∞' }} {{ isPl ? 'w ostatnich 24 godzinach' : 'in the last 24 hours' }}</p>
+                        <p v-if="!ai.quota.allowed" class="text-destructive">{{ isPl ? 'Limit wyczerpany. Nie można teraz zlecić nowej analizy.' : 'Quota exhausted. A new analysis cannot be queued now.' }}</p>
+                    </div>
                     <div class="max-w-sm space-y-1.5">
                         <Label for="pr-ai-language">{{ isPl ? 'Język analizy' : 'Analysis language' }}</Label>
                         <Select v-model="selectedLanguage">
@@ -386,6 +416,15 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
                 <div v-else class="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">
                     {{ isPl ? 'Tylko uprawniony administrator aktywnego projektu może uruchamiać nowe analizy.' : 'Only an authorized administrator of an active project can start analyses.' }}
                 </div>
+                <div class="rounded-lg border p-4 text-sm space-y-2">
+                    <h3 class="font-semibold">{{ isPl ? 'Wykorzystanie AI w projekcie — ostatnie 30 dni' : 'Project AI usage — last 30 days' }}</h3>
+                    <p class="text-muted-foreground">{{ isPl ? 'Zakończone' : 'Completed' }}: {{ ai.usage_30d.completed }} · {{ isPl ? 'Nieudane' : 'Failed' }}: {{ ai.usage_30d.failed }}</p>
+                    <p class="text-muted-foreground">{{ isPl ? 'Tokeny wejścia / wyjścia' : 'Input / output tokens' }}: {{ ai.usage_30d.prompt_tokens.toLocaleString() }} / {{ ai.usage_30d.completion_tokens.toLocaleString() }}</p>
+                    <p>{{ isPl ? 'Oszacowany koszt' : 'Estimated cost' }}: <strong>{{ formatUsd(ai.usage_30d.estimated_cost_usd) }} USD</strong></p>
+                    <p class="text-xs text-muted-foreground">{{ isPl
+                        ? `Szacunek tylko dla analiz z zapisaną ceną. Brak wyceny: ${ai.usage_30d.unknown_cost}. Nie obejmuje ewentualnych opłat za nieudane próby, cache i różnic w cenniku dostawcy. To nie faktura.`
+                        : `Estimate covers only analyses with recorded pricing. Unpriced: ${ai.usage_30d.unknown_cost}. Excludes possible failed requests, cache and provider pricing differences. Not a billing statement.` }}</p>
+                </div>
                 <div class="space-y-3">
                     <div class="flex flex-wrap items-center justify-between gap-2">
                         <h3 class="text-sm font-semibold">{{ isPl ? 'Historia analiz' : 'Analysis history' }}</h3>
@@ -417,6 +456,9 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
                                 <span class="text-xs text-muted-foreground">{{ formatDate(currentAnalysis.finished_at || currentAnalysis.created_at) }}</span>
                             </div>
                             <p class="break-all text-xs text-muted-foreground">HEAD: {{ currentAnalysis.source_head_sha.slice(0, 12) }} · {{ currentAnalysis.ai_model || currentAnalysis.ai_provider || '—' }}</p>
+                            <p v-if="currentAnalysis.status === 'completed'" class="text-xs text-muted-foreground">
+                                {{ isPl ? 'Koszt szacunkowy' : 'Estimated cost' }}: {{ currentAnalysis.estimated_cost_usd !== null ? formatUsd(currentAnalysis.estimated_cost_usd) + ' USD' : '—' }}
+                            </p>
                             <div v-if="currentAnalysis.status === 'completed' && currentAnalysis.result_html" class="task-markdown taskflow-pr-markdown min-w-0 break-words text-sm" v-html="currentAnalysis.result_html" />
                             <p v-else class="text-sm text-muted-foreground">
                                 {{ currentAnalysis.status === 'failed' ? (isPl ? 'Generowanie nie powiodło się. Nie zapisano wyniku ani szczegółów błędu dostawcy.' : 'Generation failed. No result or provider error details were stored.') : (isPl ? 'Wynik nie jest jeszcze dostępny.' : 'No result available yet.') }}

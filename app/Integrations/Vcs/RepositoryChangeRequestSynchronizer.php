@@ -20,6 +20,54 @@ final class RepositoryChangeRequestSynchronizer
         private readonly RepositoryChangeRequestSnapshotValidator $validator,
     ) {}
 
+    /**
+     * Revalidate an existing PR by its exact number even if GitHub's updated_at
+     * has not changed. Normal incremental sync cannot refresh unchanged PRs.
+     * Never import a new PR here or advance the repository commit cursor.
+     */
+    public function refreshOne(RepositoryConnection $repository, int $number): RepositoryChangeRequest
+    {
+        if ($number < 1) {
+            throw new RuntimeException('Invalid pull request number.');
+        }
+        $lock = Cache::lock(RepositorySyncLock::key($repository->id), 120);
+        if (! $lock->get()) {
+            throw new RuntimeException('A repository operation is already in progress.');
+        }
+
+        try {
+            $repository = RepositoryConnection::query()->with('connection.instance')->findOrFail($repository->id);
+            $stored = $repository->changeRequests()->where('number', $number)->firstOrFail();
+            $snapshot = $this->providers->forRepository($repository)->forNumber($repository, $number);
+            $this->validator->assertValid($snapshot);
+            if ((int) $snapshot['number'] !== $number
+                || (string) $snapshot['external_change_request_id'] !== (string) $stored->external_change_request_id) {
+                throw new RuntimeException('Pull request identity changed during refresh.');
+            }
+
+            return DB::transaction(function () use ($repository, $stored, $snapshot): RepositoryChangeRequest {
+                RepositoryConnection::query()->whereKey($repository->id)->lockForUpdate()->firstOrFail();
+                $pull = $repository->changeRequests()->whereKey($stored->id)->lockForUpdate()->firstOrFail();
+                if ((string) $pull->external_change_request_id !== (string) $snapshot['external_change_request_id']) {
+                    throw new RuntimeException('Pull request identity changed during refresh.');
+                }
+                if ($pull->remote_updated_at !== null
+                    && $pull->remote_updated_at->greaterThan(Carbon::parse($snapshot['remote_updated_at']))) {
+                    throw new RuntimeException('GitHub returned an older pull request snapshot.');
+                }
+                $pull->fill($snapshot);
+                if ($pull->isDirty()) {
+                    $pull->reviews_checked_at = null;
+                }
+                $pull->synced_at = now();
+                $pull->save();
+                return $pull;
+            });
+        } finally {
+            $lock->release();
+        }
+    }
+
     /** @return array{fetched:int,created:int,updated:int} */
     public function synchronize(RepositoryConnection $repository): array
     {

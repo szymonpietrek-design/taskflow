@@ -22,6 +22,7 @@ final class GeneratePullRequestAiAnalysis
         private readonly PullRequestAiAnalysisHistory $history,
         private readonly PullRequestAiContextBuilder $builder,
         private readonly PullRequestAnalysisGenerator $generator,
+        private readonly PullRequestAiUsage $usage,
     ) {}
 
     public function run(
@@ -75,7 +76,15 @@ final class GeneratePullRequestAiAnalysis
             }
             $this->assertAnalysisSourceIsCurrent($pendingAnalysis);
         }
-        $analysis = $pendingAnalysis ?? $this->history->createPending($actor, $project, $pull, $language, $includePatches);
+        // CLI remains supported; it must respect the same project limits as HTTP.
+        // Count and allocation share a project row lock to prevent concurrent overbooking.
+        $analysis = $pendingAnalysis ?? DB::transaction(function () use ($actor, $project, $pull, $language, $includePatches): PullRequestAiAnalysis {
+            Project::query()->whereKey($project->id)->lockForUpdate()->firstOrFail();
+            if (! $this->usage->quota($project)['allowed']) {
+                throw new PullRequestAiQuotaExceeded('Project AI quota exceeded.');
+            }
+            return $this->history->createPending($actor, $project, $pull, $language, $includePatches);
+        }, 3);
         $lock = Cache::lock('taskflow:pr-ai:'.(string) $analysis->source_key, 120);
         if (! $lock->get()) {
             // A second worker must not alter the row currently owned by the first.
@@ -113,6 +122,7 @@ final class GeneratePullRequestAiAnalysis
 
             // Source may have changed during the external call. Do not publish stale output.
             $this->assertAnalysisSourceIsCurrent($analysis);
+            $quote = $this->usage->quote($result->provider, $result->model, $result->promptTokens, $result->completionTokens);
             $updated = PullRequestAiAnalysis::query()
                 ->whereKey($analysis->id)->where('status', PullRequestAiAnalysis::STATUS_RUNNING)
                 ->update([
@@ -122,6 +132,9 @@ final class GeneratePullRequestAiAnalysis
                     'ai_model' => $result->model,
                     'prompt_tokens' => $result->promptTokens,
                     'completion_tokens' => $result->completionTokens,
+                    'estimated_cost_usd' => $quote['cost_usd'] ?? null,
+                    'input_price_per_million_usd' => $quote['input_rate'] ?? null,
+                    'output_price_per_million_usd' => $quote['output_rate'] ?? null,
                     'error_code' => null,
                     'finished_at' => now(),
                 ]);
@@ -155,7 +168,7 @@ final class GeneratePullRequestAiAnalysis
         if ($pull === null || ! is_string($pull->head_sha)
             || ! preg_match('/\A[a-f0-9]{40}(?:[a-f0-9]{24})?\z/i', $pull->head_sha)
             || $pull->synced_at === null || $pull->synced_at->lt(now()->subMinutes(30))
-            || $pull->files_synced_at === null
+            || $pull->files_synced_at === null || $pull->files_synced_at->lt(now()->subMinutes(30))
             || ! hash_equals(strtolower((string) $pull->head_sha), strtolower((string) $pull->files_head_sha))) {
             throw new StalePullRequestAiEvidence('Synchronize the PR and its files before generating analysis.');
         }

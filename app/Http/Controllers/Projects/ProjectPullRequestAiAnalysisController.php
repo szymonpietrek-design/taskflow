@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Projects;
 
 use App\Http\Controllers\Controller;
 use App\Integrations\Vcs\Ai\QueuePullRequestAiAnalysis;
+use App\Integrations\Vcs\Ai\PullRequestAiQuotaExceeded;
 use App\Integrations\Vcs\Ai\StalePullRequestAiEvidence;
 use App\Integrations\Vcs\Providers\GitHubInstance;
 use App\Models\Project;
@@ -61,6 +62,13 @@ final class ProjectPullRequestAiAnalysisController extends Controller
                 language: strtolower($validated['language']),
                 includePatches: $patches,
             );
+        } catch (PullRequestAiQuotaExceeded) {
+            throw ValidationException::withMessages([
+                'analysis' => $this->message(
+                    'Osiągnięto limit analiz AI dla projektu. Spróbuj ponownie po odnowieniu limitu.',
+                    'Project AI analysis limit reached. Please try again after the quota resets.',
+                ),
+            ]);
         } catch (StalePullRequestAiEvidence) {
             throw ValidationException::withMessages([
                 'analysis' => $this->message(

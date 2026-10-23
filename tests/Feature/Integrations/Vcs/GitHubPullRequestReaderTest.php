@@ -70,6 +70,47 @@ class GitHubPullRequestReaderTest extends TestCase
         $reader->listPullRequests(10, 'example/repo', 20);
     }
 
+    public function test_single_pull_reader_requests_exact_number_after_repository_identity_check(): void
+    {
+        $reader = $this->reader();
+        $reader->shouldReceive('installationToken')->once()->with(10, ['pull_requests' => 'read'])
+            ->andReturn('temporary-test-token');
+        Http::fake([
+            'https://api.github.com/repos/example/repo' => Http::response(['id' => 20, 'full_name' => 'example/repo']),
+            'https://api.github.com/repos/example/repo/pulls/7' => Http::response(['id' => 71, 'number' => 7]),
+        ]);
+        $this->assertSame(7, $reader->pullRequest(10, 'example/repo', 20, 7)['number']);
+        Http::assertSent(fn ($request) => str_ends_with($request->url(), '/pulls/7'));
+    }
+
+    public function test_single_pull_reader_rejects_mismatched_repository_before_loading_pr(): void
+    {
+        $reader = $this->reader();
+        $reader->shouldReceive('installationToken')->once()->andReturn('temporary-test-token');
+        Http::fake([
+            'https://api.github.com/repos/example/repo' => Http::response(['id' => 99, 'full_name' => 'example/repo']),
+        ]);
+        try {
+            $reader->pullRequest(10, 'example/repo', 20, 7);
+            $this->fail('Expected a repository identity failure.');
+        } catch (RuntimeException $e) {
+            $this->assertStringContainsString('identity changed', $e->getMessage());
+            Http::assertNotSent(fn ($request) => str_contains($request->url(), '/pulls/7'));
+        }
+    }
+
+    public function test_single_pull_reader_rejects_mismatched_pr_number(): void
+    {
+        $reader = $this->reader();
+        $reader->shouldReceive('installationToken')->once()->andReturn('temporary-test-token');
+        Http::fake([
+            'https://api.github.com/repos/example/repo' => Http::response(['id' => 20, 'full_name' => 'example/repo']),
+            'https://api.github.com/repos/example/repo/pulls/7' => Http::response(['id' => 71, 'number' => 8]),
+        ]);
+        $this->expectExceptionMessage('mismatched pull request');
+        $reader->pullRequest(10, 'example/repo', 20, 7);
+    }
+
     private function reader(): \Mockery\MockInterface
     {
         return Mockery::mock(GitHubPullRequestReader::class)

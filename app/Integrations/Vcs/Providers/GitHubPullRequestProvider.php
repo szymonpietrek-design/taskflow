@@ -30,6 +30,25 @@ final class GitHubPullRequestProvider implements RepositoryChangeRequestProvider
         return array_map(fn (array $item): array => $this->normalize($item, $repository->full_name), $items);
     }
 
+    public function forNumber(RepositoryConnection $repository, int $number): array
+    {
+        $repository->loadMissing('connection.instance');
+        $instance = $repository->connection?->instance;
+        if ($instance?->provider !== 'github'
+            || $instance->base_url !== GitHubInstance::BASE_URL
+            || $instance->instance_key !== GitHubInstance::key() || $number < 1) {
+            throw new RuntimeException('Unsupported GitHub instance for pull requests.');
+        }
+
+        $item = $this->reader->pullRequest(
+            $this->positiveId($repository->connection->external_connection_id),
+            $repository->full_name,
+            $this->positiveId($repository->external_repository_id),
+            $number,
+        );
+        return $this->normalize($item, $repository->full_name);
+    }
+
     private function normalize(array $item, string $repositoryName): array
     {
         $id = $this->positiveId($item['id'] ?? null);
