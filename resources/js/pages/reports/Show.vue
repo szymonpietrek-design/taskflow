@@ -83,6 +83,7 @@ const props = defineProps<{
         messages: number | null;
         activity: number | null;
         worklogs: WorklogBreakdown | null;
+        vcs: { commits: number; pull_requests: number } | null;
     };
     can_delete: boolean;
     can_generate: boolean;
@@ -295,7 +296,7 @@ const selectedSources = [
     { key: 'activity' as const, title: 'Activity', icon: Activity },
 ].filter((source) => props.report.sources.includes(source.key));
 const selectedSourceCount =
-    selectedSources.length + Number(props.report.sources.includes('worklogs'));
+    selectedSources.length + Number(props.report.sources.includes('worklogs')) + Number(props.report.sources.includes('vcs'));
 function durationLabel(minutes: number): string {
     const hours = Math.floor(minutes / 60);
     const remaining = minutes % 60;
@@ -390,6 +391,15 @@ const { t, locale, formatText, translateLiteral, countLabel } = useI18n();
                         </div>
                         <p class="mt-3 text-2xl font-semibold tabular-nums">
                             {{ source_counts[source.key] ?? 0 }}
+                        </p>
+                    </div>
+                    <div v-if="report.sources.includes('vcs')" class="min-w-0 rounded-lg border bg-card p-4">
+                        <div class="flex items-center gap-2 text-sm text-muted-foreground">
+                            <FileText class="size-4" /> {{ t('vcs.reportTitle') }}
+                        </div>
+                        <p class="mt-3 text-sm font-semibold tabular-nums">
+                            {{ source_counts.vcs?.commits ?? 0 }} {{ t('vcs.commits') }} ·
+                            {{ source_counts.vcs?.pull_requests ?? 0 }} {{ t('vcs.pullRequests') }}
                         </p>
                     </div>
                     <div

@@ -34,6 +34,10 @@ import {
 } from '@/components/ui/popover';
 import InputError from '@/components/InputError.vue';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
     Select,
     SelectContent,
@@ -135,6 +139,7 @@ watch(
 );
 
 const draftBody = ref(props.changelog.draft_body);
+const includeVcsInChangelog = ref(false);
 const hasUnsavedDraftChanges = computed(
     () => draftBody.value !== props.changelog.draft_body,
 );
@@ -751,6 +756,14 @@ const { t, locale, formatText, translateLiteral } = useI18n();
                                     name="language"
                                     :value="outputLanguage"
                                 />
+                                <input type="hidden" name="include_vcs" :value="includeVcsInChangelog ? '1' : '0'" />
+                                <label for="changelog-include-vcs" class="flex items-start gap-2 text-sm">
+                                    <Checkbox id="changelog-include-vcs" :model-value="includeVcsInChangelog" class="mt-0.5" @update:model-value="(checked) => includeVcsInChangelog = checked === true" />
+                                    <span>
+                                        {{ t('vcs.includeInChangelog') }}
+                                        <span class="block text-xs text-muted-foreground">{{ t('vcs.changelogHelp') }}</span>
+                                    </span>
+                                </label>
                                 <div
                                     class="flex flex-col gap-3 sm:flex-row sm:items-end"
                                 >

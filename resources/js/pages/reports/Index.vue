@@ -15,7 +15,7 @@ import {
     today,
 } from '@internationalized/date';
 import type { DateValue } from '@internationalized/date';
-import { shallowRef, computed, ref } from 'vue';
+import { shallowRef, computed, ref, watch } from 'vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -79,6 +79,7 @@ const sources = [
     { value: 'messages', title: 'fix.report_source_messages_title', description: 'fix.report_source_messages' },
     { value: 'activity', title: 'fix.report_source_activity_title', description: 'fix.report_source_activity' },
     { value: 'worklogs', title: 'fix.report_source_worklogs_title', description: 'fix.report_source_worklogs' },
+    { value: 'vcs', title: 'vcs.reportTitle', description: 'vcs.reportDescription' },
 ];
 const selected = shallowRef<string[]>([
     'tasks',
@@ -96,6 +97,7 @@ function togglePerson(id: number, checked: boolean) {
 }
 function chooseFormat(value: 'project_summary' | 'work_report') {
     format.value = value;
+    if (value === 'work_report') selected.value = selected.value.filter((source) => source !== 'vcs');
     if (value === 'work_report' && !selected.value.includes('worklogs')) {
         selected.value = [...selected.value, 'worklogs'];
     }
@@ -105,7 +107,11 @@ const sourceLabels: Record<string, string> = {
     messages: 'fix.report_source_messages_title',
     activity: 'fix.report_source_activity_title',
     worklogs: 'fix.report_source_worklogs_title',
+    vcs: 'vcs.reportTitle',
 };
+watch(peopleMode, (mode) => {
+    if (mode === 'selected') selected.value = selected.value.filter((source) => source !== 'vcs');
+});
 const validPeriod = computed(() =>
     Boolean(
         start.value &&
@@ -114,6 +120,7 @@ const validPeriod = computed(() =>
     ),
 );
 function changeSource(value: string, checked: boolean) {
+    if (value === 'vcs' && (format.value === 'work_report' || !props.can_select_people || peopleMode.value === 'selected')) return;
     if (format.value === 'work_report' && value === 'worklogs' && !checked)
         return;
     selected.value = checked
@@ -507,8 +514,8 @@ const { t, locale, formatText, translateLiteral } = useI18n();
                                         selected.includes(source.value)
                                     "
                                     :disabled="
-                                        format === 'work_report' &&
-                                        source.value === 'worklogs'
+                                        (source.value === 'worklogs' && format === 'work_report') ||
+                                        (source.value === 'vcs' && (format === 'work_report' || !can_select_people || peopleMode === 'selected'))
                                     "
                                     @update:model-value="
                                         (checked) =>

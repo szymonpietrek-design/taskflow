@@ -5,13 +5,16 @@ namespace App\Support\Releases;
 use App\Enums\TaskStatusCategory;
 use App\Models\Release;
 use App\Models\Task;
+use App\Support\Vcs\VcsSummaryEvidence;
 use InvalidArgumentException;
 use JsonException;
 
 final class ReleaseChangelogContext
 {
+    public function __construct(private readonly VcsSummaryEvidence $vcs) {}
+
     /** @throws JsonException */
-    public function build(Release $release): string
+    public function build(Release $release, bool $includeVcs = false): string
     {
         // The model must never receive unfinished or canceled tasks as source
         // material. A category of Done AND a completion timestamp are required.
@@ -57,7 +60,7 @@ final class ReleaseChangelogContext
             ];
         })->all();
 
-        $payload = json_encode([
+        $data = [
             'project' => $release->project->name,
             'project_key' => $release->project->key,
             'release' => $release->version,
@@ -65,7 +68,12 @@ final class ReleaseChangelogContext
             'release_name' => $release->name,
             'only_completed_tasks' => true,
             'tasks' => $items,
-        ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        ];
+        if ($includeVcs) {
+            $data['vcs'] = $this->vcs->forRelease($release->project_id, array_column($items, 'reference'));
+        }
+
+        $payload = json_encode($data, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
         // Refuse oversized payloads rather than submitting a partial, misleading release summary.
         if (strlen($payload) > 90000) {

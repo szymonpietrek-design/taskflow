@@ -29,7 +29,7 @@ final class GenerateReleaseChangelogController extends Controller
 
         try {
             $language = $request->validated('language', str_replace('_', '-', app()->getLocale()));
-            $generate->handle($request->user(), $release, $language);
+            $generate->handle($request->user(), $release, $language, $request->boolean('include_vcs'));
         } catch (InvalidArgumentException $exception) {
             throw ValidationException::withMessages(['ai_generation' => __($exception->getMessage())]);
         } catch (Throwable $exception) {

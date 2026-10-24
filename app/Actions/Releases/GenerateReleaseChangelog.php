@@ -20,7 +20,7 @@ final class GenerateReleaseChangelog
         private readonly ChangelogTextGenerator $generator,
     ) {}
 
-    public function handle(User $actor, Release $release, string $language = 'en'): ReleaseChangelog
+    public function handle(User $actor, Release $release, string $language = 'en', bool $includeVcs = false): ReleaseChangelog
     {
         Gate::forUser($actor)->authorize('update', $release->project);
         $this->assertEditable($release);
@@ -29,7 +29,7 @@ final class GenerateReleaseChangelog
         }
 
         $originalDraft = $release->changelog?->draft_body ?? '';
-        $source = $this->context->build($release);
+        $source = $this->context->build($release, $includeVcs);
         // External AI call is made outside any DB transaction.
         $markdown = trim($this->generator->generate($source, $language));
         if ($markdown === '' || mb_strlen($markdown) > 50000) {

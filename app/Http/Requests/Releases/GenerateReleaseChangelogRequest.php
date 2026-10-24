@@ -16,6 +16,7 @@ final class GenerateReleaseChangelogRequest extends FormRequest
     {
         return [
             // BCP 47 language tags: en, pl, de, pt-BR, zh-Hant-TW, etc.
+            'include_vcs' => ['sometimes', 'boolean'],
             'language' => ['sometimes', 'required', 'string', 'max:35', 'regex:/\A[a-z]{2,3}(?:-[a-z0-9]{2,8})*\z/i'],
         ];
     }

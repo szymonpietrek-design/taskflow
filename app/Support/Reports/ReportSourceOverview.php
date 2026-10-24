@@ -7,12 +7,13 @@ use App\Models\Report;
 use App\Models\Task;
 use App\Models\TaskActivity;
 use App\Models\TaskMessage;
+use App\Support\Vcs\VcsSummaryEvidence;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 
 final class ReportSourceOverview
 {
-    public function __construct(private readonly ReportWorklogBreakdown $worklogBreakdown) {}
+    public function __construct(private readonly ReportWorklogBreakdown $worklogBreakdown, private readonly VcsSummaryEvidence $vcs) {}
 
     /** @return array<string, mixed> */
     public function forReport(Report $report): array
@@ -41,6 +42,9 @@ final class ReportSourceOverview
                     ->where('project_id', $report->project_id))
                     ->when($report->contributor_ids !== null, fn (Builder $q) => $q->whereIn('user_id', $report->contributor_ids))
                     ->whereBetween('created_at', [$start, $end])->count() : null,
+            'vcs' => in_array(ReportSource::VCS->value, $selected, true)
+                && $report->contributor_ids === null
+                ? $this->vcs->countsForPeriod($report->project_id, $start->toDateString(), $end->toDateString()) : null,
             'worklogs' => in_array(ReportSource::WORKLOGS->value, $selected, true)
                 ? $this->worklogBreakdown->forReport($report) : null,
         ];

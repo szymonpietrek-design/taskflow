@@ -8,4 +8,5 @@ enum ReportSource: string
     case MESSAGES = 'messages';
     case ACTIVITY = 'activity';
     case WORKLOGS = 'worklogs';
+    case VCS = 'vcs';
 }

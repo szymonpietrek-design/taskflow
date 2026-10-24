@@ -9,6 +9,7 @@ use App\Models\Task;
 use App\Models\TaskActivity;
 use App\Models\TaskMessage;
 use App\Models\TaskWorklog;
+use App\Support\Vcs\VcsSummaryEvidence;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use InvalidArgumentException;
@@ -16,7 +17,7 @@ use JsonException;
 
 final class ReportGenerationContext
 {
-    public function __construct(private readonly ReportWorklogBreakdown $worklogs) {}
+    public function __construct(private readonly ReportWorklogBreakdown $worklogs, private readonly VcsSummaryEvidence $vcs) {}
 
     /** @throws JsonException */
     public function build(Report $report): string
@@ -24,6 +25,11 @@ final class ReportGenerationContext
         $start = CarbonImmutable::parse($report->period_start)->startOfDay();
         $end = CarbonImmutable::parse($report->period_end)->endOfDay();
         $selected = $report->sources;
+
+        if (in_array(ReportSource::VCS->value, $selected, true)
+            && ($report->contributor_ids !== null || $report->format->value !== 'project_summary')) {
+            throw new InvalidArgumentException(__('VCS source is only supported for unfiltered project summary reports.'));
+        }
 
         $data = [
             'project' => $report->project->name,
@@ -113,6 +119,10 @@ final class ReportGenerationContext
                     'description' => $this->shorten($entry->description, 450),
                 ])->all(),
             ];
+        }
+
+        if (in_array(ReportSource::VCS->value, $selected, true)) {
+            $data['vcs'] = $this->vcs->forPeriod($report->project_id, $start->toDateString(), $end->toDateString());
         }
 
         $payload = json_encode($data, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);

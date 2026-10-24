@@ -38,7 +38,7 @@ class StoreReportRequest extends FormRequest
             'format' => ['sometimes', 'required', Rule::enum(ReportFormat::class)],
             'period_start' => ['required', 'date_format:Y-m-d'],
             'period_end' => ['required', 'date_format:Y-m-d', 'after_or_equal:period_start'],
-            'sources' => ['required', 'array', 'min:1', 'max:4'],
+            'sources' => ['required', 'array', 'min:1', 'max:5'],
             'sources.*' => ['required', 'string', Rule::in(array_map(static fn (ReportSource $source): string => $source->value, ReportSource::cases())), 'distinct'],
         ];
     }
@@ -65,6 +65,12 @@ class StoreReportRequest extends FormRequest
                         $validator->errors()->add('contributor_ids', 'Select contributors who belong to this project or workspace.');
                     }
                 }
+            }
+            if (in_array(ReportSource::VCS->value, (array) $this->input('sources', []), true)
+                && ($this->input('format') === ReportFormat::WORK_REPORT->value || $requested !== null
+                    || ($project instanceof Project && $actor instanceof User
+                        && ! app(ReportAccess::class)->canManageTeam($actor, $project)))) {
+                $validator->errors()->add('sources', 'VCS source is available only for project summary reports without a contributor filter.');
             }
             if ($this->input('format') === ReportFormat::WORK_REPORT->value
                 && ! in_array(ReportSource::WORKLOGS->value, (array) $this->input('sources', []), true)) {
