@@ -10,6 +10,7 @@ use App\Models\Project;
 use App\Models\Release;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use InvalidArgumentException;
@@ -34,7 +35,12 @@ final class GenerateReleaseChangelogController extends Controller
             throw ValidationException::withMessages(['ai_generation' => __($exception->getMessage())]);
         } catch (Throwable $exception) {
             // Never return raw provider errors, credentials or task data to the browser.
-            report($exception);
+            // Provider exceptions can include prompts, task data or credentials.
+            Log::warning('release_changelog_generation_failed', [
+                'project_id' => $project->id,
+                'release_id' => $release->id,
+                'exception_class' => $exception::class,
+            ]);
             throw ValidationException::withMessages([
                 'ai_generation' => 'AI generation failed. Check the provider configuration or try again later.',
             ]);

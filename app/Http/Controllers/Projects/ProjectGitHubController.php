@@ -27,6 +27,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -36,6 +37,19 @@ use RuntimeException;
 /** GitHub-specific UI entry point backed by provider-neutral repository tables. */
 class ProjectGitHubController extends Controller
 {
+    /** Log only safe diagnostics; provider exception text may include private source or tokens. */
+    private function logProviderFailure(Project $project, string $operation, \Throwable $exception): void
+    {
+        Log::warning('github_repository_operation_failed', [
+            'project_id' => $project->id,
+            'operation' => $operation,
+            'exception_class' => $exception::class,
+            'provider_http_status' => $exception instanceof RequestException
+                ? $exception->response->status()
+                : null,
+        ]);
+    }
+
     private function repository(Project $project): ?RepositoryConnection
     {
         return RepositoryConnection::query()
@@ -177,7 +191,7 @@ class ProjectGitHubController extends Controller
             $installationData = $github->inspectInstallation($installationId);
             $repositoryData = $github->inspectRepository($installationId, $validated['repository']);
         } catch (ConnectionException|RequestException|RuntimeException $exception) {
-            report($exception);
+            $this->logProviderFailure($project, 'connect', $exception);
             throw ValidationException::withMessages([
                 'repository' => 'Cannot access this repository with the specified GitHub App installation.',
             ]);
@@ -226,7 +240,7 @@ class ProjectGitHubController extends Controller
         try {
             $result = $synchronizer->synchronize($repository);
         } catch (ConnectionException|RequestException|RuntimeException $exception) {
-            report($exception);
+            $this->logProviderFailure($project, 'commits', $exception);
             throw ValidationException::withMessages([
                 'sync' => app()->getLocale() === 'pl'
                     ? 'Synchronizacja nie powiodła się lub zmieniła się historia gałęzi. Zapisany SHA pozostał bez zmian. Sprawdź historię synchronizacji i spróbuj ponownie.'
@@ -242,7 +256,7 @@ class ProjectGitHubController extends Controller
             $filesInfo = app(RepositoryCommitFileSynchronizer::class)->synchronize($repository);
         } catch (\Throwable $exception) {
             $fileSyncFailed = true;
-            report($exception);
+            $this->logProviderFailure($project, 'commit_files', $exception);
         }
         Inertia::flash('toast', [
             'type' => 'success',
@@ -266,7 +280,7 @@ class ProjectGitHubController extends Controller
         try {
             $result = $synchronizer->synchronize($repository);
         } catch (\Throwable $exception) {
-            report($exception);
+            $this->logProviderFailure($project, 'pull_requests', $exception);
             throw ValidationException::withMessages([
                 'pulls' => app()->getLocale() === 'pl'
                     ? 'Nie udało się zsynchronizować Pull Requestów. Sprawdź uprawnienia GitHub App lub spróbuj ponownie.'
@@ -292,7 +306,7 @@ class ProjectGitHubController extends Controller
             // This button explicitly requests a fresh check, even within the regular TTL.
             $result = $synchronizer->synchronize($repository, force: true);
         } catch (\Throwable $exception) {
-            report($exception);
+            $this->logProviderFailure($project, 'reviews', $exception);
             throw ValidationException::withMessages([
                 'reviews' => app()->getLocale() === 'pl'
                     ? 'Nie udało się odświeżyć recenzji. Spróbuj ponownie później.'
@@ -315,7 +329,7 @@ class ProjectGitHubController extends Controller
         try {
             $result = $backfiller->backfill($repository);
         } catch (ConnectionException|RequestException|RuntimeException $exception) {
-            report($exception);
+            $this->logProviderFailure($project, 'authors', $exception);
             throw ValidationException::withMessages([
                 'authors' => app()->getLocale() === 'pl'
                     ? 'Nie udało się uzupełnić autorów. Spróbuj ponownie później.'

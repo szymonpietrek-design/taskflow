@@ -26,6 +26,8 @@ return [
         'report_thinking' => (bool) env('DEEPSEEK_REPORT_THINKING', false),
         // Explicit opt-in, local environment only; may capture sensitive report data.
         'debug_report_prompts' => (bool) env('AI_DEBUG_REPORT_PROMPTS', false),
+        // Local-only debug snapshots: expire after 7 days (bounded to 1–30 days).
+        'prompt_archive_retention_days' => (int) env('AI_DEBUG_REPORT_PROMPT_RETENTION_DAYS', 7),
     ],
 
     'postmark' => [

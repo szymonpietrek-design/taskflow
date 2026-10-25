@@ -3,6 +3,7 @@
 namespace App\Support\Workspaces;
 
 use App\Enums\WorkspaceRole;
+use App\Support\Projects\ProjectVisibilityQuery;
 use App\Models\Workspace;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -25,8 +26,12 @@ final class WorkspaceContext
                     ->where('user_id', $user->id)
                     ->whereNull('suspended_at')
                     ->whereIn('role', [WorkspaceRole::OWNER->value, WorkspaceRole::ADMIN->value]))
-                    ->orWhereHas('projects.memberships', fn ($members) => $members
-                        ->where('user_id', $user->id));
+                    ->orWhere(function ($memberAccess) use ($user): void {
+                        // Only a genuinely readable project can grant derived workspace visibility.
+                        // A regular member of an archived project must not see the workspace.
+                        $memberAccess->whereHas('projects', fn ($projects) =>
+                            ProjectVisibilityQuery::visibleTo($projects, $user->id));
+                    });
             })
             ->orderBy('name')
             ->get(['id', 'name', 'slug']);

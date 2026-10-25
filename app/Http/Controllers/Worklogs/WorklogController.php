@@ -3,12 +3,12 @@
 namespace App\Http\Controllers\Worklogs;
 
 use App\Actions\Tasks\SaveTaskWorklog;
-use App\Enums\WorkspaceRole;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Worklogs\SaveGlobalWorklogRequest;
 use App\Models\Project;
 use App\Models\Task;
 use App\Models\TaskWorklog;
+use App\Support\Projects\ProjectVisibilityQuery;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
@@ -40,8 +40,8 @@ class WorklogController extends Controller
             ->where('user_id', $userId)
             ->where('work_date', '>=', $weekStart->toDateString())
             ->where('work_date', '<', $weekEnd->addDay()->toDateString())
-            ->selectRaw('DATE(work_date) AS work_day, SUM(duration_minutes) AS minutes')
-            ->groupByRaw('DATE(work_date)')
+            ->selectRaw('work_date AS work_day, SUM(duration_minutes) AS minutes')
+            ->groupBy('work_date')
             ->pluck('minutes', 'work_day');
 
         $week = collect(range(0, 6))->map(function (int $offset) use ($weekStart, $weekTotals): array {
@@ -50,33 +50,21 @@ class WorklogController extends Controller
             return ['date' => $day, 'total_minutes' => (int) ($weekTotals[$day] ?? 0)];
         })->all();
 
-        $daily = TaskWorklog::query()->where('user_id', $userId)->whereDate('work_date', $date);
+        $daily = TaskWorklog::query()->where('user_id', $userId)->where('work_date', $date);
         $totalMinutes = (int) (clone $daily)->sum('duration_minutes');
 
-        // Match ProjectPolicy::view: workspace owner/admin or explicit project membership.
-        $visible = (clone $daily)->whereHas('task.project', function (Builder $projects) use ($userId): void {
-            $projects->where(fn (Builder $access) => $access
-                ->whereHas('memberships', fn (Builder $members) => $members->where('user_id', $userId))
-                ->orWhereHas('workspace.memberships', fn (Builder $members) => $members
-                    ->where('user_id', $userId)
-                    ->whereNull('suspended_at')
-                    ->whereIn('role', [WorkspaceRole::OWNER->value, WorkspaceRole::ADMIN->value])));
-        });
+        // Keep the global diary visibility aligned with ProjectPolicy::view,
+        // including archived projects and suspended workspace administrators.
+        $visible = (clone $daily)->whereHas('task.project',
+            fn (Builder $projects) => ProjectVisibilityQuery::visibleTo($projects, $userId));
 
         $visibleMinutes = (int) (clone $visible)->sum('duration_minutes');
 
         // Only contributing members/admins of non-archived projects may create or edit entries.
-        $writableProjects = Project::query()
-            ->whereNull('archived_at')
-            ->where(function (Builder $projects) use ($userId): void {
-                $projects->whereHas('memberships', fn (Builder $members) => $members->where('user_id', $userId))
-                    ->orWhereHas('workspace.memberships', fn (Builder $members) => $members
-                        ->where('user_id', $userId)
-                        ->whereNull('suspended_at')
-                        ->whereIn('role', [WorkspaceRole::OWNER->value, WorkspaceRole::ADMIN->value]));
-            })
+        $writableProjects = ProjectVisibilityQuery::visibleTo(Project::query()->whereNull('archived_at'), $userId)
             ->with('workspace:id,name')
             ->orderBy('name')->get();
+
         $writableIds = $writableProjects->pluck('id')->all();
 
         $entries = $visible->with(['task:id,project_id,number,title', 'task.project:id,workspace_id,name,key'])

@@ -23,8 +23,10 @@ use App\Models\Workspace;
 use App\Models\WorkspaceMember;
 use App\Support\Releases\ReleaseChangelogContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Log;
 use Inertia\Testing\AssertableInertia as Assert;
 use Prism\Prism\Facades\Prism;
+use Mockery;
 use Prism\Prism\Testing\TextResponseFake;
 use Tests\TestCase;
 
@@ -340,8 +342,17 @@ class GenerateReleaseChangelogTest extends TestCase
             }
         });
 
+        Log::spy();
         $this->actingAs($owner)->post($this->url($project, $release))
             ->assertSessionHasErrors(['ai_generation']);
+        Log::shouldHaveReceived('warning')->once()->with(
+            'release_changelog_generation_failed',
+            Mockery::on(fn (array $context): bool =>
+                $context['project_id'] === $project->id
+                && $context['release_id'] === $release->id
+                && $context['exception_class'] === \RuntimeException::class
+                && ! str_contains(json_encode($context), 'Fake upstream error')),
+        );
 
         $this->assertSame('## Original draft', ReleaseChangelog::query()->sole()->draft_body);
     }

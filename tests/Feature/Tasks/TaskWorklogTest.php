@@ -15,6 +15,8 @@ use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceMember;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Database\Events\QueryExecuted;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Carbon;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
@@ -27,6 +29,29 @@ class TaskWorklogTest extends TestCase
     {
         parent::setUp();
         $this->withoutVite();
+    }
+
+    public function test_daily_limit_uses_index_friendly_native_date_predicate(): void
+    {
+        [$project, $owner, $task] = $this->taskWithOwner();
+        $statements = [];
+        DB::listen(function (QueryExecuted $event) use (&$statements): void {
+            if (str_contains(strtolower($event->sql), 'sum(') && str_contains(strtolower($event->sql), 'work_date')) {
+                $statements[] = strtolower($event->sql);
+            }
+        });
+
+        $this->actingAs($owner)
+            ->post(route('tasks.worklogs.store', [$project, $task]),
+                $this->entry('2026-05-12', 2, 0, 'Verified date lookup'))
+            ->assertSessionHasNoErrors();
+
+        $this->assertNotEmpty($statements);
+        foreach ($statements as $statement) {
+            $this->assertStringNotContainsString('date(', $statement);
+            $this->assertStringContainsString('work_date', $statement);
+        }
+        $this->assertSame(120, (int) $task->worklogs()->sum('duration_minutes'));
     }
 
     public function test_multiple_entries_same_day_and_on_other_days_are_summed(): void

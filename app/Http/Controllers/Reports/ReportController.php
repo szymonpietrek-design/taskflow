@@ -17,6 +17,7 @@ use App\Support\Reports\ReportSourceOverview;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -27,17 +28,27 @@ class ReportController extends Controller
         Gate::forUser($request->user())->authorize('view', $project);
         $this->syncWorkspace($request, $project);
 
+        $reports = $project->reports()->with('creator:id,name')
+            ->when(! app(ReportAccess::class)->canViewTeam($request->user(), $project),
+                fn ($query) => $query->where('created_by', $request->user()->id)
+                    ->whereJsonContains('contributor_ids', $request->user()->id))
+            ->latest('id')->paginate(15);
+
+        // One contributor query per page rather than one query per report.
+        $contributorIds = $reports->getCollection()
+            ->flatMap(fn (Report $report) => $report->contributor_ids ?? [])
+            ->unique()->values()->all();
+        $contributorNames = User::query()->whereIn('id', $contributorIds)
+            ->orderBy('name')->pluck('name', 'id');
+        $reports->through(fn (Report $report): array => $this->reportData($report, $contributorNames));
+
         return Inertia::render('reports/Index', [
             'project' => $this->projectData($project),
             'can_create' => app(ReportAccess::class)->canCreate($request->user(), $project),
             'can_select_people' => app(ReportAccess::class)->canManageTeam($request->user(), $project),
             'has_vcs_repository' => RepositoryConnection::query()->where('project_id', $project->id)->exists(),
             'contributors' => app(ReportAccess::class)->canManageTeam($request->user(), $project) ? $this->contributors($project) : [],
-            'reports' => $project->reports()->with('creator:id,name')
-                ->when(! app(ReportAccess::class)->canViewTeam($request->user(), $project),
-                    fn ($query) => $query->where('created_by', $request->user()->id)->whereJsonContains('contributor_ids', $request->user()->id))
-                ->latest('id')
-                ->paginate(15)->through(fn (Report $report): array => $this->reportData($report)),
+            'reports' => $reports,
         ]);
     }
 
@@ -121,15 +132,17 @@ class ReportController extends Controller
     }
 
     /** @return array<string, mixed> */
-    private function reportData(Report $report): array
+    private function reportData(Report $report, ?Collection $contributorNames = null): array
     {
         return [
             'id' => $report->id,
             'title' => $report->title,
             'format' => $report->format->value,
             'contributor_ids' => $report->contributor_ids,
-            'contributor_names' => $report->contributor_ids === null ? null : User::query()
-                ->whereIn('id', $report->contributor_ids)->orderBy('name')->pluck('name')->all(),
+            'contributor_names' => $report->contributor_ids === null ? null
+                : ($contributorNames !== null
+                    ? $contributorNames->only($report->contributor_ids)->values()->all()
+                    : User::query()->whereIn('id', $report->contributor_ids)->orderBy('name')->pluck('name')->all()),
             'period_start' => $report->period_start->toDateString(),
             'period_end' => $report->period_end->toDateString(),
             'sources' => $report->sources,

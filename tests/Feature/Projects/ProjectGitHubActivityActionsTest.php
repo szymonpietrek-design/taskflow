@@ -16,6 +16,7 @@ use App\Models\VcsConnection;
 use App\Models\WorkspaceMember;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use Mockery;
 use RuntimeException;
 use Tests\TestCase;
@@ -113,8 +114,18 @@ class ProjectGitHubActivityActionsTest extends TestCase
             ->andThrow(new RuntimeException('SECRET_PROVIDER_CREDENTIAL'));
         $this->app->instance(GitHubPullRequestReviewReader::class, $reader);
 
+        Log::spy();
         $this->actingAs($owner)->post(route('projects.github.reviews.sync', $project))
             ->assertSessionHasErrors(['reviews']);
+        Log::shouldHaveReceived('warning')->once()->with(
+            'github_repository_operation_failed',
+            Mockery::on(fn (array $context): bool =>
+                $context['project_id'] === $project->id
+                && $context['operation'] === 'reviews'
+                && $context['exception_class'] === RuntimeException::class
+                && $context['provider_http_status'] === null
+                && ! str_contains(json_encode($context), 'SECRET_PROVIDER_CREDENTIAL')),
+        );
         $this->assertStringNotContainsString(
             'SECRET_PROVIDER_CREDENTIAL', implode(' ', session('errors')->get('reviews')),
         );

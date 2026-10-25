@@ -13,6 +13,8 @@ use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceMember;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Database\Events\QueryExecuted;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Carbon;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
@@ -194,6 +196,27 @@ class GlobalWorklogTest extends TestCase
             ->has('entries.data', 3));
     }
 
+    public function test_weekly_summary_groups_native_date_column_without_sql_date_wrapper(): void
+    {
+        $user = User::factory()->create();
+        $statements = [];
+        DB::listen(function (QueryExecuted $event) use (&$statements): void {
+            if (str_contains(strtolower($event->sql), 'sum(duration_minutes) as minutes')) {
+                $statements[] = strtolower($event->sql);
+            }
+        });
+
+        $this->actingAs($user)
+            ->get(route('worklogs.index', ['date' => '2026-05-12']))
+            ->assertOk();
+
+        $this->assertNotEmpty($statements);
+        foreach ($statements as $statement) {
+            $this->assertStringNotContainsString('date(work_date)', $statement);
+            $this->assertStringContainsString('group by', $statement);
+        }
+    }
+
     public function test_default_date_uses_the_supplied_browser_timezone(): void
     {
         $user = User::factory()->create();
@@ -348,6 +371,58 @@ class GlobalWorklogTest extends TestCase
         $this->actingAs($owner)->post(route('worklogs.store'), $payload)->assertForbidden();
         $this->actingAs($owner)->patch(route('worklogs.update', $log), $payload)->assertForbidden();
         $this->actingAs($owner)->delete(route('worklogs.destroy', $log))->assertForbidden();
+    }
+
+    public function test_archived_project_worklogs_follow_project_view_policy(): void
+    {
+        $user = User::factory()->create();
+        $workspace = Workspace::factory()->create();
+        $this->joinWorkspace($user, $workspace, WorkspaceRole::MEMBER);
+        $project = $this->makeProject($user, $workspace);
+        $membership = ProjectMember::factory()->create([
+            'project_id' => $project->id,
+            'user_id' => $user->id,
+            'role' => ProjectRole::MEMBER,
+        ]);
+        $this->log($this->makeTask($project), $user, '2026-05-12', 90);
+        $project->update(['archived_at' => now()]);
+
+        $url = route('worklogs.index', ['date' => '2026-05-12']);
+        $this->actingAs($user)->get($url)->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->where('total_minutes', 90)
+            ->where('visible_minutes', 0)
+            ->where('entries.total', 0)
+            ->has('worklog_projects', 0));
+
+        // Archived projects remain readable by their explicit managers.
+        $membership->update(['role' => ProjectRole::MANAGER]);
+        $this->actingAs($user)->get($url)->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->where('visible_minutes', 90)
+            ->where('entries.total', 1)
+            ->has('worklog_projects', 0));
+    }
+
+    public function test_suspended_workspace_admin_cannot_fall_back_to_old_project_membership(): void
+    {
+        $user = User::factory()->create();
+        $workspace = Workspace::factory()->create();
+        $this->joinWorkspace($user, $workspace, WorkspaceRole::ADMIN);
+        $project = $this->makeProject($user, $workspace);
+        ProjectMember::factory()->create([
+            'project_id' => $project->id,
+            'user_id' => $user->id,
+            'role' => ProjectRole::MEMBER,
+        ]);
+        $this->log($this->makeTask($project), $user, '2026-05-12', 75);
+        WorkspaceMember::query()->where('workspace_id', $workspace->id)
+            ->where('user_id', $user->id)->update(['suspended_at' => now()]);
+
+        $this->actingAs($user)->get(route('worklogs.index', ['date' => '2026-05-12']))
+            ->assertOk()->assertInertia(fn (Assert $page) => $page
+                ->where('total_minutes', 75)
+                ->where('visible_minutes', 0)
+                ->where('entries.total', 0)
+                ->has('worklog_projects', 0));
     }
 
     private function makeProject(User $user, ?Workspace $workspace = null, ProjectVisibility $visibility = ProjectVisibility::WORKSPACE): Project

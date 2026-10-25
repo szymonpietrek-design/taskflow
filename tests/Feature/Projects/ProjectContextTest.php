@@ -3,6 +3,9 @@
 namespace Tests\Feature\Projects;
 
 use App\Actions\Projects\CreateProject;
+use App\Enums\ProjectRole;
+use App\Models\Project;
+use App\Models\ProjectMember;
 use App\Enums\WorkspaceRole;
 use App\Models\User;
 use App\Models\Workspace;
@@ -47,6 +50,31 @@ class ProjectContextTest extends TestCase
                 ->has('projects.items', 1)
                 ->where('projects.items.0.name', 'Active Project'),
             );
+    }
+
+    public function test_project_only_collaborator_sees_only_readable_active_projects_in_sidebar(): void
+    {
+        $user = User::factory()->create();
+        $workspace = Workspace::factory()->create();
+        $active = Project::factory()->create(['workspace_id' => $workspace->id]);
+        $archived = Project::factory()->create(['workspace_id' => $workspace->id, 'archived_at' => now()]);
+        Project::factory()->create(['workspace_id' => $workspace->id]); // no access
+        foreach ([$active, $archived] as $project) {
+            ProjectMember::factory()->create([
+                'project_id' => $project->id, 'user_id' => $user->id,
+                'role' => ProjectRole::MEMBER,
+            ]);
+        }
+
+        $this->actingAs($user)
+            ->withSession(['current_workspace_id' => $workspace->id])
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('workspace.items', 1)
+                ->has('projects.items', 1)
+                ->where('projects.items.0.id', $active->id)
+                ->where('projects.can_create', false));
     }
 
     /**

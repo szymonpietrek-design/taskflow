@@ -21,7 +21,7 @@ class SaveTaskWorklog
             $duration = (int) $data['hours'] * 60 + (int) $data['minutes'];
             $onDate = TaskWorklog::query()
                 ->where('user_id', $user->id)
-                ->whereDate('work_date', $data['work_date']);
+                ->where('work_date', $data['work_date']);
 
             if ($worklog !== null) {
                 $onDate->where('id', '!=', $worklog->id);

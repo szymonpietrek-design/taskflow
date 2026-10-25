@@ -11,6 +11,7 @@ use App\Models\TaskActivity;
 use App\Models\TaskMessage;
 use App\Models\TaskWorklog;
 use App\Support\Projects\ProjectContext;
+use App\Support\Projects\ProjectVisibilityQuery;
 use App\Support\Workspaces\WorkspaceContext;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
@@ -25,16 +26,16 @@ final class DashboardController extends Controller
         $user = $request->user();
         $workspace = $workspaceContext->resolve($request)['current'];
 
-        // ProjectContext drives the sidebar and knows about project-only members.
-        // Recheck the actual policy before using IDs in dashboard queries.
+        // The sidebar supplies workspace-scoped candidate IDs. Check the same
+        // visibility rules as ProjectPolicy in SQL, rather than running a
+        // separate membership query for every project on the dashboard.
         $navigationIds = collect($projectContext->resolve($request)['items'])->pluck('id');
-        $projects = Project::query()
-            ->whereIn('id', $navigationIds)
-            ->whereNull('archived_at')
-            ->orderBy('name')
-            ->get()
-            ->filter(fn (Project $project): bool => $user->can('view', $project))
-            ->values();
+        $projects = ProjectVisibilityQuery::visibleTo(
+            Project::query()
+                ->whereIn('id', $navigationIds)
+                ->whereNull('archived_at'),
+            $user->id,
+        )->orderBy('name')->get();
         $projectIds = $projects->pluck('id')->all();
 
         // Only the first four authorized, non-archived projects need dashboard
@@ -87,10 +88,10 @@ final class DashboardController extends Controller
             ->whereHas('status', fn (Builder $query) => $query->whereNotIn('category', $openCategories));
 
         $openCount = (clone $myOpenTasks)->count();
-        $overdueCount = (clone $myOpenTasks)->whereDate('due_date', '<', today())->count();
+        $overdueCount = (clone $myOpenTasks)->where('due_date', '<', today()->toDateString())->count();
         $dueSoonCount = (clone $myOpenTasks)
-            ->whereDate('due_date', '>=', today())
-            ->whereDate('due_date', '<=', today()->addDays(7))
+            ->where('due_date', '>=', today()->toDateString())
+            ->where('due_date', '<=', today()->addDays(7)->toDateString())
             ->count();
 
         // Task worklogs are personal and scoped to the projects currently visible
@@ -99,8 +100,8 @@ final class DashboardController extends Controller
         $weekMinutes = TaskWorklog::query()
             ->where('user_id', $user->id)
             ->whereHas('task', fn (Builder $query) => $query->whereIn('project_id', $projectIds))
-            ->whereDate('work_date', '>=', $weekStart->toDateString())
-            ->whereDate('work_date', '<', $weekStart->copy()->addWeek()->toDateString())
+            ->where('work_date', '>=', $weekStart->toDateString())
+            ->where('work_date', '<', $weekStart->copy()->addWeek()->toDateString())
             ->sum('duration_minutes');
 
         // All three summary links use this scoped query. The default preview is
@@ -113,10 +114,10 @@ final class DashboardController extends Controller
 
         $attentionQuery = clone $myOpenTasks;
         if ($focus === 'overdue') {
-            $attentionQuery->whereDate('due_date', '<', today());
+            $attentionQuery->where('due_date', '<', today()->toDateString());
         } elseif ($focus === 'due_soon') {
-            $attentionQuery->whereDate('due_date', '>=', today())
-                ->whereDate('due_date', '<=', today()->addDays(7));
+            $attentionQuery->where('due_date', '>=', today()->toDateString())
+                ->where('due_date', '<=', today()->addDays(7)->toDateString());
         }
 
         $taskPage = $attentionQuery

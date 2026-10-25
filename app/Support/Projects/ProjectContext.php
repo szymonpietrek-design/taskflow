@@ -2,11 +2,9 @@
 
 namespace App\Support\Projects;
 
-use App\Enums\WorkspaceRole;
 use App\Models\Project;
 use App\Support\Projects\ProjectLogo;
 use App\Support\Workspaces\WorkspaceContext;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 
 final class ProjectContext
@@ -32,19 +30,12 @@ final class ProjectContext
         }
 
         $workspaceId = $currentWorkspace['id'];
-        $workspaceMembership = $user->workspaceMemberships()
-            ->where('workspace_id', $workspaceId)
-            ->whereNull('suspended_at')
-            ->first();
-
-        $query = Project::query()
-            ->where('workspace_id', $workspaceId)
-            ->whereNull('archived_at');
-
-        if (! in_array($workspaceMembership?->role, [WorkspaceRole::OWNER, WorkspaceRole::ADMIN], true)) {
-            $query->whereHas('memberships', fn (Builder $memberships) => $memberships
-                ->where('user_id', $user->id));
-        }
+        // Reuse the same SQL visibility rules as ProjectPolicy, dashboard and diary.
+        // Sidebar never includes archived projects, including for their managers.
+        $query = ProjectVisibilityQuery::visibleTo(
+            Project::query()->where('workspace_id', $workspaceId)->whereNull('archived_at'),
+            $user->id,
+        );
 
         $items = $query
             ->orderBy('name')

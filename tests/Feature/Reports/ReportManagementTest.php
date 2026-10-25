@@ -20,6 +20,7 @@ use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceMember;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
@@ -512,6 +513,32 @@ class ReportManagementTest extends TestCase
             ->assertRedirect(route('reports.index', $project));
         $this->assertDatabaseCount('reports', 0);
         $this->assertDatabaseCount('projects', 1);
+    }
+
+    public function test_report_index_fetches_contributor_names_once_per_page(): void
+    {
+        [$owner, $project] = $this->fixtures();
+        $contributor = User::factory()->create(['name' => 'Alice Contributor']);
+        for ($i = 0; $i < 10; $i++) {
+            $report = $this->report($project, $owner);
+            $report->update(['contributor_ids' => [$owner->id, $contributor->id]]);
+        }
+
+        $queries = [];
+        DB::listen(function ($query) use (&$queries): void {
+            $sql = strtolower($query->sql);
+            if (preg_match('/from\s+[`"]?users[`"]?\s+where\s+[`"]?id[`"]?\s+in\s*\(/', $sql)) {
+                $queries[] = $sql;
+            }
+        });
+
+        $expectedNames = ['Alice Contributor', $owner->name];
+        sort($expectedNames);
+        $this->actingAs($owner)->get(route('reports.index', $project))
+            ->assertOk()->assertInertia(fn (Assert $page) => $page
+                ->has('reports.data', 10)
+                ->where('reports.data.0.contributor_names', $expectedNames));
+        $this->assertCount(1, $queries, 'Contributor names should be loaded in one batched query.');
     }
 
     /** @return array{User,Project} */

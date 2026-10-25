@@ -99,7 +99,7 @@ class GitHubCommitReaderTest extends TestCase
     {
         return new class extends GitHubCommitReader
         {
-            protected function installationToken(int $installationId): string
+            protected function installationToken(int $installationId, array $permissions = ['contents' => 'read']): string
             {
                 return 'token-for-test';
             }
