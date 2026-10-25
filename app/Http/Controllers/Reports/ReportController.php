@@ -6,6 +6,7 @@ use App\Actions\Reports\CreateReport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Reports\StoreReportRequest;
 use App\Models\Project;
+use App\Models\RepositoryConnection;
 use App\Models\Report;
 use App\Models\User;
 use App\Support\Reports\ReportAccess;
@@ -30,6 +31,7 @@ class ReportController extends Controller
             'project' => $this->projectData($project),
             'can_create' => app(ReportAccess::class)->canCreate($request->user(), $project),
             'can_select_people' => app(ReportAccess::class)->canManageTeam($request->user(), $project),
+            'has_vcs_repository' => RepositoryConnection::query()->where('project_id', $project->id)->exists(),
             'contributors' => app(ReportAccess::class)->canManageTeam($request->user(), $project) ? $this->contributors($project) : [],
             'reports' => $project->reports()->with('creator:id,name')
                 ->when(! app(ReportAccess::class)->canViewTeam($request->user(), $project),

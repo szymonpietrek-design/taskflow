@@ -15,7 +15,9 @@ import {
     today,
 } from '@internationalized/date';
 import type { DateValue } from '@internationalized/date';
-import { shallowRef, computed, ref, watch } from 'vue';
+import { shallowRef, computed, ref } from 'vue';
+import { canIncludeVcsSource, normalizeReportSources, toggleReportSource } from '@/lib/reportSourceSelection';
+import type { ReportFormatValue, ReportPeopleMode } from '@/lib/reportSourceSelection';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -54,6 +56,7 @@ const props = defineProps<{
     project: { id: number; name: string; key: string };
     can_create: boolean;
     can_select_people: boolean;
+    has_vcs_repository: boolean;
     contributors: { id: number; name: string }[];
     reports: {
         data: ReportRow[];
@@ -77,9 +80,9 @@ const sources = [
         description: 'fix.report_source_tasks',
     },
     { value: 'messages', title: 'fix.report_source_messages_title', description: 'fix.report_source_messages' },
-    { value: 'activity', title: 'fix.report_source_activity_title', description: 'fix.report_source_activity' },
+    { value: 'activity', title: 'reports.taskHistoryTitle', description: 'reports.taskHistoryDescription' },
     { value: 'worklogs', title: 'fix.report_source_worklogs_title', description: 'fix.report_source_worklogs' },
-    { value: 'vcs', title: 'vcs.reportTitle', description: 'vcs.reportDescription' },
+    { value: 'vcs', title: 'reports.gitActivityTitle', description: 'reports.gitActivityDescription' },
 ];
 const selected = shallowRef<string[]>([
     'tasks',
@@ -87,31 +90,46 @@ const selected = shallowRef<string[]>([
     'activity',
     'worklogs',
 ]);
-const format = ref<'project_summary' | 'work_report'>('project_summary');
-const peopleMode = ref<'all' | 'selected'>('all');
+const format = ref<ReportFormatValue>('project_summary');
+const peopleMode = ref<ReportPeopleMode>('all');
+const reportFormats: { value: ReportFormatValue; label: string; help: string }[] = [
+    { value: 'project_summary', label: 'audit.summary', help: 'reports.summaryDescription' },
+    { value: 'work_report', label: 'audit.detailed_report', help: 'reports.workReportDescription' },
+];
 const selectedPeople = ref<number[]>([]);
 function togglePerson(id: number, checked: boolean) {
     selectedPeople.value = checked
         ? [...selectedPeople.value, id]
         : selectedPeople.value.filter((personId) => personId !== id);
 }
-function chooseFormat(value: 'project_summary' | 'work_report') {
+function chooseFormat(value: ReportFormatValue) {
     format.value = value;
-    if (value === 'work_report') selected.value = selected.value.filter((source) => source !== 'vcs');
-    if (value === 'work_report' && !selected.value.includes('worklogs')) {
-        selected.value = [...selected.value, 'worklogs'];
-    }
+    selected.value = normalizeReportSources(selected.value, format.value, peopleMode.value, props.can_select_people, props.has_vcs_repository);
 }
+function choosePeopleMode(value: string) {
+    peopleMode.value = value === 'selected' ? 'selected' : 'all';
+    selected.value = normalizeReportSources(selected.value, format.value, peopleMode.value, props.can_select_people, props.has_vcs_repository);
+}
+const vcsUnavailableReason = computed(() => {
+    if (!props.has_vcs_repository) return 'reports.vcsNoRepository';
+    if (format.value === 'work_report') return 'reports.vcsWorkReportRestriction';
+    if (!props.can_select_people) return 'reports.vcsPersonalRestriction';
+    if (peopleMode.value === 'selected') return 'reports.vcsPeopleRestriction';
+    return null;
+});
+const selectedSourcesText = computed(() => formatText('reports.selectedSources', { count: selected.value.length }));
+const reportsCountText = computed(() => {
+    const category = new Intl.PluralRules(locale.value === 'pl' ? 'pl-PL' : 'en-US').select(props.reports.total);
+    const suffix = category === 'one' ? 'One' : category === 'few' ? 'Few' : 'Many';
+    return formatText(`reports.count${suffix}`, { count: props.reports.total });
+});
 const sourceLabels: Record<string, string> = {
     tasks: 'fix.report_source_tasks_title',
     messages: 'fix.report_source_messages_title',
-    activity: 'fix.report_source_activity_title',
+    activity: 'reports.taskHistoryTitle',
     worklogs: 'fix.report_source_worklogs_title',
-    vcs: 'vcs.reportTitle',
+    vcs: 'reports.gitActivityTitle',
 };
-watch(peopleMode, (mode) => {
-    if (mode === 'selected') selected.value = selected.value.filter((source) => source !== 'vcs');
-});
 const validPeriod = computed(() =>
     Boolean(
         start.value &&
@@ -120,12 +138,7 @@ const validPeriod = computed(() =>
     ),
 );
 function changeSource(value: string, checked: boolean) {
-    if (value === 'vcs' && (format.value === 'work_report' || !props.can_select_people || peopleMode.value === 'selected')) return;
-    if (format.value === 'work_report' && value === 'worklogs' && !checked)
-        return;
-    selected.value = checked
-        ? [...selected.value, value]
-        : selected.value.filter((source) => source !== value);
+    selected.value = toggleReportSource(selected.value, value, checked, format.value, peopleMode.value, props.can_select_people, props.has_vcs_repository);
 }
 function formatDate(value?: DateValue) {
     return value
@@ -157,15 +170,12 @@ const { t, locale, formatText, translateLiteral } = useI18n();
         </div>
         <div
             class="grid items-start gap-6"
-            :class="can_create ? 'lg:grid-cols-[minmax(0,1fr)_22rem]' : ''"
+            :class="can_create ? 'lg:grid-cols-[minmax(0,1fr)_minmax(24rem,29rem)]' : ''"
         >
             <section class="space-y-3">
                 <div class="flex items-center justify-between">
                     <h2 class="font-medium">{{ t('stage3.saved_reports') }}</h2>
-                    <span class="text-sm text-muted-foreground"
-                        >{{ reports.total }}
-                        {{ reports.total === 1 ? t('audit.reports_nominative') : 'reports' }}</span
-                    >
+                    <span class="text-sm text-muted-foreground">{{ reportsCountText }}</span>
                 </div>
                 <Card v-if="reports.data.length === 0" class="border-dashed">
                     <CardContent
@@ -290,40 +300,32 @@ const { t, locale, formatText, translateLiteral } = useI18n();
                     >
                         <div class="grid gap-2">
                             <Label>{{ t('stage3.report_content') }}</Label>
-                            <input
-                                type="hidden"
-                                name="format"
-                                :value="format"
-                            />
-                            <div
-                                class="flex items-start gap-3 rounded-lg border p-3"
+                            <input type="hidden" name="format" :value="format" />
+                            <RadioGroup
+                                :model-value="format"
+                                class="grid gap-2"
+                                @update:model-value="(value) => chooseFormat(value === 'work_report' ? 'work_report' : 'project_summary')"
                             >
-                                <Checkbox
-                                    id="report-detailed"
-                                    class="mt-0.5 shrink-0"
-                                    :model-value="format === 'work_report'"
-                                    @update:model-value="
-                                        (checked) =>
-                                            chooseFormat(
-                                                checked === true
-                                                    ? 'work_report'
-                                                    : 'project_summary',
-                                            )
-                                    "
-                                />
-                                <div class="min-w-0 flex-1 space-y-1">
+                                <div
+                                    v-for="option in reportFormats"
+                                    :key="option.value"
+                                    class="flex min-w-0 items-start gap-3 rounded-lg border px-3.5 py-3 transition-colors hover:bg-muted/20"
+                                    :class="format === option.value ? 'border-primary/60 bg-primary/[0.04]' : 'border-border'"
+                                >
+                                    <RadioGroupItem
+                                        :id="`report-format-${option.value}`"
+                                        :value="option.value"
+                                        class="mt-0.5 shrink-0"
+                                    />
                                     <Label
-                                        for="report-detailed"
-                                        class="block cursor-pointer text-sm leading-5 font-medium"
-                                        >{{ t('stage3.include_detailed_worklog') }}</Label
+                                        :for="`report-format-${option.value}`"
+                                        class="!flex min-w-0 flex-1 cursor-pointer flex-col items-start gap-0.5"
                                     >
-                                    <p
-                                        class="text-xs leading-5 text-muted-foreground"
-                                    >
-                                        {{ t('audit.add_a_dated_table_of_recorded_work_people_and_exact_hours') }}
-                                    </p>
+                                        <span class="text-sm font-medium leading-5">{{ t(option.label) }}</span>
+                                        <span class="text-xs font-normal leading-5 text-muted-foreground">{{ t(option.help) }}</span>
+                                    </Label>
                                 </div>
-                            </div>
+                            </RadioGroup>
                             <InputError :message="errors.format" />
                         </div>
                         <div class="grid gap-2">
@@ -331,14 +333,8 @@ const { t, locale, formatText, translateLiteral } = useI18n();
                             <template v-if="can_select_people">
                                 <RadioGroup
                                     :model-value="peopleMode"
-                                    class="grid gap-2 sm:grid-cols-2"
-                                    @update:model-value="
-                                        (value) =>
-                                            (peopleMode =
-                                                value === 'selected'
-                                                    ? 'selected'
-                                                    : 'all')
-                                    "
+                                    class="grid grid-cols-2 gap-2"
+                                    @update:model-value="(value) => choosePeopleMode(value === 'selected' ? 'selected' : 'all')"
                                 >
                                     <div
                                         v-for="opt in [
@@ -352,15 +348,17 @@ const { t, locale, formatText, translateLiteral } = useI18n();
                                             },
                                         ]"
                                         :key="opt.value"
-                                        class="flex items-center gap-2 rounded-lg border p-3 text-sm"
+                                        class="flex min-w-0 items-center gap-2.5 rounded-lg border px-3 py-3 transition-colors hover:bg-muted/20"
+                                        :class="peopleMode === opt.value ? 'border-primary/60 bg-primary/[0.04]' : 'border-border'"
                                     >
                                         <RadioGroupItem
                                             :id="`report-people-${opt.value}`"
                                             :value="opt.value"
+                                            class="shrink-0"
                                         />
                                         <Label
                                             :for="`report-people-${opt.value}`"
-                                            class="cursor-pointer font-normal"
+                                            class="!block min-w-0 cursor-pointer text-sm font-medium leading-5"
                                             >{{ t(opt.text) }}</Label
                                         >
                                     </div>
@@ -403,11 +401,11 @@ const { t, locale, formatText, translateLiteral } = useI18n();
                                         :value="id"
                                     />
                                 </div>
-                                <p
-                                    v-if="peopleMode === 'selected'"
-                                    class="text-xs text-muted-foreground"
-                                >
+                                <p v-if="peopleMode === 'selected'" class="text-xs text-muted-foreground">
                                     {{ t('audit.only_the_selected_people_will_be_included') }}
+                                </p>
+                                <p v-if="peopleMode === 'selected' && selectedPeople.length === 0" class="text-xs text-destructive" role="status">
+                                    {{ contributors.length ? t('reports.selectContributorHint') : t('reports.noContributorsHint') }}
                                 </p>
                             </template>
                             <p v-else class="text-sm text-muted-foreground">
@@ -428,9 +426,6 @@ const { t, locale, formatText, translateLiteral } = useI18n();
                                 maxlength="160"
                                 :placeholder="t('audit.e_g_weekly_project_summary')"
                             />
-                            <p class="text-xs text-muted-foreground">
-                                {{ t('audit.leave_blank_to_use_the_selected_dates') }}
-                            </p>
                             <InputError :message="errors.title" />
                         </div>
                         <div class="grid gap-2">
@@ -494,7 +489,10 @@ const { t, locale, formatText, translateLiteral } = useI18n();
                             </p>
                         </div>
                         <div class="grid gap-2">
-                            <Label>{{ t('stage3.include_sources') }}</Label>
+                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                <Label>{{ t('stage3.include_sources') }}</Label>
+                                <span class="text-xs text-muted-foreground" aria-live="polite">{{ selectedSourcesText }}</span>
+                            </div>
                             <input
                                 v-for="source in selected"
                                 :key="`selected-source-${source}`"
@@ -502,39 +500,39 @@ const { t, locale, formatText, translateLiteral } = useI18n();
                                 name="sources[]"
                                 :value="source"
                             />
-                            <div
-                                v-for="source in sources"
-                                :key="source.value"
-                                class="flex items-start gap-2 rounded-md border px-3 py-2.5"
-                            >
-                                <Checkbox
-                                    :id="`report-source-${source.value}`"
-                                    class="mt-0.5"
-                                    :model-value="
-                                        selected.includes(source.value)
-                                    "
-                                    :disabled="
-                                        (source.value === 'worklogs' && format === 'work_report') ||
-                                        (source.value === 'vcs' && (format === 'work_report' || !can_select_people || peopleMode === 'selected'))
-                                    "
-                                    @update:model-value="
-                                        (checked) =>
-                                            changeSource(
-                                                source.value,
-                                                checked === true,
-                                            )
-                                    "
-                                />
-                                <Label
-                                    :for="`report-source-${source.value}`"
-                                    class="min-w-0 cursor-pointer leading-normal"
+                            <div class="divide-y overflow-hidden rounded-lg border">
+                                <div
+                                    v-for="source in sources"
+                                    :key="source.value"
+                                    class="flex min-w-0 items-start gap-3 px-3.5 py-3 transition-colors"
+                                    :class="source.value === 'vcs' && vcsUnavailableReason ? 'bg-muted/20' : 'hover:bg-muted/20'"
                                 >
-                                    <span class="block text-sm font-medium">{{ t(source.title) }}</span>
-                                    <span
-                                        class="block text-xs font-normal text-muted-foreground"
-                                        >{{ t(source.description) }}</span
+                                    <Checkbox
+                                        :id="`report-source-${source.value}`"
+                                        class="mt-0.5 shrink-0"
+                                        :model-value="selected.includes(source.value)"
+                                        :disabled="
+                                            (source.value === 'worklogs' && format === 'work_report') ||
+                                            (source.value === 'vcs' && !canIncludeVcsSource(format, peopleMode, can_select_people, has_vcs_repository))
+                                        "
+                                        @update:model-value="
+                                            (checked) => changeSource(source.value, checked === true)
+                                        "
+                                    />
+                                    <Label
+                                        :for="`report-source-${source.value}`"
+                                        class="!flex min-w-0 flex-1 flex-col items-start gap-0.5"
+                                        :class="source.value === 'vcs' && vcsUnavailableReason ? 'cursor-not-allowed' : 'cursor-pointer'"
                                     >
-                                </Label>
+                                        <span class="text-sm font-medium leading-5">{{ t(source.title) }}</span>
+                                        <span class="text-xs font-normal leading-5 text-muted-foreground">{{ t(source.description) }}</span>
+                                        <span
+                                            v-if="source.value === 'vcs' && vcsUnavailableReason"
+                                            class="mt-1 text-xs font-normal leading-5 text-muted-foreground"
+                                            role="note"
+                                        >{{ t(vcsUnavailableReason) }}</span>
+                                    </Label>
+                                </div>
                             </div>
                             <p
                                 v-if="format === 'work_report'"

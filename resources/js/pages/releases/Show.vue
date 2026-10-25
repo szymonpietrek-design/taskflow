@@ -35,9 +35,6 @@ import {
 import InputError from '@/components/InputError.vue';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Checkbox } from '@/components/ui/checkbox';
 import {
     Select,
     SelectContent,
@@ -762,6 +759,7 @@ const { t, locale, formatText, translateLiteral } = useI18n();
                                     <span>
                                         {{ t('vcs.includeInChangelog') }}
                                         <span class="block text-xs text-muted-foreground">{{ t('vcs.changelogHelp') }}</span>
+                                        <span class="mt-1 block text-xs text-muted-foreground">{{ t('vcs.changelogPrivacy') }}</span>
                                     </span>
                                 </label>
                                 <div

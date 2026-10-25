@@ -12,6 +12,7 @@ import {
     Activity,
     Trash2,
     Clock3,
+    GitBranch,
     Users,
     ListTodo,
     Sparkles,
@@ -291,12 +292,13 @@ function removeReport() {
     });
 }
 const selectedSources = [
-    { key: 'tasks' as const, title: 'Tasks', icon: ClipboardList },
-    { key: 'messages' as const, title: 'Messages', icon: MessageCircle },
-    { key: 'activity' as const, title: 'Activity', icon: Activity },
+    { key: 'tasks' as const, title: 'fix.report_source_tasks_title', icon: ClipboardList },
+    { key: 'messages' as const, title: 'fix.report_source_messages_title', icon: MessageCircle },
+    { key: 'activity' as const, title: 'reports.taskHistoryTitle', icon: Activity },
 ].filter((source) => props.report.sources.includes(source.key));
+// Worklogs have their own section immediately below the source cards.
 const selectedSourceCount =
-    selectedSources.length + Number(props.report.sources.includes('worklogs')) + Number(props.report.sources.includes('vcs'));
+    selectedSources.length + Number(props.report.sources.includes('vcs'));
 function durationLabel(minutes: number): string {
     const hours = Math.floor(minutes / 60);
     const remaining = minutes % 60;
@@ -313,6 +315,12 @@ defineOptions({
     layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }] },
 });
 const { t, locale, formatText, translateLiteral, countLabel } = useI18n();
+const commitCountLabel = computed((): string => {
+    const count = props.source_counts.vcs?.commits ?? 0;
+    if (locale.value !== 'pl') return count === 1 ? 'commit' : 'commits';
+    const plural = new Intl.PluralRules('pl-PL').select(count);
+    return plural === 'one' ? 'commit' : plural === 'few' ? 'commity' : 'commitów';
+});
 </script>
 
 <template>
@@ -359,125 +367,108 @@ const { t, locale, formatText, translateLiteral, countLabel } = useI18n();
                 }}
             </p>
         </div>
-        <Card>
-            <CardHeader
-                class="flex flex-row items-center justify-between gap-3"
-            >
+        <Card class="gap-4">
+            <CardHeader class="flex flex-row flex-wrap items-center justify-between gap-3">
                 <CardTitle class="text-base">{{ t('stage3.sources') }}</CardTitle>
-                <span class="text-xs text-muted-foreground"
-                    >{{ formatText('audit.selected_count', { count: selectedSourceCount }) }}</span
-                >
+                <span class="text-xs text-muted-foreground">
+                    {{ formatText('audit.selected_count', { count: selectedSourceCount }) }}
+                </span>
             </CardHeader>
-            <CardContent>
+            <CardContent class="space-y-3">
                 <div
                     class="grid gap-3"
-                    style="
-                        grid-template-columns: repeat(
-                            auto-fit,
-                            minmax(min(100%, 14rem), 1fr)
-                        );
-                    "
+                    style="grid-template-columns: repeat(auto-fit, minmax(min(100%, 10.5rem), 1fr));"
                 >
                     <div
                         v-for="source in selectedSources"
                         :key="source.key"
-                        class="min-w-0 rounded-lg border bg-card p-4"
+                        class="flex min-w-0 flex-col justify-between gap-3 rounded-lg border bg-muted/15 p-4"
                     >
-                        <div
-                            class="flex items-center gap-2 text-sm text-muted-foreground"
-                        >
-                            <component :is="source.icon" class="size-4" />
-                            {{ translateLiteral(source.title) }}
+                        <div class="flex min-w-0 items-start gap-2 text-sm font-medium">
+                            <component :is="source.icon" class="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                            <span class="min-w-0 leading-snug">{{ t(source.title) }}</span>
                         </div>
-                        <p class="mt-3 text-2xl font-semibold tabular-nums">
+                        <p class="text-2xl font-semibold tabular-nums">
                             {{ source_counts[source.key] ?? 0 }}
                         </p>
                     </div>
-                    <div v-if="report.sources.includes('vcs')" class="min-w-0 rounded-lg border bg-card p-4">
-                        <div class="flex items-center gap-2 text-sm text-muted-foreground">
-                            <FileText class="size-4" /> {{ t('vcs.reportTitle') }}
-                        </div>
-                        <p class="mt-3 text-sm font-semibold tabular-nums">
-                            {{ source_counts.vcs?.commits ?? 0 }} {{ t('vcs.commits') }} ·
-                            {{ source_counts.vcs?.pull_requests ?? 0 }} {{ t('vcs.pullRequests') }}
-                        </p>
-                    </div>
                     <div
-                        v-if="report.sources.includes('worklogs')"
-                        class="min-w-0 rounded-lg border bg-card p-4"
+                        v-if="report.sources.includes('vcs')"
+                        class="flex min-w-0 flex-col justify-between gap-3 rounded-lg border bg-muted/15 p-4"
                     >
-                        <div
-                            class="flex items-center gap-2 text-sm text-muted-foreground"
-                        >
-                            <Clock3 class="size-4" /> {{ t('audit.worklogs') }}
+                        <div class="flex min-w-0 items-start gap-2 text-sm font-medium">
+                            <GitBranch class="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                            <span class="min-w-0 leading-snug">{{ t('reports.gitActivityTitle') }}</span>
                         </div>
-                        <p class="mt-3 text-2xl font-semibold tabular-nums">
-                            {{
-                                durationLabel(
-                                    source_counts.worklogs?.total_minutes ?? 0,
-                                )
-                            }}
-                        </p>
-                        <p class="mt-1 text-xs text-muted-foreground">
-                            {{ formatText('audit.entries_count', { count: source_counts.worklogs?.entries ?? 0 }) }}
-                        </p>
+                        <div class="flex flex-wrap items-baseline gap-x-1.5 gap-y-1 text-sm">
+                            <span class="font-semibold tabular-nums">{{ source_counts.vcs?.commits ?? 0 }}</span>
+                            <span class="text-muted-foreground">{{ commitCountLabel }}</span>
+                            <span class="px-0.5 text-muted-foreground" aria-hidden="true">·</span>
+                            <span class="font-semibold tabular-nums">{{ source_counts.vcs?.pull_requests ?? 0 }}</span>
+                            <span class="text-muted-foreground">PR</span>
+                        </div>
                     </div>
                 </div>
-                <p class="mt-4 text-xs text-muted-foreground">
+                <p class="text-xs text-muted-foreground">
                     {{ t('audit.totals_update_as_project_data_changes') }}
                 </p>
             </CardContent>
         </Card>
         <Card v-if="source_counts.worklogs" class="gap-4">
-            <CardHeader>
-                <CardTitle class="flex items-center gap-2 text-base"
-                    ><Clock3 class="size-4" /> {{ t('stage3.worklog_breakdown') }}</CardTitle
-                >
+            <CardHeader class="gap-1">
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                    <CardTitle class="flex items-center gap-2 text-base">
+                        <Clock3 class="size-4" /> {{ t('audit.worklogs') }}
+                    </CardTitle>
+                    <span class="text-sm font-semibold tabular-nums">
+                        {{ t('stage3.total') }}: {{ durationLabel(worklogDetails.total_minutes) }}
+                    </span>
+                </div>
                 <p class="text-sm text-muted-foreground">
                     {{ t('audit.time_recorded_for_this_project_during_the_selected_period') }}
                 </p>
             </CardHeader>
-            <CardContent class="space-y-6">
-                <div class="grid gap-3 sm:grid-cols-3">
-                    <div class="rounded-lg border p-4">
-                        <p
-                            class="flex items-center gap-2 text-xs text-muted-foreground"
-                        >
-                            <Sparkles class="size-4" /> {{ t('audit.creative_work') }}
+            <CardContent class="space-y-5">
+                <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                    <div class="min-w-0 rounded-lg border bg-muted/15 p-4">
+                        <p class="flex items-center gap-2 text-xs text-muted-foreground">
+                            <Clock3 class="size-4" /> {{ t('stage3.total') }}
                         </p>
-                        <p class="mt-2 text-xl font-semibold tabular-nums">
-                            {{ durationLabel(worklogDetails.creative_minutes) }}
-                        </p>
-                        <p class="text-xs text-muted-foreground">
-                            {{ formatText('audit.worklog_creative_percent', { percent: percentage(worklogDetails.creative_minutes, worklogDetails.total_minutes), count: worklogDetails.creative_entries }) }}
+                        <p class="mt-2 text-2xl font-semibold tabular-nums">
+                            {{ durationLabel(worklogDetails.total_minutes) }}
                         </p>
                     </div>
-                    <div class="rounded-lg border p-4">
-                        <p
-                            class="flex items-center gap-2 text-xs text-muted-foreground"
-                        >
+                    <div class="min-w-0 rounded-lg border bg-muted/15 p-4">
+                        <p class="flex items-center gap-2 text-xs text-muted-foreground">
+                            <FileText class="size-4" /> {{ t('stage3.worklogs') }}
+                        </p>
+                        <p class="mt-2 text-2xl font-semibold tabular-nums">{{ worklogDetails.entries }}</p>
+                    </div>
+                    <div class="min-w-0 rounded-lg border bg-muted/15 p-4">
+                        <p class="flex items-center gap-2 text-xs text-muted-foreground">
                             <Users class="size-4" /> {{ t('audit.contributors') }}
                         </p>
-                        <p class="mt-2 text-xl font-semibold tabular-nums">
-                            {{ worklogDetails.by_user.length }}
-                        </p>
-                        <p class="text-xs text-muted-foreground">
-                            {{ t('audit.people_with_logged_time') }}
-                        </p>
+                        <p class="mt-2 text-2xl font-semibold tabular-nums">{{ worklogDetails.by_user.length }}</p>
+                        <p class="mt-1 text-xs text-muted-foreground">{{ t('audit.people_with_logged_time') }}</p>
                     </div>
-                    <div class="rounded-lg border p-4">
-                        <p
-                            class="flex items-center gap-2 text-xs text-muted-foreground"
-                        >
+                    <div class="min-w-0 rounded-lg border bg-muted/15 p-4">
+                        <p class="flex items-center gap-2 text-xs text-muted-foreground">
                             <ListTodo class="size-4" /> {{ t('audit.tasks_worked_on') }}
                         </p>
-                        <p class="mt-2 text-xl font-semibold tabular-nums">
-                            {{ worklogDetails.by_task.length }}
-                        </p>
-                        <p class="text-xs text-muted-foreground">
-                            {{ t('audit.tasks_with_entries_in_this_period') }}
-                        </p>
+                        <p class="mt-2 text-2xl font-semibold tabular-nums">{{ worklogDetails.by_task.length }}</p>
+                        <p class="mt-1 text-xs text-muted-foreground">{{ t('audit.tasks_with_entries_in_this_period') }}</p>
                     </div>
+                </div>
+                <!-- Preserve the existing creative-work feature; show it as optional
+                     secondary information instead of a primary metric tile. -->
+                <div
+                    v-if="worklogDetails.creative_entries > 0"
+                    class="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground"
+                >
+                    <Sparkles class="size-4 shrink-0" />
+                    <span class="font-medium text-foreground">{{ t('audit.creative_work') }}:</span>
+                    <span class="font-semibold tabular-nums text-foreground">{{ durationLabel(worklogDetails.creative_minutes) }}</span>
+                    <span>{{ formatText('audit.worklog_creative_percent', { percent: percentage(worklogDetails.creative_minutes, worklogDetails.total_minutes), count: worklogDetails.creative_entries }) }}</span>
                 </div>
                 <div
                     v-if="worklogDetails.entries === 0"

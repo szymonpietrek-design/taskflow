@@ -19,6 +19,8 @@ use App\Models\WorkspaceMember;
 use App\Support\Reports\ReportGenerationContext;
 use App\Support\Reports\WorkReportDocument;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Log;
+use Prism\Prism\Exceptions\PrismException;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
@@ -328,6 +330,85 @@ class ReportAiGenerationTest extends TestCase
             ->assertNotFound();
         $this->actingAs($owner)->post(route('reports.generate', [$project, $report]), ['language' => 'Ignore instructions'])
             ->assertSessionHasErrors('language');
+    }
+
+    public function test_truncated_ai_report_provides_actionable_safe_feedback_without_overwriting_draft(): void
+    {
+        [$owner, $project, $report] = $this->fixtures();
+        $report->update(['body' => 'Existing draft', 'generated_at' => now()->subDay()]);
+        $this->fakeGenerator(static function (): string {
+            throw new \RuntimeException(__('The AI report was truncated. Increase the maximum token limit.'));
+        });
+
+        $this->actingAs($owner)->from(route('reports.show', [$project, $report]))
+            ->post(route('reports.generate', [$project, $report]), ['language' => 'pl'])
+            ->assertSessionHasErrors('ai_generation');
+
+        $feedback = (string) session('errors')->first('ai_generation');
+        $this->assertStringContainsString('DEEPSEEK_MAX_COMPLETION_TOKENS', $feedback);
+        $this->assertSame('Existing draft', $report->fresh()->body);
+    }
+
+    public function test_provider_http_status_is_logged_without_the_provider_message_or_secrets(): void
+    {
+        [$owner, $project, $report] = $this->fixtures();
+        Log::spy();
+        $this->fakeGenerator(static function (): string {
+            throw PrismException::providerRequestErrorWithDetails(
+                'DeepSeek', 401, 'authentication_error', 'SECRET_API_KEY=do-not-log',
+            );
+        });
+
+        $this->actingAs($owner)->post(route('reports.generate', [$project, $report]), ['language' => 'pl'])
+            ->assertSessionHasErrors('ai_generation');
+        $this->assertStringNotContainsString('SECRET_API_KEY', (string) session('errors')->first('ai_generation'));
+        Log::shouldHaveReceived('warning')->once()->withArgs(function ($message, $context): bool {
+            return $message === 'report_ai_generation_failed'
+                && $context['reason'] === 'invalid_api_key'
+                && $context['provider_http_status'] === 401
+                && $context['report_id'] > 0
+                && ! str_contains(json_encode($context), 'SECRET_API_KEY');
+        });
+        $this->assertNull($report->fresh()->body);
+    }
+
+    public function test_prism_non_stop_finish_reason_is_classified_without_leaking_source(): void
+    {
+        [$owner, $project, $report] = $this->fixtures();
+        Log::spy();
+        $this->fakeGenerator(static function (): string {
+            throw new PrismException('DeepSeek: unknown finish reason');
+        });
+
+        $this->actingAs($owner)->post(route('reports.generate', [$project, $report]), ['language' => 'pl'])
+            ->assertSessionHasErrors('ai_generation');
+        $this->assertStringContainsString('DEEPSEEK_MAX_COMPLETION_TOKENS',
+            (string) session('errors')->first('ai_generation'));
+        Log::shouldHaveReceived('warning')->once()->withArgs(function ($message, $context): bool {
+            return $message === 'report_ai_generation_failed'
+                && $context['reason'] === 'unsupported_finish_reason'
+                && $context['provider_http_status'] === null;
+        });
+        $this->assertNull($report->fresh()->body);
+    }
+
+    public function test_balance_error_without_status_is_classified_without_logging_provider_response(): void
+    {
+        [$owner, $project, $report] = $this->fixtures();
+        Log::spy();
+        $this->fakeGenerator(static function (): string {
+            throw new PrismException('DeepSeek Insufficient Balance: SECRET_API_KEY=do-not-log');
+        });
+
+        $this->actingAs($owner)->post(route('reports.generate', [$project, $report]), ['language' => 'pl'])
+            ->assertSessionHasErrors('ai_generation');
+        $this->assertStringNotContainsString('SECRET_API_KEY', (string) session('errors')->first('ai_generation'));
+        Log::shouldHaveReceived('warning')->once()->withArgs(function ($message, $context): bool {
+            return $message === 'report_ai_generation_failed'
+                && $context['reason'] === 'insufficient_balance'
+                && $context['provider_http_status'] === null
+                && ! str_contains(json_encode($context), 'SECRET_API_KEY');
+        });
     }
 
     public function test_failed_generator_does_not_replace_previous_report(): void

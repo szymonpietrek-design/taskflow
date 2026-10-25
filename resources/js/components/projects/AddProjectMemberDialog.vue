@@ -2,7 +2,7 @@
 import { useI18n } from '@/composables/useI18n';
 import { useForm } from '@inertiajs/vue3';
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
-import { LoaderCircle, Search } from '@lucide/vue';
+import { ChevronsUpDown, LoaderCircle, Search } from '@lucide/vue';
 import UserAvatar from '@/components/UserAvatar.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
@@ -62,16 +62,28 @@ async function searchUsers(text: string): Promise<void> {
 }
 function onQuery(value: string | number): void {
     query.value = String(value);
-    selected.value = null;
-    form.user_id = null;
     showOptions.value = true;
     stopSearch();
     busy.value = true;
     timer = setTimeout(() => { timer = null; void searchUsers(query.value); }, 200);
 }
+function editSelection(): void {
+    if (form.processing) return;
+    query.value = '';
+    showOptions.value = true;
+    stopSearch();
+    void searchUsers('');
+    void nextTick(() => { document.getElementById('project-member-search')?.focus(); });
+}
+function cancelChoosing(): void {
+    showOptions.value = false;
+    query.value = '';
+    stopSearch();
+}
 function choose(user: Candidate): void {
     selected.value = user;
     form.user_id = user.id;
+    query.value = '';
     form.clearErrors('user_id');
     showOptions.value = false;
     stopSearch();
@@ -99,7 +111,7 @@ function closeAdd(): void {
     open.value = false;
 }
 function submit(): void {
-    if (form.processing || !selected.value) return;
+    if (form.processing || !selected.value || showOptions.value) return;
     form.user_id = selected.value.id;
     form.post(baseUrl.value, {
         preserveScroll: true,
@@ -123,22 +135,32 @@ onBeforeUnmount(stopSearch);
                 <form class="space-y-4" @submit.prevent="submit">
                     <div class="relative space-y-2">
                         <Label for="project-member-search">{{ t('membersPicker.chooseUser') }}</Label>
-                        <div v-if="selected" class="flex items-center gap-2 rounded-md border p-2">
-                            <UserAvatar :user-id="selected.id" :name="selected.name" />
-                            <span class="min-w-0 flex-1"><span class="block truncate text-sm font-medium">{{ selected.name }}</span><span class="block truncate text-xs text-muted-foreground">{{ selected.email }}</span></span>
-                            <Button type="button" size="sm" variant="outline" @click="selected = null; form.user_id = null; showOptions = true; searchUsers('')">{{ t('membersPicker.changeUser') }}</Button>
-                        </div>
+                        <button
+                            v-if="selected && !showOptions"
+                            type="button"
+                            class="flex w-full min-w-0 items-center gap-3 rounded-md border p-2 text-left transition-colors hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            :aria-label="t('membersPicker.changeUser')"
+                            :disabled="form.processing"
+                            @click="editSelection"
+                        >
+                            <UserAvatar :user-id="selected.id" :name="selected.name" compact />
+                            <span class="min-w-0 flex-1">
+                                <span class="block truncate text-sm font-medium">{{ selected.name }}</span>
+                                <span class="block truncate text-xs text-muted-foreground">{{ selected.email }}</span>
+                            </span>
+                            <ChevronsUpDown class="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                        </button>
                         <template v-else>
                             <div class="relative"><Search class="pointer-events-none absolute left-3 top-2.5 size-4 text-muted-foreground" />
-                                <Input id="project-member-search" :model-value="query" :placeholder="t('team.search')" class="pl-9" autocomplete="off" @update:model-value="onQuery" @focus="showOptions = true" @keydown.escape.stop="showOptions = false" />
+                                <Input id="project-member-search" :model-value="query" :placeholder="t('team.search')" class="pl-9" autocomplete="off" @update:model-value="onQuery" @focus="showOptions = true" @keydown.escape.stop.prevent="cancelChoosing" />
                             </div>
                             <div v-if="showOptions" class="absolute inset-x-0 top-full z-50 mt-1 max-h-56 overflow-y-auto rounded-md border bg-popover shadow-lg">
                                 <div v-if="busy" class="flex items-center gap-2 p-3 text-sm text-muted-foreground"><LoaderCircle class="size-4 animate-spin" /> {{ t('membersPicker.loading') }}</div>
                                 <p v-else-if="failed" class="p-3 text-sm text-destructive">{{ t('membersPicker.error') }} <Button type="button" variant="ghost" size="sm" @click="searchUsers(query)">{{ t('membersPicker.retry') }}</Button></p>
                                 <template v-else-if="candidates.length">
-                                    <button v-for="user in candidates" :key="user.id" type="button" class="flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-accent focus:bg-accent focus:outline-none" @click="choose(user)">
+                                    <button v-for="user in candidates" :key="user.id" type="button" class="flex w-full min-w-0 items-center gap-3 px-3 py-2 text-left hover:bg-accent focus:bg-accent focus:outline-none" @click="choose(user)">
                                         <UserAvatar :user-id="user.id" :name="user.name" />
-                                        <span class="min-w-0"><span class="block truncate text-sm font-medium">{{ user.name }}</span><span class="block truncate text-xs text-muted-foreground">{{ user.email }}</span></span>
+                                        <span class="min-w-0 flex-1"><span class="block truncate text-sm font-medium">{{ user.name }}</span><span class="block truncate text-xs text-muted-foreground">{{ user.email }}</span></span>
                                     </button>
                                     <p v-if="hasMore" class="border-t p-2 text-xs text-muted-foreground">{{ t('membersPicker.moreResults') }}</p>
                                 </template>
@@ -154,7 +176,7 @@ onBeforeUnmount(stopSearch);
                         </SelectContent></Select><InputError :message="form.errors.role" />
                     </div>
                     <DialogFooter class="gap-2"><Button type="button" variant="outline" :disabled="form.processing" @click="closeAdd">{{ t('stage2.cancel') }}</Button>
-                        <Button type="submit" :disabled="form.processing || !selected"><LoaderCircle v-if="form.processing" class="size-4 animate-spin" />{{ t('team.add') }}</Button>
+                        <Button type="submit" :disabled="form.processing || !selected || showOptions"><LoaderCircle v-if="form.processing" class="size-4 animate-spin" />{{ t('team.add') }}</Button>
                     </DialogFooter>
                 </form>
             </DialogContent>

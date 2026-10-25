@@ -8,6 +8,9 @@ use App\Enums\ProjectRole;
 use App\Enums\WorkspaceRole;
 use App\Models\Project;
 use App\Models\ProjectMember;
+use App\Models\RepositoryConnection;
+use App\Models\VcsConnection;
+use App\Integrations\Vcs\Providers\GitHubInstance;
 use App\Models\Report;
 use App\Models\Task;
 use App\Models\TaskActivity;
@@ -28,6 +31,39 @@ class ReportManagementTest extends TestCase
     {
         parent::setUp();
         $this->withoutVite();
+    }
+
+    public function test_report_form_discloses_whether_a_vcs_repository_is_connected(): void
+    {
+        [$owner, $project] = $this->fixtures();
+
+        $this->actingAs($owner)->get(route('reports.index', $project))
+            ->assertOk()->assertInertia(fn (Assert $page) => $page
+                ->component('reports/Index')
+                ->where('has_vcs_repository', false));
+
+        $connection = VcsConnection::query()->create([
+            'vcs_instance_id' => GitHubInstance::get()->id,
+            'workspace_id' => $project->workspace_id,
+            'external_connection_id' => 'ux-test-installation',
+            'account_login' => 'ux-test',
+            'connected_at' => now(),
+        ]);
+        RepositoryConnection::query()->create([
+            'project_id' => $project->id,
+            'vcs_connection_id' => $connection->id,
+            'external_repository_id' => 'ux-test-repo',
+            'full_name' => 'demo/taskflow',
+            'default_branch' => 'main',
+            'start_sha' => str_repeat('a', 40),
+            'last_synced_sha' => str_repeat('a', 40),
+            'connected_at' => now(),
+        ]);
+
+        $this->actingAs($owner)->get(route('reports.index', $project))
+            ->assertOk()->assertInertia(fn (Assert $page) => $page
+                ->component('reports/Index')
+                ->where('has_vcs_repository', true));
     }
 
     public function test_owner_creates_report_with_selected_sources_and_dates(): void
@@ -74,6 +110,28 @@ class ReportManagementTest extends TestCase
         $this->assertSame('Work report · Oct 1–7, 2026', $report->title);
         $this->actingAs($owner)->get(route('reports.index', $project))->assertInertia(fn (Assert $page) => $page
             ->where('reports.data.0.format', 'work_report'));
+    }
+
+    public function test_automatic_report_titles_follow_polish_interface_locale(): void
+    {
+        [$owner, $project] = $this->fixtures();
+        $previous = app()->getLocale();
+        app()->setLocale('pl');
+
+        try {
+            $projectSummary = app(\App\Actions\Reports\CreateReport::class)->handle($owner, $project, $this->payload([
+                'title' => '', 'format' => 'project_summary',
+            ]));
+            $workReport = app(\App\Actions\Reports\CreateReport::class)->handle($owner, $project, $this->payload([
+                'title' => '', 'format' => 'work_report', 'sources' => ['worklogs'],
+            ]));
+
+            $this->assertStringStartsWith('Raport projektu · 1–7', $projectSummary->title);
+            $this->assertStringContainsString('2026', $projectSummary->title);
+            $this->assertStringStartsWith('Raport pracy · 1–7', $workReport->title);
+        } finally {
+            app()->setLocale($previous);
+        }
     }
 
     public function test_report_uses_period_title_when_title_is_omitted(): void

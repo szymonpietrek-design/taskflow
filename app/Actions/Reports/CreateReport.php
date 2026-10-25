@@ -43,6 +43,23 @@ final class CreateReport
             $period = $start->format('M j, Y').' – '.$end->format('M j, Y');
         }
 
+        if (app()->getLocale() === 'pl') {
+            $first = $start->locale('pl');
+            $last = $end->locale('pl');
+
+            if ($start->isSameDay($end)) {
+                $period = $first->translatedFormat('j F Y');
+            } elseif ($start->format('Y-m') === $end->format('Y-m')) {
+                $period = $start->day.'–'.$last->translatedFormat('j F Y');
+            } elseif ($start->year === $end->year) {
+                $period = $first->translatedFormat('j M').' – '.$last->translatedFormat('j M Y');
+            } else {
+                $period = $first->translatedFormat('j M Y').' – '.$last->translatedFormat('j M Y');
+            }
+
+            return ($format === ReportFormat::WORK_REPORT->value ? 'Raport pracy · ' : 'Raport projektu · ').$period;
+        }
+
         return ($format === ReportFormat::WORK_REPORT->value ? 'Work report · ' : 'Project report · ').$period;
     }
 }
