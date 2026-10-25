@@ -9,7 +9,6 @@ import { useI18n } from '@/composables/useI18n';
 import { Badge } from '@/components/ui/badge';
 import ProjectIdentity from '@/components/ProjectIdentity.vue';
 import type { ProjectColor, ProjectIcon, ProjectType } from '@/types/project';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import TaskStatusIcon from '@/components/tasks/TaskStatusIcon.vue';
 import TaskPriorityLabel from '@/components/tasks/TaskPriorityLabel.vue';
@@ -105,21 +104,11 @@ const taskListSubtitle = computed(() => ({
     <Head :title="t('home.title')" />
 
     <div class="mx-auto flex w-full min-w-0 max-w-[90rem] flex-1 flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
-        <header class="flex flex-wrap items-start justify-between gap-4">
-            <div class="min-w-0 space-y-1.5">
-                <h1 class="text-2xl font-semibold tracking-tight">{{ t('home.title') }}</h1>
-                <p class="text-sm leading-relaxed text-muted-foreground">
-                    {{ workspace_name ? t('home.workspaceIntro').replace('{workspace}', workspace_name) : t('home.emptyIntro') }}
-                </p>
-            </div>
-            <div class="flex flex-wrap items-center gap-2">
-                <Button variant="outline" size="sm" as-child>
-                    <Link href="/worklogs"><Clock3 class="size-4" /> {{ copy.logTime }}</Link>
-                </Button>
-                <Button variant="outline" size="sm" as-child>
-                    <Link href="/projects">{{ t('home.allProjects') }} <ArrowRight class="size-4" /></Link>
-                </Button>
-            </div>
+        <header class="space-y-1.5">
+            <h1 class="text-2xl font-semibold tracking-tight">{{ t('home.title') }}</h1>
+            <p class="text-sm leading-relaxed text-muted-foreground">
+                {{ workspace_name ? t('home.workspaceIntro').replace('{workspace}', workspace_name) : t('home.emptyIntro') }}
+            </p>
         </header>
 
         <section :aria-label="t('home.summary')" class="grid grid-cols-2 gap-3 lg:grid-cols-4">
