@@ -325,7 +325,7 @@ const commitCountLabel = computed((): string => {
 
 <template>
     <Head :title="`${report.title} · Reports`" />
-    <div class="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 p-4 md:p-6">
+    <div class="mx-auto flex w-full min-w-0 max-w-[92rem] flex-1 flex-col gap-6 px-4 py-5 md:px-8 md:py-6 2xl:px-10">
         <div class="space-y-3">
             <Button variant="ghost" size="sm" as-child class="-ml-3 w-fit">
                 <Link :href="baseUrl"
@@ -337,7 +337,9 @@ const commitCountLabel = computed((): string => {
                 <Badge variant="outline">{{
                     report.format === 'work_report'
                         ? t('audit.detailed_report')
-                        : t('audit.summary')
+                        : report.format === 'technical_report'
+                            ? t('reports.technicalReport')
+                            : t('reports.projectReport')
                 }}</Badge>
                 <Badge :variant="report.published_at ? 'default' : 'outline'">{{
                     report.published_at ? t('audit.published') : t('audit.draft')
@@ -367,34 +369,34 @@ const commitCountLabel = computed((): string => {
                 }}
             </p>
         </div>
-        <Card class="gap-4">
-            <CardHeader class="flex flex-row flex-wrap items-center justify-between gap-3">
+        <Card class="gap-3 py-5">
+            <CardHeader class="flex flex-row flex-wrap items-center justify-between gap-2">
                 <CardTitle class="text-base">{{ t('stage3.sources') }}</CardTitle>
                 <span class="text-xs text-muted-foreground">
                     {{ formatText('audit.selected_count', { count: selectedSourceCount }) }}
                 </span>
             </CardHeader>
-            <CardContent class="space-y-3">
+            <CardContent class="space-y-2.5">
                 <div
-                    class="grid gap-3"
+                    class="grid gap-2.5"
                     style="grid-template-columns: repeat(auto-fit, minmax(min(100%, 10.5rem), 1fr));"
                 >
                     <div
                         v-for="source in selectedSources"
                         :key="source.key"
-                        class="flex min-w-0 flex-col justify-between gap-3 rounded-lg border bg-muted/15 p-4"
+                        class="flex min-w-0 flex-col justify-between gap-2 rounded-lg border bg-muted/15 p-3"
                     >
                         <div class="flex min-w-0 items-start gap-2 text-sm font-medium">
                             <component :is="source.icon" class="mt-0.5 size-4 shrink-0 text-muted-foreground" />
                             <span class="min-w-0 leading-snug">{{ t(source.title) }}</span>
                         </div>
-                        <p class="text-2xl font-semibold tabular-nums">
+                        <p class="text-xl font-semibold tabular-nums">
                             {{ source_counts[source.key] ?? 0 }}
                         </p>
                     </div>
                     <div
                         v-if="report.sources.includes('vcs')"
-                        class="flex min-w-0 flex-col justify-between gap-3 rounded-lg border bg-muted/15 p-4"
+                        class="flex min-w-0 flex-col justify-between gap-2 rounded-lg border bg-muted/15 p-3"
                     >
                         <div class="flex min-w-0 items-start gap-2 text-sm font-medium">
                             <GitBranch class="mt-0.5 size-4 shrink-0 text-muted-foreground" />
@@ -414,7 +416,7 @@ const commitCountLabel = computed((): string => {
                 </p>
             </CardContent>
         </Card>
-        <Card v-if="source_counts.worklogs" class="gap-4">
+        <Card v-if="source_counts.worklogs" class="gap-3 py-5">
             <CardHeader class="gap-1">
                 <div class="flex flex-wrap items-center justify-between gap-3">
                     <CardTitle class="flex items-center gap-2 text-base">
@@ -428,34 +430,34 @@ const commitCountLabel = computed((): string => {
                     {{ t('audit.time_recorded_for_this_project_during_the_selected_period') }}
                 </p>
             </CardHeader>
-            <CardContent class="space-y-5">
-                <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                    <div class="min-w-0 rounded-lg border bg-muted/15 p-4">
+            <CardContent class="space-y-4">
+                <div class="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
+                    <div class="min-w-0 rounded-lg border bg-muted/15 p-3">
                         <p class="flex items-center gap-2 text-xs text-muted-foreground">
                             <Clock3 class="size-4" /> {{ t('stage3.total') }}
                         </p>
-                        <p class="mt-2 text-2xl font-semibold tabular-nums">
+                        <p class="mt-1 text-xl font-semibold tabular-nums">
                             {{ durationLabel(worklogDetails.total_minutes) }}
                         </p>
                     </div>
-                    <div class="min-w-0 rounded-lg border bg-muted/15 p-4">
+                    <div class="min-w-0 rounded-lg border bg-muted/15 p-3">
                         <p class="flex items-center gap-2 text-xs text-muted-foreground">
                             <FileText class="size-4" /> {{ t('stage3.worklogs') }}
                         </p>
-                        <p class="mt-2 text-2xl font-semibold tabular-nums">{{ worklogDetails.entries }}</p>
+                        <p class="mt-1 text-xl font-semibold tabular-nums">{{ worklogDetails.entries }}</p>
                     </div>
-                    <div class="min-w-0 rounded-lg border bg-muted/15 p-4">
+                    <div class="min-w-0 rounded-lg border bg-muted/15 p-3">
                         <p class="flex items-center gap-2 text-xs text-muted-foreground">
                             <Users class="size-4" /> {{ t('audit.contributors') }}
                         </p>
-                        <p class="mt-2 text-2xl font-semibold tabular-nums">{{ worklogDetails.by_user.length }}</p>
+                        <p class="mt-1 text-xl font-semibold tabular-nums">{{ worklogDetails.by_user.length }}</p>
                         <p class="mt-1 text-xs text-muted-foreground">{{ t('audit.people_with_logged_time') }}</p>
                     </div>
-                    <div class="min-w-0 rounded-lg border bg-muted/15 p-4">
+                    <div class="min-w-0 rounded-lg border bg-muted/15 p-3">
                         <p class="flex items-center gap-2 text-xs text-muted-foreground">
                             <ListTodo class="size-4" /> {{ t('audit.tasks_worked_on') }}
                         </p>
-                        <p class="mt-2 text-2xl font-semibold tabular-nums">{{ worklogDetails.by_task.length }}</p>
+                        <p class="mt-1 text-xl font-semibold tabular-nums">{{ worklogDetails.by_task.length }}</p>
                         <p class="mt-1 text-xs text-muted-foreground">{{ t('audit.tasks_with_entries_in_this_period') }}</p>
                     </div>
                 </div>
@@ -472,22 +474,22 @@ const commitCountLabel = computed((): string => {
                 </div>
                 <div
                     v-if="worklogDetails.entries === 0"
-                    class="rounded-lg border border-dashed px-4 py-8 text-center text-sm text-muted-foreground"
+                    class="rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground"
                 >
                     {{ t('audit.no_time_entries_for_this_project_and_reporting_period') }}
                 </div>
-                <div v-else class="grid items-start gap-6 lg:grid-cols-2">
-                    <section class="min-w-0 space-y-3">
+                <div v-else class="grid items-start gap-4 lg:grid-cols-2">
+                    <section class="min-w-0 space-y-2">
                         <h3 class="text-sm font-semibold">
                             {{ t('audit.time_by_contributor') }}
                         </h3>
                         <div
-                            class="max-h-[26rem] space-y-4 overflow-y-auto rounded-lg border p-4"
+                            class="max-h-[26rem] space-y-3 overflow-y-auto rounded-lg border p-3"
                         >
                             <div
                                 v-for="person in worklogDetails.by_user"
                                 :key="person.user_id ?? 'former'"
-                                class="space-y-2"
+                                class="space-y-1.5"
                             >
                                 <div
                                     class="flex min-w-0 items-start justify-between gap-3 text-sm"
@@ -536,15 +538,15 @@ const commitCountLabel = computed((): string => {
                             </div>
                         </div>
                     </section>
-                    <section class="min-w-0 space-y-3">
+                    <section class="min-w-0 space-y-2">
                         <h3 class="text-sm font-semibold">{{ t('stage3.time_by_task') }}</h3>
                         <div
-                            class="max-h-[26rem] space-y-4 overflow-y-auto rounded-lg border p-4"
+                            class="max-h-[26rem] space-y-3 overflow-y-auto rounded-lg border p-3"
                         >
                             <div
                                 v-for="task in worklogDetails.by_task"
                                 :key="task.task_id"
-                                class="space-y-2"
+                                class="space-y-1.5"
                             >
                                 <div
                                     class="flex min-w-0 items-start justify-between gap-3 text-sm"
@@ -609,7 +611,7 @@ const commitCountLabel = computed((): string => {
                 can_generate ||
                 (can_share && !!report.published_at) ||
                 report.is_generated
-                    ? 'xl:grid-cols-[minmax(0,1fr)_19rem]'
+                    ? 'xl:grid-cols-[minmax(0,1fr)_18rem]'
                     : ''
             "
         >
@@ -724,7 +726,7 @@ const commitCountLabel = computed((): string => {
                     </div>
                     <div
                         v-else-if="report.is_generated && report_html"
-                        class="report-markdown max-w-none overflow-x-auto text-sm leading-6 break-words sm:text-[0.9375rem] sm:leading-7 [&_a]:underline [&_code]:font-mono [&_h1]:mb-4 [&_h1]:text-2xl [&_h1]:font-semibold [&_h2]:mt-6 [&_h2]:mb-3 [&_h2]:text-xl [&_h2]:font-semibold [&_h3]:my-3 [&_h3]:font-semibold [&_li]:my-1 [&_li]:ml-5 [&_ol]:my-3 [&_ol]:list-decimal [&_p]:mb-4 [&_strong]:font-semibold [&_table]:my-5 [&_table]:w-full [&_table]:min-w-[42rem] [&_table]:border-collapse [&_tbody_tr:nth-child(even)]:bg-muted/20 [&_td]:border [&_td]:p-2 [&_td]:align-top [&_th]:border [&_th]:p-2 [&_th]:text-left [&_thead]:bg-muted/60 [&_ul]:my-3 [&_ul]:list-disc"
+                        class="report-markdown w-full min-w-0 overflow-x-auto text-sm leading-6 break-words sm:text-[0.9375rem] sm:leading-7 [&_a]:underline [&_h1]:mb-4 [&_h1]:text-2xl [&_h1]:font-semibold [&_h2]:mt-6 [&_h2]:mb-3 [&_h2]:text-xl [&_h2]:font-semibold [&_h3]:my-3 [&_h3]:font-semibold [&_li]:my-1 [&_li]:ml-5 [&_ol]:my-3 [&_ol]:list-decimal [&_p]:mb-4 [&_strong]:font-semibold [&_table]:my-5 [&_table]:w-full [&_table]:min-w-[42rem] [&_table]:border-collapse [&_tbody_tr:nth-child(even)]:bg-muted/20 [&_td]:border [&_td]:p-2 [&_td]:align-top [&_th]:border [&_th]:p-2 [&_th]:text-left [&_thead]:bg-muted/60 [&_ul]:my-3 [&_ul]:list-disc"
                         v-html="report_html"
                     ></div>
                     <div
@@ -758,7 +760,9 @@ const commitCountLabel = computed((): string => {
                             {{
                                 report.format === 'work_report'
                                     ? t('audit.generate_a_work_summary_and_time_register')
-                                    : t('audit.summarize_progress_from_the_selected_sources')
+                                    : report.format === 'technical_report'
+                                        ? t('reports.generateTechnicalReport')
+                                        : t('audit.summarize_progress_from_the_selected_sources')
                             }}
                         </p>
                     </CardHeader>

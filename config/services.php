@@ -20,6 +20,12 @@ return [
         'base_url' => env('DEEPSEEK_BASE_URL', 'https://api.deepseek.com/v1'),
         'model' => env('DEEPSEEK_CHAT_MODEL', 'deepseek-chat'),
         'max_tokens' => (int) env('DEEPSEEK_MAX_COMPLETION_TOKENS', 2000),
+        // Reports are longer than changelogs; keep their limit independent.
+        'report_max_tokens' => (int) env('DEEPSEEK_REPORT_MAX_COMPLETION_TOKENS', 4000),
+        // A plain project report does not need reasoning tokens.
+        'report_thinking' => (bool) env('DEEPSEEK_REPORT_THINKING', false),
+        // Explicit opt-in, local environment only; may capture sensitive report data.
+        'debug_report_prompts' => (bool) env('AI_DEBUG_REPORT_PROMPTS', false),
     ],
 
     'postmark' => [

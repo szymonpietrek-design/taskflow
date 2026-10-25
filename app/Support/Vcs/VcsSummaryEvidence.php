@@ -10,7 +10,12 @@ use InvalidArgumentException;
 /** Read-only, provider-neutral summaries. Evidence is not proof that a task shipped. */
 final class VcsSummaryEvidence
 {
-    /** @return array{commits:list<array<string,mixed>>,pull_requests:list<array<string,mixed>>} */
+    /**
+     * Summarise evidence already stored by the VCS integration. No remote API calls
+     * and no raw patches/source code are disclosed to the report AI provider.
+     *
+     * @return array{commits:list<array<string,mixed>>,pull_requests:list<array<string,mixed>>}
+     */
     public function forPeriod(int $projectId, string $startDate, string $endDate): array
     {
         $start = CarbonImmutable::parse($startDate)->startOfDay();
@@ -30,19 +35,98 @@ final class VcsSummaryEvidence
             throw new InvalidArgumentException(__('Too much VCS activity for one AI report. Choose a shorter period.'));
         }
 
-        return [
-            'commits' => $commits->map(fn (RepositoryCommit $item): array => [
-                'sha' => substr($item->sha, 0, 12),
-                'subject' => $this->shorten(strtok($item->message, "\n") ?: '', 200),
-                'date' => $item->committed_at?->toDateString(),
-            ])->all(),
-            'pull_requests' => $prs->map(fn (RepositoryChangeRequest $item): array => [
+        // Limit file metadata across ALL PRs, not just per PR. Large repositories
+        // must not silently dominate the selected tasks and worklogs context.
+        $remainingFiles = 60;
+        $pullRequests = [];
+        foreach ($prs as $item) {
+            $filesAreCurrent = $item->files_synced_at !== null
+                && is_string($item->head_sha) && $item->head_sha !== ''
+                && hash_equals((string) $item->head_sha, (string) $item->files_head_sha);
+            // The latest PR file snapshot cannot prove what its code contained at
+            // the end of an older reporting period if the PR changed afterwards.
+            $snapshotInPeriod = $item->remote_updated_at !== null
+                && $item->remote_updated_at->lessThanOrEqualTo($end);
+            $filesAvailable = $filesAreCurrent && $snapshotInPeriod;
+            $files = [];
+            $fileCount = null;
+            if ($filesAvailable) {
+                $fileCount = $item->files()->count();
+                $take = min(12, $remainingFiles);
+                if ($take > 0) {
+                    $files = $item->files()->orderBy('id')->limit($take)->get()
+                        ->map(fn ($file): array => [
+                            'path' => $this->shorten($file->path, 180),
+                            'status' => $file->status,
+                            'additions' => $file->additions,
+                            'deletions' => $file->deletions,
+                        ])->all();
+                    $remainingFiles -= count($files);
+                }
+            }
+
+            $pullRequests[] = [
                 'number' => $item->number,
                 'title' => $this->shorten($item->title, 200),
                 'state' => $item->state,
                 'created_at' => $item->remote_created_at?->toDateString(),
                 'merged_at' => $item->merged_at?->toDateString(),
-            ])->all(),
+                // A PR created in the period can be merged later; that later
+                // integration must not be reported as accomplished in this period.
+                'merged_in_period' => $item->merged_at?->betweenIncluded($start, $end) ?? false,
+                // PR target is stored by the provider. Never guess an individual
+                // commit's branch from repository default-branch metadata.
+                'target_branch' => $item->target_branch === null
+                    ? null : $this->shorten($item->target_branch, 120),
+                'files_snapshot' => $filesAvailable ? 'current' : 'unavailable_or_stale',
+                'file_count' => $fileCount,
+                'files_included' => count($files),
+                'files' => $files,
+            ];
+        }
+
+        // Keep commit metadata bounded independently from PR file metadata.
+        // The report only reads committed-at-in-period SHAs; a stored snapshot is
+        // bound to an immutable SHA and is safe for historical reporting.
+        $remainingCommitFiles = 60;
+        // Divide the budget fairly across all commits, including late-period work.
+        $perCommitFileLimit = $commits->isEmpty() ? 0 : min(8, intdiv(60, $commits->count()));
+        $summarizedCommits = [];
+        foreach ($commits as $item) {
+            $files = [];
+            $fileCount = $item->files_synced_at === null ? null : $item->files_count;
+            if ($fileCount !== null && $remainingCommitFiles > 0) {
+                $files = $item->files()->orderBy('id')->limit(min($perCommitFileLimit, $remainingCommitFiles))
+                    ->get()->map(fn ($file): array => [
+                        'path' => $this->shorten($file->path, 180),
+                        'status' => $file->status,
+                        'additions' => $file->additions,
+                        'deletions' => $file->deletions,
+                    ])->all();
+                $remainingCommitFiles -= count($files);
+            }
+            $lines = preg_split('/\r?\n/', (string) $item->message, 2);
+            $details = trim($lines[1] ?? '');
+            $summary = [
+                'sha' => substr($item->sha, 0, 12),
+                'subject' => $this->shorten($lines[0] ?? '', 200),
+                'details' => $details === '' ? null : $this->shorten($details, 600),
+                'date' => $item->committed_at?->toDateString(),
+                'files_snapshot' => $fileCount === null ? 'unavailable' : 'complete',
+                'file_count' => $fileCount,
+                'files_included' => count($files),
+                'files' => $files,
+            ];
+            $summarizedCommits[] = $summary;
+        }
+
+        return [
+            // These are authoritative, scoped counts for the selected project and period.
+            // The AI must not estimate commit totals from changed-file rows.
+            'commit_count' => count($summarizedCommits),
+            'pull_request_count' => count($pullRequests),
+            'commits' => $summarizedCommits,
+            'pull_requests' => $pullRequests,
         ];
     }
 

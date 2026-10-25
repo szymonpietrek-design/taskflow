@@ -93,7 +93,8 @@ const selected = shallowRef<string[]>([
 const format = ref<ReportFormatValue>('project_summary');
 const peopleMode = ref<ReportPeopleMode>('all');
 const reportFormats: { value: ReportFormatValue; label: string; help: string }[] = [
-    { value: 'project_summary', label: 'audit.summary', help: 'reports.summaryDescription' },
+    { value: 'project_summary', label: 'reports.projectReport', help: 'reports.summaryDescription' },
+    { value: 'technical_report', label: 'reports.technicalReport', help: 'reports.technicalReportDescription' },
     { value: 'work_report', label: 'audit.detailed_report', help: 'reports.workReportDescription' },
 ];
 const selectedPeople = ref<number[]>([]);
@@ -224,7 +225,9 @@ const { t, locale, formatText, translateLiteral } = useI18n();
                                     <span>{{
                                         report.format === 'work_report'
                                             ? t('audit.detailed_report')
-                                            : t('audit.summary')
+                                            : report.format === 'technical_report'
+                                                ? t('reports.technicalReport')
+                                                : t('reports.projectReport')
                                     }}</span>
                                     <span>·</span>
                                     <span>{{
@@ -304,7 +307,7 @@ const { t, locale, formatText, translateLiteral } = useI18n();
                             <RadioGroup
                                 :model-value="format"
                                 class="grid gap-2"
-                                @update:model-value="(value) => chooseFormat(value === 'work_report' ? 'work_report' : 'project_summary')"
+                                @update:model-value="(value) => chooseFormat(value === 'technical_report' || value === 'work_report' ? value : 'project_summary')"
                             >
                                 <div
                                     v-for="option in reportFormats"

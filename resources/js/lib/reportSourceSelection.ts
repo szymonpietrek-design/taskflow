@@ -1,5 +1,5 @@
 /** UI rules for report sources. Server-side validation remains authoritative. */
-export type ReportFormatValue = 'project_summary' | 'work_report';
+export type ReportFormatValue = 'project_summary' | 'technical_report' | 'work_report';
 export type ReportPeopleMode = 'all' | 'selected';
 
 export function canIncludeVcsSource(
@@ -8,7 +8,7 @@ export function canIncludeVcsSource(
     canSelectPeople: boolean,
     hasRepository = true,
 ): boolean {
-    return hasRepository && format === 'project_summary' && peopleMode === 'all' && canSelectPeople;
+    return hasRepository && format !== 'work_report' && peopleMode === 'all' && canSelectPeople;
 }
 
 export function normalizeReportSources(

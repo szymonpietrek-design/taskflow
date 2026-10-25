@@ -23,14 +23,19 @@ final class ReportSourceOverview
         $selected = $report->sources;
 
         return [
-            // Tasks created OR completed within the period; count each task only once.
+            // Include existing tasks with activity in the period; a task need not
+            // be newly created or completed to have contributed to the work.
             'tasks' => in_array(ReportSource::TASKS->value, $selected, true)
                 ? Task::query()->where('project_id', $report->project_id)
                     ->when($report->contributor_ids !== null, fn (Builder $q) => $q->where(fn (Builder $s) => $s
                         ->whereIn('created_by', $report->contributor_ids)->orWhereIn('assignee_id', $report->contributor_ids)))
                     ->where(fn (Builder $query) => $query
                         ->whereBetween('created_at', [$start, $end])
-                        ->orWhereBetween('completed_at', [$start, $end]))
+                        ->orWhereBetween('completed_at', [$start, $end])
+                        ->orWhereHas('activities', fn (Builder $activity) => $activity
+                            ->whereBetween('created_at', [$start, $end])
+                            ->when($report->contributor_ids !== null,
+                                fn (Builder $q) => $q->whereIn('user_id', $report->contributor_ids))))
                     ->count() : null,
             'messages' => in_array(ReportSource::MESSAGES->value, $selected, true)
                 ? TaskMessage::query()->whereHas('task', fn (Builder $query) => $query

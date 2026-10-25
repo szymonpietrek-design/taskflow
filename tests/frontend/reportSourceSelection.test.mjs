@@ -4,8 +4,10 @@ import { canIncludeVcsSource, normalizeReportSources, toggleReportSource } from 
 
 test('VCS requires team project summary and all contributors', () => {
     assert.equal(canIncludeVcsSource('project_summary', 'all', true), true);
+    assert.equal(canIncludeVcsSource('technical_report', 'all', true), true);
     assert.equal(canIncludeVcsSource('work_report', 'all', true), false);
     assert.equal(canIncludeVcsSource('project_summary', 'selected', true), false);
+    assert.equal(canIncludeVcsSource('technical_report', 'selected', true), false);
     assert.equal(canIncludeVcsSource('project_summary', 'all', false), false);
 });
 
@@ -39,6 +41,17 @@ test('disabled VCS cannot be enabled programmatically', () => {
     assert.deepEqual(
         toggleReportSource(['tasks'], 'vcs', true, 'project_summary', 'selected', true),
         ['tasks'],
+    );
+});
+
+test('technical and project reports retain the same VCS sources when switching between formats', () => {
+    assert.deepEqual(
+        normalizeReportSources(['tasks', 'vcs'], 'technical_report', 'all', true),
+        ['tasks', 'vcs'],
+    );
+    assert.deepEqual(
+        normalizeReportSources(['tasks', 'vcs'], 'project_summary', 'all', true),
+        ['tasks', 'vcs'],
     );
 });
 

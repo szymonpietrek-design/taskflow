@@ -37,7 +37,7 @@ class VcsReportReleaseEvidenceTest extends TestCase
             'start_sha' => str_repeat('a', 40), 'last_synced_sha' => str_repeat('a', 40), 'connected_at' => now(),
         ]);
         RepositoryCommit::query()->create(['repository_connection_id' => $repository->id, 'sha' => str_repeat('b', 40),
-            'message' => "Improve pagination\nprivate second line", 'committed_at' => '2026-10-05 12:00:00']);
+            'message' => "Improve pagination\nImprove cursor handling and page boundaries.", 'committed_at' => '2026-10-05 12:00:00']);
         RepositoryCommit::query()->create(['repository_connection_id' => $foreign->id, 'sha' => str_repeat('c', 40),
             'message' => 'FOREIGN PROJECT SECRET', 'committed_at' => '2026-10-05 12:00:00']);
         RepositoryCommit::query()->create(['repository_connection_id' => $repository->id, 'sha' => str_repeat('d', 40),
@@ -56,11 +56,15 @@ class VcsReportReleaseEvidenceTest extends TestCase
         $this->assertArrayNotHasKey('vcs', $without);
         $report->update(['sources' => ['vcs']]);
         $with = json_decode(app(ReportGenerationContext::class)->build($report), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame(1, $with['vcs']['commit_count']);
+        $this->assertSame(1, $with['vcs']['pull_request_count']);
         $this->assertSame('Improve pagination', $with['vcs']['commits'][0]['subject']);
         $this->assertSame(45, $with['vcs']['pull_requests'][0]['number']);
         $this->assertStringNotContainsString('PRIVATE BODY', json_encode($with));
         $this->assertStringNotContainsString('FOREIGN', json_encode($with));
-        $this->assertStringNotContainsString('private second line', json_encode($with));
+        // Commit descriptions are now intentionally available to selected VCS reports.
+        // PR bodies remain excluded; never send raw code patches.
+        $this->assertSame('Improve cursor handling and page boundaries.', $with['vcs']['commits'][0]['details']);
         $this->assertCount(1, $with['vcs']['commits']);
         $report->update(['contributor_ids' => [$user->id]]);
         $this->expectException(InvalidArgumentException::class);

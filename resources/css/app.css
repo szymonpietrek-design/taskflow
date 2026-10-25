@@ -170,3 +170,44 @@
         @apply bg-background text-foreground;
     }
 }
+
+/* Report Markdown (the server renders and sanitizes it before the Vue preview).
+   Keep inline identifiers legible without letting long paths widen the page. */
+@layer components {
+    .report-markdown > p,
+    .report-markdown > ul,
+    .report-markdown > ol,
+    .report-markdown > blockquote,
+    .report-markdown > h1,
+    .report-markdown > h2,
+    .report-markdown > h3 {
+        max-width: 106ch;
+    }
+
+    .report-markdown :not(pre) > code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 0.875em;
+        padding: 0.12em 0.36em;
+        border: 1px solid var(--border);
+        border-radius: 0.3rem;
+        background-color: var(--muted);
+        overflow-wrap: anywhere;
+        white-space: normal;
+    }
+
+    .report-markdown pre {
+        max-width: 100%;
+        padding: 0.9rem 1rem;
+        margin: 1rem 0;
+        overflow-x: auto;
+        border: 1px solid var(--border);
+        border-radius: 0.5rem;
+        background-color: var(--muted);
+        font-size: 0.875em;
+        line-height: 1.6;
+    }
+
+    .report-markdown pre code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+}

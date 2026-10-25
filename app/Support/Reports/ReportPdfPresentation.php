@@ -19,20 +19,24 @@ final class ReportPdfPresentation
         }
 
         $titles = [
-            'pl' => ['Raport projektu', 'Raport pracy'],
-            'de' => ['Projektbericht', 'Arbeitsbericht'],
-            'fr' => ['Rapport de projet', 'Rapport de travail'],
-            'es' => ['Informe del proyecto', 'Informe de trabajo'],
-            'it' => ['Rapporto di progetto', 'Rapporto di lavoro'],
-            'pt' => ['Relatório de projeto', 'Relatório de trabalho'],
-            'nl' => ['Projectrapport', 'Werkrapport'],
-            'uk' => ['Звіт про проєкт', 'Звіт про роботу'],
+            'pl' => ['Raport projektu', 'Raport pracy', 'Raport techniczny'],
+            'de' => ['Projektbericht', 'Arbeitsbericht', 'Technischer Bericht'],
+            'fr' => ['Rapport de projet', 'Rapport de travail', 'Rapport technique'],
+            'es' => ['Informe del proyecto', 'Informe de trabajo', 'Informe técnico'],
+            'it' => ['Rapporto di progetto', 'Rapporto di lavoro', 'Rapporto tecnico'],
+            'pt' => ['Relatório de projeto', 'Relatório de trabalho', 'Relatório técnico'],
+            'nl' => ['Projectrapport', 'Werkrapport', 'Technisch rapport'],
+            'uk' => ['Звіт про проєкт', 'Звіт про роботу', 'Технічний звіт'],
         ];
         if (! isset($titles[$locale])) {
             return $report->title;
         }
 
-        $index = $report->format === ReportFormat::WORK_REPORT ? 1 : 0;
+        $index = match ($report->format) {
+            ReportFormat::WORK_REPORT => 1,
+            ReportFormat::TECHNICAL_REPORT => 2,
+            default => 0,
+        };
 
         return $titles[$locale][$index].' · '.$this->period($report);
     }
@@ -90,7 +94,11 @@ final class ReportPdfPresentation
 
     private function defaultEnglishTitle(Report $report): string
     {
-        $prefix = $report->format === ReportFormat::WORK_REPORT ? 'Work report · ' : 'Project report · ';
+        $prefix = match ($report->format) {
+            ReportFormat::WORK_REPORT => 'Work report · ',
+            ReportFormat::TECHNICAL_REPORT => 'Technical report · ',
+            default => 'Project report · ',
+        };
 
         return $prefix.$this->englishPeriod($report);
     }

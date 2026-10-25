@@ -29,8 +29,27 @@
         .report-body th, .report-body td { border: 1px solid #ddd; padding: 7px 6px; text-align: left; vertical-align: top; overflow-wrap: anywhere; word-wrap: break-word; }
         .report-body th { background: #f4f4f4; font-weight: bold; }
         .report-body tbody tr:nth-child(even) { background: #fafafa; }
-        .report-body code { font-family: monospace; font-size: .93em; }
-        .report-body pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+        .report-body code {
+            font-family: 'DejaVu Sans Mono', monospace;
+            font-size: .86em;
+            color: #333;
+            background: #f3f4f6;
+            border: 1px solid #e5e7eb;
+            border-radius: 3px;
+            padding: 1px 3px;
+            overflow-wrap: anywhere;
+            word-wrap: break-word;
+            white-space: normal;
+        }
+        .report-body pre {
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+            background: #f3f4f6;
+            border: 1px solid #e5e7eb;
+            padding: 10px 12px;
+            margin: 13px 0;
+        }
+        .report-body pre code { font-family: 'DejaVu Sans Mono', monospace; font-size: .9em; background: transparent; border: 0; padding: 0; }
         .report-body a { color: #333; text-decoration: underline; }
         .report-body blockquote { border-left: 3px solid #ddd; padding-left: 13px; margin-left: 0; }
         .footer { border-top: 1px solid #ddd; padding-top: 8px; margin-top: 28px; font-size: 11px; color: #777; }
@@ -73,6 +92,12 @@
         .public-report-html .report-body h1 { font-size: 24px; }
         .public-report-html .report-body h2 { font-size: 20px; }
         .public-report-html .report-body h3 { font-size: 17px; }
+        .public-report-html .report-body > p,
+        .public-report-html .report-body > ul,
+        .public-report-html .report-body > ol,
+        .public-report-html .report-body > h1,
+        .public-report-html .report-body > h2,
+        .public-report-html .report-body > h3 { max-width: 92ch; }
         .public-report-html .report-body table {
             table-layout: auto;
             min-width: 720px;

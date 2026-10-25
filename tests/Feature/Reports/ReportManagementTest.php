@@ -112,6 +112,32 @@ class ReportManagementTest extends TestCase
             ->where('reports.data.0.format', 'work_report'));
     }
 
+    public function test_technical_report_is_a_distinct_format_with_its_own_default_title(): void
+    {
+        [$owner, $project] = $this->fixtures();
+
+        $this->actingAs($owner)->post(route('reports.store', $project), $this->payload([
+            'format' => 'technical_report', 'title' => '', 'sources' => ['tasks', 'vcs'],
+        ]))->assertSessionHasNoErrors()->assertRedirect();
+
+        $report = Report::query()->sole();
+        $this->assertSame(ReportFormat::TECHNICAL_REPORT, $report->format);
+        $this->assertSame('Technical report · Oct 1–7, 2026', $report->title);
+        $this->assertSame(['tasks', 'vcs'], $report->sources);
+        $this->actingAs($owner)->get(route('reports.index', $project))
+            ->assertOk()->assertInertia(fn (Assert $page) => $page
+                ->where('reports.data.0.format', 'technical_report'));
+        $this->assertSame('technical_report', json_decode(app(\App\Support\Reports\ReportGenerationContext::class)->build($report), true, 512, JSON_THROW_ON_ERROR)['report_format']);
+    }
+
+    public function test_technical_report_preserves_vcs_contributor_privacy_rules(): void
+    {
+        [$owner, $project] = $this->fixtures();
+        $this->actingAs($owner)->post(route('reports.store', $project), $this->payload([
+            'format' => 'technical_report', 'sources' => ['vcs'], 'contributor_ids' => [$owner->id],
+        ]))->assertSessionHasErrors('sources');
+    }
+
     public function test_automatic_report_titles_follow_polish_interface_locale(): void
     {
         [$owner, $project] = $this->fixtures();
@@ -122,6 +148,9 @@ class ReportManagementTest extends TestCase
             $projectSummary = app(\App\Actions\Reports\CreateReport::class)->handle($owner, $project, $this->payload([
                 'title' => '', 'format' => 'project_summary',
             ]));
+            $technicalReport = app(\App\Actions\Reports\CreateReport::class)->handle($owner, $project, $this->payload([
+                'title' => '', 'format' => 'technical_report',
+            ]));
             $workReport = app(\App\Actions\Reports\CreateReport::class)->handle($owner, $project, $this->payload([
                 'title' => '', 'format' => 'work_report', 'sources' => ['worklogs'],
             ]));
@@ -129,6 +158,7 @@ class ReportManagementTest extends TestCase
             $this->assertStringStartsWith('Raport projektu · 1–7', $projectSummary->title);
             $this->assertStringContainsString('2026', $projectSummary->title);
             $this->assertStringStartsWith('Raport pracy · 1–7', $workReport->title);
+            $this->assertStringStartsWith('Raport techniczny · 1–7', $technicalReport->title);
         } finally {
             app()->setLocale($previous);
         }

@@ -129,6 +129,67 @@ class ReportSharingTest extends TestCase
         $this->assertStringContainsString('<h1>Raport pracy</h1>', $publicHtml);
     }
 
+    public function test_pdf_localizes_default_technical_report_title(): void
+    {
+        [$owner, $project, $report] = $this->fixtures();
+        $report->update([
+            'format' => ReportFormat::TECHNICAL_REPORT,
+            'title' => 'Technical report · Oct 1–7, 2026',
+            'generated_locale' => 'pl',
+            'body' => "## Implementacja\n\nZmieniono integrację GitHub.",
+        ]);
+
+        $pdfHtml = app(ReportDocument::class)->view($report->fresh(), false)->render();
+        $this->assertStringContainsString('Raport techniczny · 1–7 paź 2026', $pdfHtml);
+        $this->assertStringContainsString('Zmieniono integrację GitHub.', $pdfHtml);
+    }
+
+    public function test_technical_code_identifiers_render_consistently_in_pdf_and_public_html(): void
+    {
+        [$owner, $project, $report] = $this->fixtures();
+        $markdown = "## Zmiany\n\nZmieniono `RepositoryCommit` oraz `app/Services/Vcs/Sync.php`.\n\n<script>alert(1)</script>";
+        $report->update([
+            'format' => ReportFormat::TECHNICAL_REPORT,
+            'body' => $markdown,
+            'generated_locale' => 'pl',
+        ]);
+
+        $report = $report->fresh();
+        foreach ([false, true] as $public) {
+            $html = app(ReportDocument::class)->view($report, false, $public)->render();
+            $this->assertStringContainsString('<code>RepositoryCommit</code>', $html);
+            $this->assertStringContainsString('<code>app/Services/Vcs/Sync.php</code>', $html);
+            $this->assertStringContainsString('.report-body code', $html);
+            $this->assertStringNotContainsString('<script', $html);
+        }
+        $this->assertSame($markdown, $report->fresh()->body);
+    }
+
+    public function test_unformatted_identifiers_are_highlighted_in_pdf_and_public_and_private_preview(): void
+    {
+        [$owner, $project, $report] = $this->fixtures();
+        $report->update([
+            'format' => ReportFormat::TECHNICAL_REPORT,
+            'body' => 'Zmieniono RepositoryCommit i ProjectGitHubController w app/Services/Vcs/Sync.php. Sprawdzono .github/workflows/tests.yml, oraz tests/Feature/GitHub.php (app/Services/Vcs/Reader.php). GitHub pozostaje nazwą produktu. [Docs](https://example.test/Docs.php).',
+        ]);
+        foreach ([false, true] as $public) {
+            $html = app(ReportDocument::class)->view($report->fresh(), false, $public)->render();
+            $this->assertStringContainsString('<code>RepositoryCommit</code>', $html);
+            $this->assertStringContainsString('<code>ProjectGitHubController</code>', $html);
+            $this->assertStringContainsString('<code>app/Services/Vcs/Sync.php</code>.', $html);
+            $this->assertStringContainsString('<code>.github/workflows/tests.yml</code>,', $html);
+            $this->assertStringContainsString('<code>tests/Feature/GitHub.php</code> (', $html);
+            $this->assertStringContainsString('<code>app/Services/Vcs/Reader.php</code>).', $html);
+            $this->assertStringNotContainsString('<code>GitHub</code>', $html);
+            $this->assertStringContainsString('href="https://example.test/Docs.php"', $html);
+        }
+        $this->actingAs($owner)->get(route('reports.show', [$project, $report]))
+            ->assertInertia(fn (\Inertia\Testing\AssertableInertia $page) => $page
+                ->where('report_html', fn ($html) => str_contains($html, '<code>RepositoryCommit</code>')
+                    && str_contains($html, '<code>ProjectGitHubController</code>')));
+        $this->assertStringContainsString('RepositoryCommit i ProjectGitHubController', $report->fresh()->body);
+    }
+
     public function test_pdf_keeps_custom_title_and_manually_edited_heading(): void
     {
         [$owner, $project, $report] = $this->fixtures();

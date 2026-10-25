@@ -57,9 +57,17 @@ final class CreateReport
                 $period = $first->translatedFormat('j M Y').' – '.$last->translatedFormat('j M Y');
             }
 
-            return ($format === ReportFormat::WORK_REPORT->value ? 'Raport pracy · ' : 'Raport projektu · ').$period;
+            return match ($format) {
+                ReportFormat::WORK_REPORT->value => 'Raport pracy · ',
+                ReportFormat::TECHNICAL_REPORT->value => 'Raport techniczny · ',
+                default => 'Raport projektu · ',
+            }.$period;
         }
 
-        return ($format === ReportFormat::WORK_REPORT->value ? 'Work report · ' : 'Project report · ').$period;
+        return match ($format) {
+            ReportFormat::WORK_REPORT->value => 'Work report · ',
+            ReportFormat::TECHNICAL_REPORT->value => 'Technical report · ',
+            default => 'Project report · ',
+        }.$period;
     }
 }

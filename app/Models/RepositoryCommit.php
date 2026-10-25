@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /** Provider-neutral VCS data; GitHub now uses these shared tables. */
 #[Fillable([
@@ -29,7 +30,14 @@ class RepositoryCommit extends Model
             'committed_at' => 'datetime',
             'author_identity_checked_at' => 'datetime',
             'legacy_github_commit_id' => 'integer',
+            'files_synced_at' => 'datetime',
+            'files_count' => 'integer',
         ];
+    }
+
+    public function files(): HasMany
+    {
+        return $this->hasMany(RepositoryCommitFile::class);
     }
 
     public function repository(): BelongsTo

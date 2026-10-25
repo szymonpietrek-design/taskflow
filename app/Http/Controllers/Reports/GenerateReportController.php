@@ -43,8 +43,8 @@ final class GenerateReportController extends Controller
             ]);
 
             $message = match ($reason) {
-                'output_truncated' => 'The AI response was cut off. Increase DEEPSEEK_MAX_COMPLETION_TOKENS before trying again.',
-                'unsupported_finish_reason' => 'DeepSeek ended generation without a usable report. The response may have reached the output token limit. Check DEEPSEEK_MAX_COMPLETION_TOKENS.',
+                'output_truncated' => 'The AI response was cut off. Increase DEEPSEEK_REPORT_MAX_COMPLETION_TOKENS before trying again.',
+                'unsupported_finish_reason' => 'DeepSeek ended generation without a usable report. Check the report model and DEEPSEEK_REPORT_MAX_COMPLETION_TOKENS.',
                 'invalid_output' => 'The AI returned an empty or invalid report. Try again later.',
                 'insufficient_balance' => 'DeepSeek API account balance is insufficient. Check your provider dashboard.',
                 'invalid_api_key' => 'DeepSeek rejected the API credentials. Check the provider configuration.',

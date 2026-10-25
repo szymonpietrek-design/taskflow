@@ -70,7 +70,7 @@ class StoreReportRequest extends FormRequest
                 && ($this->input('format') === ReportFormat::WORK_REPORT->value || $requested !== null
                     || ($project instanceof Project && $actor instanceof User
                         && ! app(ReportAccess::class)->canManageTeam($actor, $project)))) {
-                $validator->errors()->add('sources', 'VCS source is available only for project summary reports without a contributor filter.');
+                $validator->errors()->add('sources', 'VCS source is available only for project or technical reports without a contributor filter.');
             }
             if ($this->input('format') === ReportFormat::WORK_REPORT->value
                 && ! in_array(ReportSource::WORKLOGS->value, (array) $this->input('sources', []), true)) {

@@ -86,6 +86,25 @@ class ReportAiGenerationTest extends TestCase
             ->where('report_html', fn ($html) => str_contains($html, '<h2>Summary</h2>')));
     }
 
+    public function test_technical_report_generation_uses_existing_ai_pipeline(): void
+    {
+        [$owner, $project, $report] = $this->fixtures();
+        $report->update(['format' => ReportFormat::TECHNICAL_REPORT, 'sources' => ['tasks', 'vcs']]);
+        $seen = null;
+        $this->fakeGenerator(function (string $context, string $locale) use (&$seen): string {
+            $seen = [json_decode($context, true, 512, JSON_THROW_ON_ERROR), $locale];
+            return "## Implemented features\n\n- OAuth connection management.";
+        });
+
+        $this->actingAs($owner)->post(route('reports.generate', [$project, $report]), ['language' => 'pl'])
+            ->assertRedirect(route('reports.show', [$project, $report]))->assertSessionHasNoErrors();
+
+        $this->assertSame('technical_report', $seen[0]['report_format']);
+        $this->assertSame(['tasks', 'vcs'], $seen[0]['selected_sources']);
+        $this->assertSame('pl', $seen[1]);
+        $this->assertStringContainsString('OAuth connection', $report->fresh()->body);
+    }
+
     public function test_work_report_builds_frozen_rows_and_exact_totals_from_worklogs(): void
     {
         [$owner, $project, $report] = $this->fixtures();
@@ -304,6 +323,20 @@ class ReportAiGenerationTest extends TestCase
         $this->assertSame('No recorded time for this period.', $report->fresh()->body);
     }
 
+    public function test_report_with_inflated_vcs_count_is_rejected_without_overwriting_draft(): void
+    {
+        [$owner, $project, $report] = $this->fixtures();
+        $report->update([
+            'sources' => ['vcs'],
+            'body' => 'Previous draft',
+            'generated_at' => now()->subDay(),
+        ]);
+        $this->fakeGenerator(fn (): string => 'W projekcie zapisano 20 commitów w okresie.');
+        $this->actingAs($owner)->post(route('reports.generate', [$project, $report]), ['language' => 'pl'])
+            ->assertSessionHasErrors('ai_generation');
+        $this->assertSame('Previous draft', $report->fresh()->body);
+    }
+
     public function test_readers_and_archived_projects_cannot_generate(): void
     {
         [$owner, $project, $report] = $this->fixtures();
@@ -345,7 +378,7 @@ class ReportAiGenerationTest extends TestCase
             ->assertSessionHasErrors('ai_generation');
 
         $feedback = (string) session('errors')->first('ai_generation');
-        $this->assertStringContainsString('DEEPSEEK_MAX_COMPLETION_TOKENS', $feedback);
+        $this->assertStringContainsString('DEEPSEEK_REPORT_MAX_COMPLETION_TOKENS', $feedback);
         $this->assertSame('Existing draft', $report->fresh()->body);
     }
 
@@ -382,7 +415,7 @@ class ReportAiGenerationTest extends TestCase
 
         $this->actingAs($owner)->post(route('reports.generate', [$project, $report]), ['language' => 'pl'])
             ->assertSessionHasErrors('ai_generation');
-        $this->assertStringContainsString('DEEPSEEK_MAX_COMPLETION_TOKENS',
+        $this->assertStringContainsString('DEEPSEEK_REPORT_MAX_COMPLETION_TOKENS',
             (string) session('errors')->first('ai_generation'));
         Log::shouldHaveReceived('warning')->once()->withArgs(function ($message, $context): bool {
             return $message === 'report_ai_generation_failed'

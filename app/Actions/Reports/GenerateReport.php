@@ -10,6 +10,7 @@ use App\Models\Report;
 use App\Models\User;
 use App\Support\Reports\ReportAccess;
 use App\Support\Reports\ReportGenerationContext;
+use App\Support\Reports\ReportVcsCountGuard;
 use App\Support\Reports\WorkReportDocument;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
@@ -51,6 +52,8 @@ final class GenerateReport
 
         if ($report->format === ReportFormat::WORK_REPORT) {
             $body = $this->workReport->render($context, $body, $language);
+        } else {
+            app(ReportVcsCountGuard::class)->assertPlausible($body, $context, $language);
         }
         if (mb_strlen($body) > 50000) {
             throw new InvalidArgumentException(__('Report content is too long. Choose a shorter period.'));

@@ -2,6 +2,7 @@
 
 namespace App\Support\Reports;
 
+use App\Enums\ReportFormat;
 use App\Enums\ReportSource;
 use App\Enums\TaskStatusCategory;
 use App\Models\Report;
@@ -27,8 +28,8 @@ final class ReportGenerationContext
         $selected = $report->sources;
 
         if (in_array(ReportSource::VCS->value, $selected, true)
-            && ($report->contributor_ids !== null || $report->format->value !== 'project_summary')) {
-            throw new InvalidArgumentException(__('VCS source is only supported for unfiltered project summary reports.'));
+            && ($report->contributor_ids !== null || $report->format === ReportFormat::WORK_REPORT)) {
+            throw new InvalidArgumentException(__('VCS source is only supported for unfiltered project or technical reports.'));
         }
 
         $data = [
@@ -48,8 +49,16 @@ final class ReportGenerationContext
                     ->whereIn('created_by', $report->contributor_ids)->orWhereIn('assignee_id', $report->contributor_ids)))
                 ->where(fn (Builder $query) => $query
                     ->whereBetween('created_at', [$start, $end])
-                    ->orWhereBetween('completed_at', [$start, $end]))
+                    ->orWhereBetween('completed_at', [$start, $end])
+                    ->orWhereHas('activities', fn (Builder $activity) => $activity
+                        ->whereBetween('created_at', [$start, $end])
+                        ->when($report->contributor_ids !== null,
+                            fn (Builder $query) => $query->whereIn('user_id', $report->contributor_ids))))
                 ->with('status:id,name,category')
+                ->withExists(['activities as changed_in_period' => fn (Builder $activity) => $activity
+                    ->whereBetween('created_at', [$start, $end])
+                    ->when($report->contributor_ids !== null,
+                        fn (Builder $query) => $query->whereIn('user_id', $report->contributor_ids))])
                 ->orderBy('id')->limit(41)->get();
             $this->assertLimit($tasks->count(), 40, 'tasks');
             $data['tasks'] = $tasks->map(fn (Task $task): array => [
@@ -60,6 +69,7 @@ final class ReportGenerationContext
                 'status' => $task->status?->name,
                 'created_at' => $task->created_at?->toDateString(),
                 'completed_at' => $task->completed_at?->toDateString(),
+                'changed_in_period' => (bool) $task->changed_in_period,
                 'completed_in_period' => $task->completed_at !== null
                     && $task->status?->category === TaskStatusCategory::DONE
                     && $task->completed_at->betweenIncluded($start, $end),
@@ -85,12 +95,33 @@ final class ReportGenerationContext
                 ->whereBetween('created_at', [$start, $end])->with('task:id,project_id,number')
                 ->orderBy('id')->limit(101)->get();
             $this->assertLimit($activities->count(), 100, 'activity events');
-            $data['activity'] = $activities->map(fn (TaskActivity $activity): array => [
-                'task' => $report->project->key.'-'.$activity->task->number,
-                'date' => $activity->created_at?->toDateString(),
-                'type' => $activity->type->name,
-                'details' => $this->shorten(json_encode($activity->data, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE) ?: null, 500),
-            ])->all();
+            // Activity history can contain full before/after Markdown snapshots, attachment
+            // paths and repeated versions of the same description. None is needed to
+            // summarize work. Keep counts and a bounded set of meaningful transitions.
+            $counts = [];
+            $notable = [];
+            foreach ($activities as $activity) {
+                $type = $activity->type->name;
+                $counts[$type] = ($counts[$type] ?? 0) + 1;
+                if (! in_array($type, ['STATUS_CHANGED', 'DUE_DATE_CHANGED', 'TYPE_CHANGED', 'PRIORITY_CHANGED'], true)
+                    || count($notable) >= 30) {
+                    continue;
+                }
+                $changes = $activity->data ?? [];
+                $notable[] = [
+                    'task' => $report->project->key.'-'.$activity->task->number,
+                    'date' => $activity->created_at?->toDateString(),
+                    'type' => $type,
+                    'from' => $this->safeActivityValue($changes['from'] ?? null),
+                    'to' => $this->safeActivityValue($changes['to'] ?? null),
+                ];
+            }
+            ksort($counts);
+            $data['activity'] = [
+                'total_events' => $activities->count(),
+                'counts_by_type' => $counts,
+                'notable_events' => $notable,
+            ];
         }
 
         if (in_array(ReportSource::WORKLOGS->value, $selected, true)) {
@@ -131,6 +162,19 @@ final class ReportGenerationContext
         }
 
         return $payload;
+    }
+
+    /** Extract only human-readable scalar labels; never serialize raw activity payloads. */
+    private function safeActivityValue(mixed $value): ?string
+    {
+        if (is_array($value)) {
+            // Do not pass internal IDs, nested metadata or arbitrary serialized values.
+            $value = $value['name'] ?? null;
+        }
+        if (! is_string($value) && ! is_int($value) && ! is_float($value)) {
+            return null;
+        }
+        return $this->shorten((string) $value, 80);
     }
 
     private function assertLimit(int $count, int $limit, string $source): void

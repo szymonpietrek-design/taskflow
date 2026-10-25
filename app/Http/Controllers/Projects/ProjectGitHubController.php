@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Integrations\GitHub\GitHubAppClient;
 use App\Integrations\Vcs\Providers\GitHubInstance;
 use App\Integrations\Vcs\RepositoryAuthorBackfiller;
+use App\Integrations\Vcs\RepositoryCommitFileSynchronizer;
 use App\Integrations\Vcs\RepositoryChangeRequestSynchronizer;
 use App\Integrations\Vcs\RepositoryChangeRequestReviewSynchronizer;
 use App\Integrations\Vcs\RepositoryChangeRequestParticipantResolver;
@@ -233,11 +234,25 @@ class ProjectGitHubController extends Controller
             ]);
         }
         $count = (int) $result['imported'];
+        // Enrich a small batch of already stored SHAs without delaying or rolling
+        // back successful commit sync if GitHub's detail API is unavailable.
+        $filesInfo = null;
+        $fileSyncFailed = false;
+        try {
+            $filesInfo = app(RepositoryCommitFileSynchronizer::class)->synchronize($repository);
+        } catch (\Throwable $exception) {
+            $fileSyncFailed = true;
+            report($exception);
+        }
         Inertia::flash('toast', [
             'type' => 'success',
             'message' => app()->getLocale() === 'pl'
-                ? ($count > 0 ? 'Synchronizacja GitHub zakończona. Nowe commity: '.$count.'.' : 'Synchronizacja GitHub zakończona. Brak nowych commitów.')
-                : ($count > 0 ? 'Imported '.$count.' new GitHub commits.' : 'GitHub synchronization complete. No new commits.'),
+                ? (($count > 0 ? 'Synchronizacja GitHub zakończona. Nowe commity: '.$count.'.' : 'Synchronizacja GitHub zakończona. Brak nowych commitów.')
+                    .($fileSyncFailed ? ' Nie udało się pobrać metadanych plików; spróbuj vcs:sync-commit-files.'
+                        : ($filesInfo !== null && $filesInfo['remaining'] > 0 ? ' Pozostałe metadane: vcs:sync-commit-files.' : '')))
+                : (($count > 0 ? 'Imported '.$count.' new GitHub commits.' : 'GitHub synchronization complete. No new commits.')
+                    .($fileSyncFailed ? ' Could not sync commit file metadata; retry with vcs:sync-commit-files.'
+                        : ($filesInfo !== null && $filesInfo['remaining'] > 0 ? ' Remaining metadata: vcs:sync-commit-files.' : ''))),
         ]);
         return to_route('projects.github.index', $project);
     }

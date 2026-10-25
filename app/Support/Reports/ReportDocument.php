@@ -6,7 +6,6 @@ use App\Enums\ReportFormat;
 use App\Models\Report;
 use App\Models\User;
 use Illuminate\Contracts\View\View;
-use Illuminate\Support\Str;
 
 final class ReportDocument
 {
@@ -32,10 +31,7 @@ final class ReportDocument
             'locale' => $report->generated_locale ?: 'en',
             'draft' => $draft,
             'publicHtml' => $publicHtml,
-            'contentHtml' => Str::markdown($markdown, [
-                'html_input' => 'strip',
-                'allow_unsafe_links' => false,
-            ]),
+            'contentHtml' => app(ReportMarkdownPresentation::class)->render($markdown, $report->format),
         ]);
     }
 }

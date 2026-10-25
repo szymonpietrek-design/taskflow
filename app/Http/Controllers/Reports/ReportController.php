@@ -11,12 +11,12 @@ use App\Models\Report;
 use App\Models\User;
 use App\Support\Reports\ReportAccess;
 use App\Support\Reports\ReportEditableContent;
+use App\Support\Reports\ReportMarkdownPresentation;
 use App\Support\Reports\ReportRevision;
 use App\Support\Reports\ReportSourceOverview;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -79,9 +79,9 @@ class ReportController extends Controller
                 && filled(config('services.ai_chat.api_key')),
             'default_ai_language' => preg_match('/\A[a-z]{2,3}(?:-[a-z0-9]{2,8})*\z/i', str_replace('_', '-', app()->getLocale()))
                 ? str_replace('_', '-', app()->getLocale()) : 'en',
-            'report_html' => $report->body !== null ? Str::markdown($report->body, [
-                'html_input' => 'strip', 'allow_unsafe_links' => false,
-            ]) : null,
+            'report_html' => $report->body !== null
+                ? app(ReportMarkdownPresentation::class)->render($report->body, $report->format)
+                : null,
         ]);
     }
 

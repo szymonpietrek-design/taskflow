@@ -296,7 +296,7 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
             </CardHeader>
             <CardContent class="space-y-3">
                 <p v-if="!files_current" class="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-                    {{ isPl ? 'Brak aktualnej migawki zmian. Użyj „Synchronizuj PR i pliki” w sekcji Agenta AI.' : 'No current file snapshot. Use “Sync PR and files” in the AI Agent section.' }}
+                    {{ isPl ? 'Brak aktualnej migawki zmian. Użyj „Synchronizuj PR i pliki” w sekcji AI Code Review.' : 'No current file snapshot. Use “Sync PR and files” in the AI Code Review section.' }}
                 </p>
                 <template v-else>
                     <div class="flex flex-wrap items-center justify-between gap-2 text-sm">
@@ -326,15 +326,15 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
 
         <Card class="gap-3" id="ai-analysis">
             <CardHeader class="space-y-2">
-                <CardTitle class="flex items-center gap-2 text-base"><Sparkles class="size-4" /> {{ isPl ? 'Agent AI — analiza Pull Requesta' : 'AI Agent — pull request analysis' }}</CardTitle>
+                <CardTitle class="flex items-center gap-2 text-base"><Sparkles class="size-4" /> {{ isPl ? 'AI Code Review' : 'AI Code Review' }}</CardTitle>
                 <p class="text-sm text-muted-foreground">
-                    {{ isPl ? 'Analizy są prywatne i zapisane jako kolejne wersje. DeepSeek nie jest uruchamiany automatycznie.' : 'Analyses are private and versioned. DeepSeek does not run automatically.' }}
+                    {{ isPl ? 'AI ocenia PR na podstawie metadanych i opcjonalnych fragmentów kodu. Analizy są prywatne i wersjonowane; DeepSeek nie uruchamia się automatycznie.' : 'AI reviews PR metadata and optional code excerpts. Analyses are private and versioned; DeepSeek does not run automatically.' }}
                 </p>
             </CardHeader>
             <CardContent class="space-y-5">
                 <form v-if="ai.can_generate" class="space-y-4 rounded-lg border p-4" @submit.prevent="generateAiAnalysis">
                     <div class="space-y-1">
-                        <h3 class="text-sm font-semibold">{{ isPl ? 'Nowa analiza' : 'New analysis' }}</h3>
+                        <h3 class="text-sm font-semibold">{{ isPl ? 'Nowe AI Code Review' : 'New AI Code Review' }}</h3>
                         <p class="text-xs text-muted-foreground">
                             {{ isPl ? 'Przed wysłaniem sprawdź zakres danych. Dane trafią do zewnętrznego dostawcy DeepSeek.' : 'Review the data scope. Selected information will be sent to external provider DeepSeek.' }}
                         </p>
@@ -412,7 +412,7 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
                     </p>
                     <p v-if="aiError" role="alert" class="text-sm text-destructive">{{ aiError }}</p>
                     <Button type="submit" :disabled="!canSubmitAi">
-                        <Sparkles class="size-4" /> {{ generating ? (isPl ? 'Zlecanie…' : 'Queuing…') : (isPl ? 'Zleć analizę AI' : 'Queue AI analysis') }}
+                        <Sparkles class="size-4" /> {{ generating ? (isPl ? 'Zlecanie…' : 'Queuing…') : (isPl ? 'Uruchom AI Code Review' : 'Start AI Code Review') }}
                     </Button>
                     <p class="text-xs text-muted-foreground">{{ isPl ? 'Analiza uruchomi się w kolejce. Odświeżamy status automatycznie. Każde uruchomienie może zużywać płatne tokeny; zgody nie są zapamiętywane.' : 'Analysis runs in a background queue and status refreshes automatically. Each run can incur token charges; consent is never remembered.' }}</p>
                 </form>
@@ -420,7 +420,7 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
                     {{ isPl ? 'Tylko uprawniony administrator aktywnego projektu może uruchamiać nowe analizy.' : 'Only an authorized administrator of an active project can start analyses.' }}
                 </div>
                 <div class="rounded-lg border p-4 text-sm space-y-2">
-                    <h3 class="font-semibold">{{ isPl ? 'Wykorzystanie AI w projekcie — ostatnie 30 dni' : 'Project AI usage — last 30 days' }}</h3>
+                    <h3 class="font-semibold">{{ isPl ? 'Wykorzystanie AI Code Review — ostatnie 30 dni' : 'AI Code Review usage — last 30 days' }}</h3>
                     <p class="text-muted-foreground">{{ isPl ? 'Zakończone' : 'Completed' }}: {{ ai.usage_30d.completed }} · {{ isPl ? 'Nieudane' : 'Failed' }}: {{ ai.usage_30d.failed }}</p>
                     <p class="text-muted-foreground">{{ isPl ? 'Tokeny wejścia / wyjścia' : 'Input / output tokens' }}: {{ ai.usage_30d.prompt_tokens.toLocaleString() }} / {{ ai.usage_30d.completion_tokens.toLocaleString() }}</p>
                     <p>{{ isPl ? 'Oszacowany koszt' : 'Estimated cost' }}:
@@ -433,7 +433,7 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
                 </div>
                 <div class="space-y-3">
                     <div class="flex flex-wrap items-center justify-between gap-2">
-                        <h3 class="text-sm font-semibold">{{ isPl ? 'Historia analiz' : 'Analysis history' }}</h3>
+                        <h3 class="text-sm font-semibold">{{ isPl ? 'Historia analiz AI' : 'AI analysis history' }}</h3>
                         <span class="text-xs text-muted-foreground">{{ ai.history.length }} / {{ ai.history_limit }}</span>
                     </div>
                     <p v-if="ai.history.length === 0" class="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
@@ -481,7 +481,7 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
 
         <Card class="gap-3">
             <CardHeader class="space-y-2">
-                <CardTitle class="flex items-center gap-2 text-base"><History class="size-4" /> {{ isPl ? 'Historia Code Review' : 'Code review history' }}</CardTitle>
+                <CardTitle class="flex items-center gap-2 text-base"><History class="size-4" /> {{ isPl ? 'Recenzje Pull Requesta' : 'Pull request reviews' }}</CardTitle>
                 <p class="text-sm text-muted-foreground">
                     {{ isPl ? 'Zapisane i przesłane recenzje Pull Requesta. Nieopublikowane szkice nie są wyświetlane.' : 'Stored, submitted pull request reviews. Unsubmitted drafts are not shown.' }}
                 </p>
