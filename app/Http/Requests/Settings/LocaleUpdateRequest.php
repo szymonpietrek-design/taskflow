@@ -2,7 +2,7 @@
 
 namespace App\Http\Requests\Settings;
 
-use App\Enums\UiLocale;
+use App\Support\I18n\LanguageCatalog;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -17,7 +17,7 @@ class LocaleUpdateRequest extends FormRequest
             'locale' => [
                 'required',
                 'string',
-                Rule::enum(UiLocale::class),
+                Rule::in(array_column(app(LanguageCatalog::class)->options(), 'value')),
             ],
         ];
     }

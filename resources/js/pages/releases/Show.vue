@@ -125,7 +125,7 @@ const plannedDate = shallowRef<DateValue | undefined>(
         ? parseDate(props.release.planned_for.slice(0, 10))
         : undefined,
 );
-const plannedDateFormatter = computed(() => new DateFormatter(locale.value === 'pl' ? 'pl-PL' : 'en-US', {
+const plannedDateFormatter = computed(() => new DateFormatter(locale.value, {
     dateStyle: 'medium',
 }));
 watch(
@@ -288,7 +288,7 @@ const { t, locale, formatText, translateLiteral } = useI18n();
                 >
                 <CardContent class="font-medium">{{
                     release.released_at
-                        ? new Date(release.released_at).toLocaleString(locale === 'pl' ? 'pl-PL' : 'en-US')
+                        ? new Date(release.released_at).toLocaleString(locale)
                         : t('audit.not_released')
                 }}</CardContent>
             </Card>
@@ -702,7 +702,7 @@ const { t, locale, formatText, translateLiteral } = useI18n();
                             >{{
                                 new Date(
                                     changelog.published_at,
-                                ).toLocaleString(locale === 'pl' ? 'pl-PL' : 'en-US')
+                                ).toLocaleString(locale)
                             }}</span
                         >
                     </div>

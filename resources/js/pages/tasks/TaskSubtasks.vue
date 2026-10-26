@@ -64,7 +64,7 @@ const subtaskPriority = ref('2');
 const subtaskStatus = ref('default');
 const subtaskAssignee = ref('unassigned');
 const subtaskDueDate = shallowRef<DateValue | undefined>();
-const dateFormatter = computed(() => new DateFormatter(locale.value === 'pl' ? 'pl-PL' : 'en-US', { dateStyle: 'medium' }));
+const dateFormatter = computed(() => new DateFormatter(locale.value, { dateStyle: 'medium' }));
 const notifyError = () =>
     toast.error(t('audit.could_not_create_the_subtask_check_the_form_and_try_again'));
 const stayOnTask = { preserveScroll: true, preserveState: true };

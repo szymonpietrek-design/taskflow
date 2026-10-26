@@ -2,7 +2,7 @@
 
 namespace App\Http\Middleware;
 
-use App\Enums\UiLocale;
+use App\Support\I18n\LanguageCatalog;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\App;
@@ -16,10 +16,7 @@ class SetLocale
             ?? $request->cookie('locale')
             ?? config('app.locale');
 
-        $locale = UiLocale::tryFrom((string) $candidate)
-            ?? UiLocale::ENGLISH;
-
-        App::setLocale($locale->value);
+        App::setLocale(app(LanguageCatalog::class)->normalize($candidate));
 
         return $next($request);
     }

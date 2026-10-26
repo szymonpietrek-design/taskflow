@@ -84,7 +84,7 @@ function submitProjectAction(): void {
 }
 
 function archivedCount(count: number): string {
-    const rule = new Intl.PluralRules(page.props.locale === 'pl' ? 'pl-PL' : 'en-US').select(count);
+    const rule = new Intl.PluralRules(page.props.locale).select(count);
     const form = rule === 'one' ? 'One' : rule === 'few' ? 'Few' : 'Many';
     return formatText(`workspaceProjects.archivedCount${form}`, { count });
 }
@@ -96,7 +96,7 @@ function openProjectDialog(workspaceId: number, project: WorkspaceProjectSummary
 }
 
 function projectCount(count: number): string {
-    const rule = new Intl.PluralRules(page.props.locale === 'pl' ? 'pl-PL' : 'en-US').select(count);
+    const rule = new Intl.PluralRules(page.props.locale).select(count);
     const form = rule === 'one' ? 'One' : rule === 'few' ? 'Few' : 'Many';
     return formatText(`workspaceProjects.count${form}`, { count });
 }

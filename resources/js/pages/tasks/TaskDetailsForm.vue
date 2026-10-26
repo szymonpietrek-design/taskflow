@@ -82,7 +82,7 @@ const editDueDate = shallowRef<DateValue | undefined>(
         ? parseDate(props.task.due_date.slice(0, 10))
         : undefined,
 );
-const dateFormatter = computed(() => new DateFormatter(locale.value === 'pl' ? 'pl-PL' : 'en-US', { dateStyle: 'medium' }));
+const dateFormatter = computed(() => new DateFormatter(locale.value, { dateStyle: 'medium' }));
 const notifyError = () =>
     toast.error(t('fix.could_not_update_task'));
 const stayOnTask = { preserveScroll: true, preserveState: true };

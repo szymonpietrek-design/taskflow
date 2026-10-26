@@ -47,11 +47,11 @@ function downloadUrl(item: TaskAttachmentSummary): string {
 function sizeLabel(bytes: number): string {
     return bytes < 1024 * 1024
         ? `${Math.max(1, Math.round(bytes / 1024))} KB`
-        : `${(bytes / (1024 * 1024)).toLocaleString(locale.value === 'pl' ? 'pl-PL' : 'en-US', { maximumFractionDigits: 1 })} MB`;
+        : `${(bytes / (1024 * 1024)).toLocaleString(locale.value, { maximumFractionDigits: 1 })} MB`;
 }
 function dateLabel(date: string | null): string {
     if (!date) return '';
-    return new Date(date).toLocaleDateString(locale.value === 'pl' ? 'pl-PL' : 'en-US');
+    return new Date(date).toLocaleDateString(locale.value);
 }
 function chooseFiles(files: FileList | File[]): void {
     const incoming = Array.from(files);

@@ -27,6 +27,7 @@ type Paginator = {
     prev_page_url: string | null; next_page_url: string | null;
 };
 const props = defineProps<{
+    locales: { value: string; label: string }[];
     users: Paginator;
     filters: { q: string; status: string };
     currentUserId: number;
@@ -36,7 +37,8 @@ const search = ref(props.filters.q);
 const status = ref(props.filters.status);
 const userDialog = ref(false);
 const editing = ref<Person | null>(null);
-const userForm = useForm({ name: '', email: '', locale: 'pl', password: '', password_confirmation: '', is_system_admin: false });
+const defaultUserLocale = () => props.locales.find(option => option.value === 'pl')?.value ?? props.locales[0]?.value ?? 'en';
+const userForm = useForm({ name: '', email: '', locale: defaultUserLocale(), password: '', password_confirmation: '', is_system_admin: false });
 const passwordDialog = ref(false);
 const passwordUser = ref<Person | null>(null);
 const passwordForm = useForm({ password: '', password_confirmation: '' });
@@ -52,7 +54,7 @@ function openCreate(): void {
     editing.value = null;
     userForm.reset();
     userForm.clearErrors();
-    userForm.locale = 'pl';
+    userForm.locale = defaultUserLocale();
     userDialog.value = true;
 }
 function openEdit(user: Person): void {
@@ -61,7 +63,7 @@ function openEdit(user: Person): void {
     userForm.clearErrors();
     userForm.name = user.name;
     userForm.email = user.email;
-    userForm.locale = user.locale;
+    userForm.locale = props.locales.some(option => option.value === user.locale) ? user.locale : defaultUserLocale();
     userDialog.value = true;
 }
 function saveUser(): void {
@@ -185,7 +187,7 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Users', href: '/admin/users' }
                     <div class="grid gap-2"><Label for="system-user-name">{{ t('adminUsers.name') }}</Label><Input id="system-user-name" v-model="userForm.name" required maxlength="255" autocomplete="off" /><InputError :message="userForm.errors.name" /></div>
                     <div class="grid gap-2"><Label for="system-user-email">{{ t('adminUsers.email') }}</Label><Input id="system-user-email" v-model="userForm.email" type="email" required maxlength="255" autocomplete="off" /><InputError :message="userForm.errors.email" /></div>
                     <div class="grid gap-2"><Label for="system-user-locale">{{ t('adminUsers.language') }}</Label>
-                        <Select v-model="userForm.locale"><SelectTrigger id="system-user-locale"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="pl">Polski</SelectItem><SelectItem value="en">English</SelectItem></SelectContent></Select>
+                        <Select v-model="userForm.locale"><SelectTrigger id="system-user-locale"><SelectValue /></SelectTrigger><SelectContent><SelectItem v-for="option in locales" :key="option.value" :value="option.value">{{ option.label }}</SelectItem></SelectContent></Select>
                         <InputError :message="userForm.errors.locale" />
                     </div>
                     <template v-if="!editing">

@@ -2,7 +2,7 @@
 
 namespace App\Http\Middleware;
 
-use App\Enums\UiLocale;
+use App\Support\I18n\LanguageCatalog;
 use App\Support\Projects\ProjectContext;
 use App\Support\Workspaces\WorkspaceContext;
 use Illuminate\Http\Request;
@@ -45,7 +45,7 @@ class HandleInertiaRequests extends Middleware
                 'user' => $request->user(),
             ],
             'locale' => app()->getLocale(),
-            'locales' => UiLocale::options(),
+            'locales' => app(LanguageCatalog::class)->options(),
             'workspace' => fn (): array => app(WorkspaceContext::class)->resolve($request),
             'projects' => fn (): array => app(ProjectContext::class)->resolve($request),
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',

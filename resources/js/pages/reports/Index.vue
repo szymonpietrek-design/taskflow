@@ -68,7 +68,7 @@ const props = defineProps<{
     };
 }>();
 const baseUrl = `/projects/${props.project.id}/reports`;
-const formatter = computed(() => new DateFormatter(locale.value === 'pl' ? 'pl-PL' : 'en-US', { dateStyle: 'medium' }));
+const formatter = computed(() => new DateFormatter(locale.value, { dateStyle: 'medium' }));
 const start = shallowRef<DateValue | undefined>(
     parseDate(today(getLocalTimeZone()).subtract({ days: 30 }).toString()),
 );
@@ -120,7 +120,7 @@ const vcsUnavailableReason = computed(() => {
 });
 const selectedSourcesText = computed(() => formatText('reports.selectedSources', { count: selected.value.length }));
 const reportsCountText = computed(() => {
-    const category = new Intl.PluralRules(locale.value === 'pl' ? 'pl-PL' : 'en-US').select(props.reports.total);
+    const category = new Intl.PluralRules(locale.value).select(props.reports.total);
     const suffix = category === 'one' ? 'One' : category === 'few' ? 'Few' : 'Many';
     return formatText(`reports.count${suffix}`, { count: props.reports.total });
 });

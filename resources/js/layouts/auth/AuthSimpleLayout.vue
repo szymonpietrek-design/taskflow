@@ -11,7 +11,7 @@ defineProps<{
 
 const page = usePage();
 const { locale } = useI18n();
-function chooseLanguage(language: 'pl' | 'en') {
+function chooseLanguage(language: string) {
     if (language !== locale.value) {
         router.post('/ui-locale', { locale: language }, { preserveState: false, preserveScroll: true });
     }
@@ -46,10 +46,16 @@ function chooseLanguage(language: 'pl' | 'en') {
                     </div>
                 </div>
                 <slot />
-                <nav v-if="!page.props.auth.user" class="flex justify-center gap-2 text-xs text-muted-foreground" aria-label="Language / Język">
-                    <button type="button" class="rounded px-2 py-1 hover:text-foreground" :class="locale === 'en' ? 'font-semibold text-foreground underline underline-offset-4' : ''" :aria-current="locale === 'en' ? 'true' : undefined" @click="chooseLanguage('en')">English</button>
-                    <span aria-hidden="true">·</span>
-                    <button type="button" class="rounded px-2 py-1 hover:text-foreground" :class="locale === 'pl' ? 'font-semibold text-foreground underline underline-offset-4' : ''" :aria-current="locale === 'pl' ? 'true' : undefined" @click="chooseLanguage('pl')">Polski</button>
+                <nav v-if="!page.props.auth.user" class="flex flex-wrap justify-center gap-2 text-xs text-muted-foreground" aria-label="Language">
+                    <button
+                        v-for="option in page.props.locales"
+                        :key="option.value"
+                        type="button"
+                        class="rounded px-2 py-1 hover:text-foreground"
+                        :class="locale === option.value ? 'font-semibold text-foreground underline underline-offset-4' : ''"
+                        :aria-current="locale === option.value ? 'true' : undefined"
+                        @click="chooseLanguage(option.value)"
+                    >{{ option.label }}</button>
                 </nav>
             </div>
         </div>

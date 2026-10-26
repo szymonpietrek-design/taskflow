@@ -125,7 +125,7 @@ function duration(minutes: number): string {
     );
 }
 function formatDay(date: string, options: Intl.DateTimeFormatOptions): string {
-    return new Intl.DateTimeFormat(locale.value === 'pl' ? 'pl-PL' : 'en-US', {
+    return new Intl.DateTimeFormat(locale.value, {
         ...options,
         timeZone: 'UTC',
     }).format(new Date(`${date}T12:00:00Z`));

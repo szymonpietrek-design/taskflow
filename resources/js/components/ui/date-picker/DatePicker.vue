@@ -33,7 +33,7 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{ 'update:modelValue': [date: string] }>();
 const { locale, t } = useI18n();
 const dateFormatter = computed(() => new DateFormatter(
-    locale.value === 'pl' ? 'pl-PL' : 'en-US',
+    locale.value,
     { dateStyle: 'medium' },
 ));
 const selectedDate = computed<DateValue | undefined>({

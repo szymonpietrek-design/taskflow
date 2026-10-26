@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\Settings;
 
-use App\Enums\UiLocale;
+use App\Support\I18n\LanguageCatalog;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\LocaleUpdateRequest;
 use Illuminate\Http\RedirectResponse;
@@ -15,8 +15,8 @@ class LocaleController extends Controller
     public function edit(Request $request): Response
     {
         return Inertia::render('settings/Language', [
-            'locales' => UiLocale::options(),
-            'selectedLocale' => $request->user()->locale,
+            'locales' => app(LanguageCatalog::class)->options(),
+            'selectedLocale' => app()->getLocale(),
         ]);
     }
 

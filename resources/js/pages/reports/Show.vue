@@ -317,9 +317,9 @@ defineOptions({
 const { t, locale, formatText, translateLiteral, countLabel } = useI18n();
 const commitCountLabel = computed((): string => {
     const count = props.source_counts.vcs?.commits ?? 0;
-    if (locale.value !== 'pl') return count === 1 ? 'commit' : 'commits';
-    const plural = new Intl.PluralRules('pl-PL').select(count);
-    return plural === 'one' ? 'commit' : plural === 'few' ? 'commity' : 'commitów';
+    const plural = new Intl.PluralRules(locale.value).select(count);
+    const form = plural === 'one' ? 'one' : plural === 'few' ? 'few' : 'many';
+    return formatText(`reports.commits.${form}`, { count });
 });
 </script>
 
@@ -715,7 +715,7 @@ const commitCountLabel = computed((): string => {
                             :aria-label="t('stage3.report_content')"
                         />
                         <p class="text-xs text-muted-foreground">
-                            {{ formatText('audit.report_characters', { count: contentForm.content.length.toLocaleString(locale === 'pl' ? 'pl-PL' : 'en-US') }) }}
+                            {{ formatText('audit.report_characters', { count: contentForm.content.length.toLocaleString(locale) }) }}
                         </p>
                         <InputError
                             :message="

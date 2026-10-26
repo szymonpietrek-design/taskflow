@@ -20,7 +20,7 @@ function calendarDate(value: string): Date {
 }
 
 export function formatReportPeriod(start: string, end: string, language: string = 'en'): string {
-    const locale = language === 'pl' ? 'pl-PL' : 'en-US';
+    const locale = language;
     if (start === end) return fullDate(locale).format(calendarDate(start));
 
     const startDate = calendarDate(start);
@@ -41,7 +41,7 @@ export function formatReportPeriod(start: string, end: string, language: string 
 }
 
 export function formatReportTimestamp(isoDate: string, language: string = 'en'): string {
-    return new Intl.DateTimeFormat(language === 'pl' ? 'pl-PL' : 'en-US', {
+    return new Intl.DateTimeFormat(language, {
         dateStyle: 'medium',
         timeStyle: 'short',
     }).format(new Date(isoDate));

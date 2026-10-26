@@ -103,7 +103,7 @@ const isAddMemberDialogOpen = ref(false);
 const projectUrl = computed(() => `/projects/${props.project.id}`);
 const taskUrl = (id: number) => `${projectUrl.value}/tasks/${id}`;
 const progress = computed(() => Math.min(100, Math.max(0, props.overview.stats.progress_percent)));
-const formatter = computed(() => new Intl.DateTimeFormat(locale.value === 'pl' ? 'pl-PL' : 'en-US', {
+const formatter = computed(() => new Intl.DateTimeFormat(locale.value, {
     dateStyle: 'medium',
     timeStyle: 'short',
 }));
@@ -226,7 +226,7 @@ function activityLabel(kind: TimelineItem['kind']): string {
                 <Link :href="`${projectUrl}/reports`"><FileText class="size-4" /> {{ t('stage2.reports') }}</Link>
             </Button>
             <Button variant="outline" size="sm" as-child>
-                <Link :href="`${projectUrl}/integrations/repository`"><GitBranch class="size-4" /> {{ locale === 'pl' ? 'Integracje Git' : 'Git integrations' }}</Link>
+                <Link :href="`${projectUrl}/integrations/repository`"><GitBranch class="size-4" /> {{ t('navigation.Git integrations') }}</Link>
             </Button>
         </nav>
 

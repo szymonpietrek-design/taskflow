@@ -64,7 +64,7 @@ const connectedAtLabel = computed(() => {
     const date = new Date(props.githubAccount.connected_at);
     return Number.isNaN(date.getTime())
         ? null
-        : new Intl.DateTimeFormat(locale.value === 'pl' ? 'pl-PL' : 'en-US', {
+        : new Intl.DateTimeFormat(locale.value, {
             dateStyle: 'medium',
             timeStyle: 'short',
         }).format(date);

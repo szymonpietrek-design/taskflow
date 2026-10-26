@@ -134,7 +134,7 @@ const notifyError = () =>
     toast.error(t('fix.could_not_save_message'));
 
 function formattedDate(value: string): string {
-    return new Date(value).toLocaleString(locale.value === 'pl' ? 'pl-PL' : 'en-US', {
+    return new Date(value).toLocaleString(locale.value, {
         year: 'numeric',
         month: '2-digit',
         day: '2-digit',

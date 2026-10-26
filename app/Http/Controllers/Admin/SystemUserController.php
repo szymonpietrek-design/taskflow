@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Support\I18n\LanguageCatalog;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -40,6 +41,7 @@ class SystemUserController extends Controller
             'users' => $users,
             'filters' => ['q' => $search, 'status' => $status],
             'currentUserId' => $request->user()->id,
+            'locales' => app(LanguageCatalog::class)->options(),
         ]);
     }
 
@@ -49,7 +51,7 @@ class SystemUserController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')],
-            'locale' => ['required', Rule::in(['pl', 'en'])],
+            'locale' => ['required', Rule::in(array_column(app(LanguageCatalog::class)->options(), 'value'))],
             'password' => ['required', 'string', 'confirmed', Password::min(6)],
             'is_system_admin' => ['required', 'boolean'],
         ]);
@@ -75,7 +77,7 @@ class SystemUserController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
-            'locale' => ['required', Rule::in(['pl', 'en'])],
+            'locale' => ['required', Rule::in(array_column(app(LanguageCatalog::class)->options(), 'value'))],
         ]);
 
         $user->name = trim($data['name']);

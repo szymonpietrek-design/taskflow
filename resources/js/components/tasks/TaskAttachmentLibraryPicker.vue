@@ -61,7 +61,7 @@ function toggle(id: number, checked: boolean): void {
 function formatSize(bytes: number): string {
     const unit = bytes >= 1024 * 1024 ? 'MB' : bytes >= 1024 ? 'KB' : 'B';
     const divisor = unit === 'MB' ? 1024 * 1024 : unit === 'KB' ? 1024 : 1;
-    return `${new Intl.NumberFormat(locale.value === 'pl' ? 'pl-PL' : 'en-US', {
+    return `${new Intl.NumberFormat(locale.value, {
         maximumFractionDigits: unit === 'B' ? 0 : 1,
     }).format(bytes / divisor)} ${unit}`;
 }

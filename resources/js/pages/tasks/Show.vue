@@ -132,7 +132,7 @@ const dueDateLabel = computed(() => {
     if (!props.task.due_date) return t('fix.not_set');
     // Calendar-only dates must not be shifted by the browser's timezone.
     const date = new Date(`${props.task.due_date.slice(0, 10)}T12:00:00Z`);
-    return new Intl.DateTimeFormat(locale.value === 'pl' ? 'pl-PL' : 'en-US', {
+    return new Intl.DateTimeFormat(locale.value, {
         dateStyle: 'medium', timeZone: 'UTC',
     }).format(date);
 });
@@ -308,7 +308,7 @@ const { t, displayLabel, locale } = useI18n();
                             <section v-if="task.completed_at" class="py-3.5 first:pt-2 last:pb-2">
                                 <p class="text-xs text-muted-foreground">{{ t('stage2.completed') }}</p>
                                 <p class="mt-1">
-                                    {{ new Date(task.completed_at).toLocaleString(locale === 'pl' ? 'pl-PL' : 'en-US') }}
+                                    {{ new Date(task.completed_at).toLocaleString(locale) }}
                                 </p>
                             </section>
                         </div>

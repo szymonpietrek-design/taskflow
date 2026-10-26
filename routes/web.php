@@ -41,13 +41,22 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Validation\Rule;
+use App\Support\I18n\LanguageCatalog;
 
 // Internal application: never expose the Laravel starter welcome / registration landing page.
 Route::get('/', fn () => redirect()->route(auth()->check() ? 'dashboard' : 'login'))->name('home');
 
 // Guests can choose their UI language before logging in; authenticated users keep their account preference.
+// Public UI dictionaries are data-only JSON files; never execute uploaded code.
+Route::get('ui-translations/{locale}', function (string $locale, LanguageCatalog $languages): \Illuminate\Http\JsonResponse {
+    $messages = $languages->read($locale);
+    abort_if($messages === null, 404);
+
+    return response()->json($messages)->header('Cache-Control', 'no-store');
+})->where('locale', '[a-z]{2,3}(?:-[A-Za-z]{2,4})?')->name('ui-translations.show');
+
 Route::post('ui-locale', function (Request $request): RedirectResponse {
-    $validated = $request->validate(['locale' => ['required', 'string', Rule::in(['en', 'pl'])]]);
+    $validated = $request->validate(['locale' => ['required', 'string', Rule::in(array_column(app(LanguageCatalog::class)->options(), 'value'))]]);
 
     return back()->withCookie(cookie('locale', $validated['locale'], 60 * 24 * 365));
 })->name('ui-locale.update');

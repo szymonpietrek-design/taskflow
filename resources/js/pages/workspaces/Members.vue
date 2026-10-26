@@ -298,7 +298,7 @@ function formattedJoinDate(value: string): string {
     const parsed = new Date(`${date}T00:00:00Z`);
     if (Number.isNaN(parsed.getTime())) return value;
 
-    return new Intl.DateTimeFormat(locale.value === 'pl' ? 'pl-PL' : 'en-US', {
+    return new Intl.DateTimeFormat(locale.value, {
         day: 'numeric',
         month: 'short',
         year: 'numeric',

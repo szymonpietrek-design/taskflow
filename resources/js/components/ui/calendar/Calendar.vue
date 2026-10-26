@@ -26,7 +26,7 @@ const placeholder = useVModel(props, "placeholder", emits, {
 }) as Ref<DateValue>
 
 const { locale: uiLocale } = useI18n()
-const effectiveLocale = computed(() => props.locale ?? (uiLocale.value === 'pl' ? 'pl-PL' : 'en-US'))
+const effectiveLocale = computed(() => props.locale ?? (uiLocale.value))
 const formatter = useDateFormatter(effectiveLocale.value)
 
 const yearRange = computed(() => {

@@ -67,7 +67,7 @@ defineOptions({
 });
 const { t, locale, formatText, translateLiteral, countLabel } = useI18n();
 const plannedDateFormatter = computed(() => new DateFormatter(
-    locale.value === 'pl' ? 'pl-PL' : 'en-US',
+    locale.value,
     { dateStyle: 'medium' },
 ));
 function formatPlannedDate(value: string): string {

@@ -242,7 +242,7 @@ const { locale, t, displayLabel, formatText } = useI18n();
 
 // Parse date-only values as local dates to avoid timezone-induced day shifts.
 const dueDateFormatter = computed(() =>
-    new Intl.DateTimeFormat(locale.value === 'pl' ? 'pl-PL' : 'en-GB', {
+    new Intl.DateTimeFormat(locale.value, {
         day: 'numeric',
         month: 'short',
         year: 'numeric',

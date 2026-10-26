@@ -12,7 +12,6 @@ import type { ProjectColor, ProjectIcon, ProjectType } from '@/types/project';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import TaskStatusIcon from '@/components/tasks/TaskStatusIcon.vue';
 import TaskPriorityLabel from '@/components/tasks/TaskPriorityLabel.vue';
-import { dashboardCopy } from './dashboardCopy';
 import { taskStatusBadgeClass } from '@/lib/taskVisuals';
 import { dashboard } from '@/routes';
 import type { TaskPriorityValue, TaskStatusSummary } from '@/types/task';
@@ -70,8 +69,11 @@ defineOptions({
 });
 
 const { t, locale } = useI18n();
-const dateLocale = computed(() => locale.value === 'pl' ? 'pl-PL' : 'en-US');
-const copy = computed(() => locale.value === 'pl' ? dashboardCopy.pl : dashboardCopy.en);
+const dateLocale = computed(() => locale.value);
+const dashboardKeys = ["myProjects", "projectsHelp", "projectCount", "projectProgress", "projectTasks", "projectInProgress", "projectMyOverdue", "projectEmpty", "projectSeeAll", "weekTime", "noTimeThisWeek", "focusOpen", "focusOverdue", "focusDueSoon", "clearTaskFocus", "seeAllTasks", "previousPage", "nextPage", "noMatchingTasks", "noMatchingTasksHelp", "changeCountFew", "changeCount", "needsAttention", "attentionHelp", "status", "priority", "assignee", "due_date", "release", "title", "description", "type", "comment", "activityHelp"] as const;
+const copy = computed(() => Object.fromEntries(
+    dashboardKeys.map(key => [key, t(`dashboard.${key}`)]),
+) as Record<(typeof dashboardKeys)[number], string>);
 const formattedDate = (value: string | null): string => {
     if (!value) return '';
     const date = new Date(value.includes('T') ? value : `${value}T12:00:00`);
@@ -83,9 +85,8 @@ const activityLabel = (kind: ActivityItem['kind']): string => copy.value[kind];
 const activitySummary = (item: ActivityItem): string => {
     const count = item.changes.length;
     if (count <= 1) return activityLabel(item.kind);
-    if (locale.value !== 'pl') return copy.value.changeCount.replace('{count}', String(count));
-    const polishForm = count % 10 >= 2 && count % 10 <= 4 && (count % 100 < 12 || count % 100 > 14);
-    return (polishForm ? copy.value.changeCountFew : copy.value.changeCount).replace('{count}', String(count));
+    const form = new Intl.PluralRules(locale.value).select(count);
+    return (form === 'few' ? copy.value.changeCountFew : copy.value.changeCount).replace('{count}', String(count));
 };
 const formatMinutes = (minutes: number): string => {
     const hours = Math.floor(minutes / 60);

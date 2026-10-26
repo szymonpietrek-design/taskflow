@@ -65,7 +65,7 @@ const form = useForm({
     description: '',
     is_creative: false,
 });
-const dateFormatter = computed(() => new DateFormatter(locale.value === 'pl' ? 'pl-PL' : 'en-US', { dateStyle: 'medium' }));
+const dateFormatter = computed(() => new DateFormatter(locale.value, { dateStyle: 'medium' }));
 watch(
     () => props.taskId,
     () => {
