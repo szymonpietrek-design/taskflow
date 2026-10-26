@@ -94,7 +94,7 @@ const props = defineProps<{
     can_sync_files: boolean;
     ai: AiProps;
 }>();
-const { locale, t } = useI18n();
+const { locale, t, formatText } = useI18n();
 const selectedLanguage = ref(['en', 'pl'].includes(locale.value) ? locale.value : 'other');
 const customLanguage = ref(['en', 'pl'].includes(locale.value) ? '' : locale.value);
 const includeCode = ref(false);
@@ -183,7 +183,6 @@ function syncPullAndFiles(): void {
         onFinish: () => { syncingSnapshot.value = false; },
     });
 }
-const isPl = computed(() => locale.value === 'pl');
 const repositoryUrl = computed(() => `/projects/${props.project.id}/integrations/github?tab=pulls`);
 const longDescription = computed(() => props.pull_request.body_html.length > 7000);
 const dateFormatter = computed(() => new Intl.DateTimeFormat(locale.value, { dateStyle: 'medium', timeStyle: 'short' }));
@@ -319,7 +318,7 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
                             </div>
                         </details>
                     </div>
-                    <p v-if="files_count > files.length" class="text-xs text-muted-foreground">{{ isPl ? `Pokazano pierwsze ${files_limit} plików. Pozostałe są zapisane w bazie.` : `Showing the first ${files_limit} files. Others are stored in the database.` }}</p>
+                    <p v-if="files_count > files.length" class="text-xs text-muted-foreground">{{ formatText('github.pr.filesTruncated', { limit: files_limit }) }}</p>
                 </template>
             </CardContent>
         </Card>
@@ -378,7 +377,7 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
                             {{ t('screens.project.githubpullrequest.pr_metadata_changed_file_names_and_statistics_review_st') }}
                         </p>
                         <p class="text-xs font-medium">
-                            {{ isPl ? `Dostępny snapshot: ${files_count} plików, ${reviews_count} przesłanych recenzji. HEAD: ${pull_request.head_sha?.slice(0, 12) || '—'}.` : `Available snapshot: ${files_count} files, ${reviews_count} submitted reviews. HEAD: ${pull_request.head_sha?.slice(0, 12) || '—'}.` }}
+                            {{ formatText('github.pr.snapshotEvidence', { files: files_count, reviews: reviews_count, head: pull_request.head_sha?.slice(0, 12) || '—' }) }}
                         </p>
                         <p class="text-xs text-muted-foreground">
                             {{ t('screens.project.githubpullrequest.pr_descriptions_raw_review_comments_taskflow_account_da') }}
@@ -427,9 +426,7 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
                         <strong v-if="ai.usage_30d.estimated_cost_usd !== null">{{ formatUsd(ai.usage_30d.estimated_cost_usd) }} USD</strong>
                         <span v-else class="text-muted-foreground">{{ t('screens.project.githubpullrequest.no_pricing_data') }}</span>
                     </p>
-                    <p class="text-xs text-muted-foreground">{{ isPl
-                        ? `Szacunek tylko dla analiz z zapisaną ceną. Brak wyceny: ${ai.usage_30d.unknown_cost}. Nie obejmuje ewentualnych opłat za nieudane próby, cache i różnic w cenniku dostawcy. To nie faktura.`
-                        : `Estimate covers only analyses with recorded pricing. Unpriced: ${ai.usage_30d.unknown_cost}. Excludes possible failed requests, cache and provider pricing differences. Not a billing statement.` }}</p>
+                    <p class="text-xs text-muted-foreground">{{ formatText('github.pr.costEstimateNote', { count: ai.usage_30d.unknown_cost }) }}</p>
                 </div>
                 <div class="space-y-3">
                     <div class="flex flex-wrap items-center justify-between gap-2">
@@ -509,7 +506,7 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
                     {{ t('screens.project.githubpullrequest.no_stored_reviews_this_pr_may_not_have_reviews_yet_or_t') }}
                 </p>
                 <p v-if="reviews_count > reviews.length" class="text-xs text-muted-foreground">
-                    {{ isPl ? `Pokazano ${reviews_limit} najnowszych recenzji. Pozostałe są zapisane w bazie.` : `Showing the latest ${reviews_limit} reviews. Others are stored in the database.` }}
+                    {{ formatText('github.pr.reviewsTruncated', { limit: reviews_limit }) }}
                 </p>
                 <p class="text-xs text-muted-foreground">{{ t('screens.project.githubpullrequest.reviews_last_checked') }}: {{ formatDate(pull_request.reviews_checked_at) }}</p>
             </CardContent>

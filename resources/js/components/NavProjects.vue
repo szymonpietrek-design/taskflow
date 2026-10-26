@@ -21,7 +21,7 @@ import {
 type ProjectSection = 'overview' | 'tasks' | 'releases' | 'reports' | 'members' | 'integrations/repository';
 
 const page = usePage();
-const { t, locale } = useI18n();
+const { t } = useI18n();
 const projects = computed(() => page.props.projects.items);
 const pathname = computed(() => page.url.split('?')[0].replace(/\/$/, '') || '/');
 
@@ -168,7 +168,7 @@ function isSectionActive(projectId: number, section: ProjectSection): boolean {
                                         <SidebarMenuSubButton as-child size="sm" class="data-[active=true]:bg-sidebar-accent/70 data-[active=true]:font-semibold" :is-active="isSectionActive(project.id, 'integrations/repository')">
                                             <Link :href="`/projects/${project.id}/integrations/repository`" :aria-current="isSectionActive(project.id, 'integrations/repository') ? 'page' : undefined">
                                                 <GitBranch />
-                                                <span>{{ locale === 'pl' ? 'Integracje Git' : 'Git integrations' }}</span>
+                                                <span>{{ t('nav.gitIntegrations') }}</span>
                                             </Link>
                                         </SidebarMenuSubButton>
                                     </SidebarMenuSubItem>

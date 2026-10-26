@@ -169,22 +169,22 @@ class ProjectGitHubController extends Controller
         ]);
         $installationId = (int) $validated['installation_id'];
         if (RepositoryConnection::query()->where('project_id', $project->id)->exists()) {
-            throw ValidationException::withMessages(['repository' => 'A repository is already linked. Disconnect it first.']);
+            throw ValidationException::withMessages(['repository' => __('A repository is already linked. Disconnect it first.')]);
         }
 
         $instance = GitHubInstance::get();
         $existing = VcsConnection::query()->where('vcs_instance_id', $instance->id)
             ->where('external_connection_id', (string) $installationId)->first();
         if ($existing && $existing->workspace_id !== $project->workspace_id) {
-            throw ValidationException::withMessages(['installation_id' => 'This installation is already linked to another workspace.']);
+            throw ValidationException::withMessages(['installation_id' => __('This installation is already linked to another workspace.')]);
         }
         if ($existing === null && ! $request->user()->is_system_admin) {
             throw ValidationException::withMessages([
-                'installation_id' => 'Ask a system administrator to register this GitHub App installation for your workspace first.',
+                'installation_id' => __('Ask a system administrator to register this GitHub App installation for your workspace first.'),
             ]);
         }
         if (! $github->configured()) {
-            throw ValidationException::withMessages(['installation_id' => 'GitHub App is not configured on this server.']);
+            throw ValidationException::withMessages(['installation_id' => __('GitHub App is not configured on this server.')]);
         }
 
         try {
@@ -193,13 +193,13 @@ class ProjectGitHubController extends Controller
         } catch (ConnectionException|RequestException|RuntimeException $exception) {
             $this->logProviderFailure($project, 'connect', $exception);
             throw ValidationException::withMessages([
-                'repository' => 'Cannot access this repository with the specified GitHub App installation.',
+                'repository' => __('Cannot access this repository with the specified GitHub App installation.'),
             ]);
         }
 
         $owner = explode('/', $repositoryData['full_name'], 2)[0];
         if (! hash_equals(strtolower($installationData['account_login']), strtolower($owner))) {
-            throw ValidationException::withMessages(['repository' => 'Repository owner does not match the GitHub App installation.']);
+            throw ValidationException::withMessages(['repository' => __('Repository owner does not match the GitHub App installation.')]);
         }
         try {
             DB::transaction(function () use ($project, $instance, $installationId, $installationData, $repositoryData): void {
@@ -214,7 +214,7 @@ class ProjectGitHubController extends Controller
                     ],
                 );
                 if ($connection->workspace_id !== $project->workspace_id) {
-                    throw ValidationException::withMessages(['installation_id' => 'Installation belongs to another workspace.']);
+                    throw ValidationException::withMessages(['installation_id' => __('Installation belongs to another workspace.')]);
                 }
                 RepositoryConnection::query()->create([
                     'project_id' => $project->id,
@@ -228,7 +228,7 @@ class ProjectGitHubController extends Controller
                 ]);
             });
         } catch (UniqueConstraintViolationException $exception) {
-            throw ValidationException::withMessages(['repository' => 'Connection already exists. Refresh the page.']);
+            throw ValidationException::withMessages(['repository' => __('Connection already exists. Refresh the page.')]);
         }
         return to_route('projects.github.index', $project);
     }
@@ -242,9 +242,7 @@ class ProjectGitHubController extends Controller
         } catch (ConnectionException|RequestException|RuntimeException $exception) {
             $this->logProviderFailure($project, 'commits', $exception);
             throw ValidationException::withMessages([
-                'sync' => app()->getLocale() === 'pl'
-                    ? 'Synchronizacja nie powiodła się lub zmieniła się historia gałęzi. Zapisany SHA pozostał bez zmian. Sprawdź historię synchronizacji i spróbuj ponownie.'
-                    : 'Synchronization failed or the branch history changed. The saved SHA was not advanced. Review the synchronization history and retry.',
+                'sync' => __('Synchronization failed or the branch history changed. The saved SHA was not advanced. Review the synchronization history and retry.'),
             ]);
         }
         $count = (int) $result['imported'];
@@ -260,13 +258,14 @@ class ProjectGitHubController extends Controller
         }
         Inertia::flash('toast', [
             'type' => 'success',
-            'message' => app()->getLocale() === 'pl'
-                ? (($count > 0 ? 'Synchronizacja GitHub zakończona. Nowe commity: '.$count.'.' : 'Synchronizacja GitHub zakończona. Brak nowych commitów.')
-                    .($fileSyncFailed ? ' Nie udało się pobrać metadanych plików; spróbuj vcs:sync-commit-files.'
-                        : ($filesInfo !== null && $filesInfo['remaining'] > 0 ? ' Pozostałe metadane: vcs:sync-commit-files.' : '')))
-                : (($count > 0 ? 'Imported '.$count.' new GitHub commits.' : 'GitHub synchronization complete. No new commits.')
-                    .($fileSyncFailed ? ' Could not sync commit file metadata; retry with vcs:sync-commit-files.'
-                        : ($filesInfo !== null && $filesInfo['remaining'] > 0 ? ' Remaining metadata: vcs:sync-commit-files.' : ''))),
+            'message' => ($count > 0
+                ? __('Imported :count new GitHub commits.', ['count' => $count])
+                : __('GitHub synchronization complete. No new commits.'))
+                .($fileSyncFailed
+                    ? ' '.__('Could not sync commit file metadata; retry with vcs:sync-commit-files.')
+                    : ($filesInfo !== null && $filesInfo['remaining'] > 0
+                        ? ' '.__('Remaining metadata: vcs:sync-commit-files.')
+                        : '')),
         ]);
         return to_route('projects.github.index', $project);
     }
@@ -282,16 +281,12 @@ class ProjectGitHubController extends Controller
         } catch (\Throwable $exception) {
             $this->logProviderFailure($project, 'pull_requests', $exception);
             throw ValidationException::withMessages([
-                'pulls' => app()->getLocale() === 'pl'
-                    ? 'Nie udało się zsynchronizować Pull Requestów. Sprawdź uprawnienia GitHub App lub spróbuj ponownie.'
-                    : 'Could not sync pull requests. Check GitHub App permissions and try again.',
+                'pulls' => __('Could not sync pull requests. Check GitHub App permissions and try again.'),
             ]);
         }
         Inertia::flash('toast', [
             'type' => 'success',
-            'message' => app()->getLocale() === 'pl'
-                ? "Synchronizacja PR zakończona. Pobrano: {$result['fetched']}, nowych: {$result['created']}, zaktualizowanych: {$result['updated']}."
-                : "PR sync complete. Fetched: {$result['fetched']}, created: {$result['created']}, updated: {$result['updated']}.",
+            'message' => __('PR sync complete. Fetched: :fetched, created: :created, updated: :updated.', ['fetched' => $result['fetched'], 'created' => $result['created'], 'updated' => $result['updated']]),
         ]);
         return to_route('projects.github.index', ['project' => $project, 'tab' => 'pulls']);
     }
@@ -308,16 +303,12 @@ class ProjectGitHubController extends Controller
         } catch (\Throwable $exception) {
             $this->logProviderFailure($project, 'reviews', $exception);
             throw ValidationException::withMessages([
-                'reviews' => app()->getLocale() === 'pl'
-                    ? 'Nie udało się odświeżyć recenzji. Spróbuj ponownie później.'
-                    : 'Could not refresh reviews. Please try again.',
+                'reviews' => __('Could not refresh reviews. Please try again.'),
             ]);
         }
         Inertia::flash('toast', [
             'type' => 'success',
-            'message' => app()->getLocale() === 'pl'
-                ? "Sprawdzono {$result['checked']} PR-ów. Recenzje: {$result['fetched']}, nowych: {$result['created']}, zmienionych: {$result['updated']}."
-                : "Checked {$result['checked']} PRs. Reviews: {$result['fetched']}, created: {$result['created']}, updated: {$result['updated']}.",
+            'message' => __('Checked :checked PRs. Reviews: :fetched, created: :created, updated: :updated.', ['checked' => $result['checked'], 'fetched' => $result['fetched'], 'created' => $result['created'], 'updated' => $result['updated']]),
         ]);
         return to_route('projects.github.index', ['project' => $project, 'tab' => 'pulls']);
     }
@@ -331,16 +322,12 @@ class ProjectGitHubController extends Controller
         } catch (ConnectionException|RequestException|RuntimeException $exception) {
             $this->logProviderFailure($project, 'authors', $exception);
             throw ValidationException::withMessages([
-                'authors' => app()->getLocale() === 'pl'
-                    ? 'Nie udało się uzupełnić autorów. Spróbuj ponownie później.'
-                    : 'Could not refresh commit authors. Please try again later.',
+                'authors' => __('Could not refresh commit authors. Please try again later.'),
             ]);
         }
         Inertia::flash('toast', [
             'type' => 'success',
-            'message' => app()->getLocale() === 'pl'
-                ? 'Sprawdzono autorów '.$result['checked'].' commitów. Pozostało: '.$result['remaining'].'.'
-                : 'Checked authors for '.$result['checked'].' commits. Remaining: '.$result['remaining'].'.',
+            'message' => __('Checked authors for :checked commits. Remaining: :remaining.', ['checked' => $result['checked'], 'remaining' => $result['remaining']]),
         ]);
         return to_route('projects.github.index', $project);
     }
@@ -354,9 +341,7 @@ class ProjectGitHubController extends Controller
             $lock = Cache::lock(RepositorySyncLock::key($repository->id), 120);
             if (! $lock->get()) {
                 throw ValidationException::withMessages([
-                    'repository' => app()->getLocale() === 'pl'
-                        ? 'Trwa synchronizacja repozytorium. Spróbuj odłączyć je po jej zakończeniu.'
-                        : 'Repository synchronization is in progress. Disconnect after it finishes.',
+                    'repository' => __('Repository synchronization is in progress. Disconnect after it finishes.'),
                 ]);
             }
             try {

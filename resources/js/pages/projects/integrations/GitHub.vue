@@ -54,8 +54,7 @@ const props = defineProps<{
     legacy_authors_pending: number;
     sync_runs: SyncRun[];
 }>();
-const { locale, t } = useI18n();
-const isPl = computed(() => locale.value === 'pl');
+const { locale, t, formatText } = useI18n();
 const base = computed(() => `/projects/${props.project.id}/integrations/github`);
 const form = useForm({ installation_id: props.installations.length === 1 ? String(props.installations[0].installation_id) : '', repository: '' });
 const activeHistory = ref<'commits' | 'pulls'>(props.initial_tab);
@@ -211,7 +210,7 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
                 </Button>
                 <Button type="button" :variant="activeHistory === 'pulls' ? 'secondary' : 'outline'"
                     :aria-pressed="activeHistory === 'pulls'" @click="activeHistory = 'pulls'">
-                    <GitMerge class="size-4" /> Pull Requests
+                    <GitMerge class="size-4" /> {{ t('github.pullRequests') }}
                     <span class="text-xs tabular-nums opacity-70">{{ pull_requests_count }}</span>
                 </Button>
             </div>
@@ -235,7 +234,7 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
                         <span class="font-semibold tabular-nums">{{ commits_count }}</span>
                     </div>
                     <div v-if="legacy_authors_pending > 0 && can_connect && !project.is_archived" class="rounded-lg border border-dashed p-3 text-sm">
-                        <p class="text-muted-foreground">{{ isPl ? `Wcześniej pobrane commity bez identyfikatora autora: ${legacy_authors_pending}. Możesz sprawdzić po 10 na raz.` : `Previously imported commits without checked author identity: ${legacy_authors_pending}. Check up to 10 at a time.` }}</p>
+                        <p class="text-muted-foreground">{{ formatText('github.legacyAuthorsPending', { count: legacy_authors_pending }) }}</p>
                         <Button class="mt-2" variant="outline" size="sm" type="button" :disabled="checkingAuthors || !!activitySync || !configured" @click="backfillAuthors">
                             <RefreshCw class="size-4" :class="checkingAuthors ? 'animate-spin' : ''" />
                             {{ checkingAuthors ? (t('screens.project.github.checking')) : (t('screens.project.github.check_existing_authors')) }}
@@ -266,7 +265,7 @@ defineOptions({ layout: { breadcrumbs: [{ title: 'Projects', href: '/projects' }
                 <CardHeader class="space-y-3">
                     <div class="flex flex-wrap items-start justify-between gap-3">
                         <div class="space-y-1">
-                            <CardTitle class="flex items-center gap-2 text-base"><GitMerge class="size-4" /> Pull Requests</CardTitle>
+                            <CardTitle class="flex items-center gap-2 text-base"><GitMerge class="size-4" /> {{ t('github.pullRequests') }}</CardTitle>
                             <p class="text-sm text-muted-foreground">{{ t('screens.project.github.pull_requests_and_reviews_stored_in_taskflow') }}</p>
                         </div>
                         <div v-if="can_connect && !project.is_archived" class="flex flex-wrap gap-2">

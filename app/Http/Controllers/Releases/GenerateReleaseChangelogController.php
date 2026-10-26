@@ -42,7 +42,7 @@ final class GenerateReleaseChangelogController extends Controller
                 'exception_class' => $exception::class,
             ]);
             throw ValidationException::withMessages([
-                'ai_generation' => 'AI generation failed. Check the provider configuration or try again later.',
+                'ai_generation' => __('AI generation failed. Check the provider configuration or try again later.'),
             ]);
         }
 

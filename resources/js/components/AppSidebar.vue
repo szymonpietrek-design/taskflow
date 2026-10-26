@@ -26,7 +26,7 @@ import { useI18n } from '@/composables/useI18n';
 import { dashboard } from '@/routes';
 import type { NavItem } from '@/types';
 
-const { t, locale } = useI18n();
+const { t } = useI18n();
 const page = usePage();
 
 const mainNavItems = computed<NavItem[]>(() => [
@@ -52,7 +52,7 @@ const mainNavItems = computed<NavItem[]>(() => [
             icon: UsersRound,
         },
         {
-            title: locale.value === 'pl' ? 'Integracje: Git' : 'Git integrations',
+            title: t('nav.adminGitIntegrations'),
             href: '/admin/integrations/git',
             icon: GitBranch,
         },

@@ -33,7 +33,7 @@ class SaveTaskWorklog
                 $remaining = sprintf('%dh %dm', intdiv($available, 60), $available % 60);
 
                 throw ValidationException::withMessages([
-                    'hours' => 'Daily limit: 8 hours per user across all tasks and projects. Remaining on this date: '.$remaining.'.',
+                    'hours' => __('Daily limit: 8 hours per user across all tasks and projects. Remaining on this date: :remaining.', ['remaining' => $remaining]),
                 ]);
             }
 

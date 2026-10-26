@@ -875,8 +875,7 @@ const { t, locale, formatText, translateLiteral } = useI18n();
                                 rows="9"
                                 maxlength="50000"
                                 class="w-full rounded-md border border-input bg-background px-3 py-2 font-mono text-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-                                placeholder="## Added
-- New feature ..."
+                                :placeholder="t('releases.changelogPlaceholder')"
                             ></textarea>
                             <InputError :message="errors.draft_body" />
                             <Button

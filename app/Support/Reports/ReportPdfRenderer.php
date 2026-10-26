@@ -25,13 +25,16 @@ final class ReportPdfRenderer
         $pdf->loadHtml($html, 'UTF-8');
         $pdf->render();
 
+        // Resolve the saved report's language once, before Dompdf renders its page callbacks.
+        $pageLabel = app(ReportDocumentLocale::class)->text($locale, 'reports.document.page', 'Page');
+
         // Add a quiet footer to every A4 page without embedding executable PHP in HTML.
         $pdf->getCanvas()->page_script(static function (
             int $pageNumber,
             int $pageCount,
             Canvas $canvas,
             FontMetrics $fontMetrics
-        ) use ($locale): void {
+        ) use ($pageLabel): void {
             $font = $fontMetrics->getFont('DejaVu Sans');
             $size = 7.5;
             $left = 42.5; // 15 mm, aligned with the @page horizontal margin.
@@ -41,8 +44,6 @@ final class ReportPdfRenderer
             $canvas->line($left, $y - 10, $right, $y - 10, [0.85, 0.85, 0.85], 0.5);
             $canvas->text($left, $y, 'TaskFlow', $font, $size, $gray);
 
-            $language = strtolower(explode('-', str_replace('_', '-', $locale))[0]);
-            $pageLabel = $language === 'pl' ? 'Strona' : 'Page';
             $label = $pageLabel.' '.$pageNumber.' / '.$pageCount;
             $textWidth = $fontMetrics->getTextWidth($label, $font, $size);
             $canvas->text($right - $textWidth, $y, $label, $font, $size, $gray);

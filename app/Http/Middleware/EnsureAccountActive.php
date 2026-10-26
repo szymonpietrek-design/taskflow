@@ -21,7 +21,7 @@ class EnsureAccountActive
             }
 
             return redirect()->route('login')->withErrors([
-                'email' => 'Your account has been disabled. Contact an administrator.',
+                'email' => __('Your account has been disabled. Contact an administrator.'),
             ]);
         }
 

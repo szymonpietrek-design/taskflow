@@ -181,17 +181,13 @@ final class ProjectGitHubPullRequestController extends Controller
                 'exception_type' => $exception::class,
             ]);
             throw ValidationException::withMessages([
-                'sync' => app()->getLocale() === 'pl'
-                    ? 'Nie udało się odświeżyć PR-a i plików. Spróbuj ponownie za chwilę.'
-                    : 'Could not refresh the PR and its files. Please try again shortly.',
+                'sync' => __('Could not refresh the PR and its files. Please try again shortly.'),
             ]);
         }
 
         Inertia::flash('toast', [
             'type' => 'success',
-            'message' => app()->getLocale() === 'pl'
-                ? "PR i pliki zsynchronizowane ({$result['files']} plików). Możesz zlecić analizę AI."
-                : "PR and files synced ({$result['files']} files). AI analysis is ready.",
+            'message' => __('PR and files synced (:count files). AI analysis is ready.', ['count' => $result['files']]),
         ]);
         return to_route('projects.github.pull.show', ['project' => $project, 'number' => $number]);
     }
@@ -217,16 +213,12 @@ final class ProjectGitHubPullRequestController extends Controller
                 'exception_type' => $exception::class,
             ]);
             throw ValidationException::withMessages([
-                'files' => app()->getLocale() === 'pl'
-                    ? 'Nie udało się pobrać zmian plików. Zsynchronizuj najpierw PR-y lub spróbuj ponownie.'
-                    : 'Could not fetch file changes. Sync pull requests first or try again.',
+                'files' => __('Could not fetch file changes. Sync pull requests first or try again.'),
             ]);
         }
         Inertia::flash('toast', [
             'type' => 'success',
-            'message' => app()->getLocale() === 'pl'
-                ? "Zaktualizowano pliki: {$result['files']}."
-                : "Updated changed files: {$result['files']}.",
+            'message' => __('Updated changed files: :count.', ['count' => $result['files']]),
         ]);
         return to_route('projects.github.pull.show', ['project' => $project, 'number' => $number]);
     }

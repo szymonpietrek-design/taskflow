@@ -64,10 +64,21 @@ final class CreateReport
             }.$period;
         }
 
+        // Keep the established English format, but use locale-aware titles and
+        // dates for file-installed languages instead of silently forcing English.
+        $locale = str_replace('-', '_', app()->getLocale());
+        if ($locale !== 'en') {
+            $first = $start->locale($locale);
+            $last = $end->locale($locale);
+            $period = $start->isSameDay($end)
+                ? $first->translatedFormat('j M Y')
+                : $first->translatedFormat('j M Y').' – '.$last->translatedFormat('j M Y');
+        }
+
         return match ($format) {
-            ReportFormat::WORK_REPORT->value => 'Work report · ',
-            ReportFormat::TECHNICAL_REPORT->value => 'Technical report · ',
-            default => 'Project report · ',
+            ReportFormat::WORK_REPORT->value => __('Work report').' · ',
+            ReportFormat::TECHNICAL_REPORT->value => __('Technical report').' · ',
+            default => __('Project report').' · ',
         }.$period;
     }
 }

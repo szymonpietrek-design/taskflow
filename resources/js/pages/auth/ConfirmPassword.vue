@@ -31,9 +31,9 @@ const { t } = useI18n();
             options: confirmOptions(),
             submit: confirmStore(),
         }"
-        label="Confirm with passkey"
-        loading-label="Confirming..."
-        separator="Or confirm with password"
+        :label="t('auth.confirmWithPasskey')"
+        :loading-label="t('auth.confirming')"
+        :separator="t('auth.orConfirmWithPassword')"
     />
 
     <Form

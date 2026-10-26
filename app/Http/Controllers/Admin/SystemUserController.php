@@ -66,7 +66,7 @@ class SystemUserController extends Controller
         $user->is_system_admin = (bool) $data['is_system_admin'];
         $user->save();
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => 'User created.']);
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('User created.')]);
 
         return back();
     }
@@ -88,7 +88,7 @@ class SystemUserController extends Controller
         $user->locale = $data['locale'];
         $user->save();
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => 'User updated.']);
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('User updated.')]);
 
         return back();
     }
@@ -104,7 +104,7 @@ class SystemUserController extends Controller
             DB::table('sessions')->where('user_id', $user->id)->delete();
         });
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => 'Password changed.']);
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Password changed.')]);
 
         return back();
     }
@@ -117,7 +117,7 @@ class SystemUserController extends Controller
         DB::transaction(function () use ($request, $user, $disabled): void {
             $user = User::query()->lockForUpdate()->findOrFail($user->id);
             if ($disabled && $user->id === $request->user()->id) {
-                throw ValidationException::withMessages(['disabled' => 'You cannot disable your own account.']);
+                throw ValidationException::withMessages(['disabled' => __('You cannot disable your own account.')]);
             }
             if ($disabled && $user->is_system_admin && $user->disabled_at === null) {
                 $this->assertAnotherActiveAdminExists();
@@ -133,7 +133,7 @@ class SystemUserController extends Controller
             }
         });
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => 'User status updated.']);
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('User status updated.')]);
 
         return back();
     }
@@ -146,7 +146,7 @@ class SystemUserController extends Controller
         DB::transaction(function () use ($request, $user, $makeAdmin): void {
             $user = User::query()->lockForUpdate()->findOrFail($user->id);
             if (! $makeAdmin && $user->id === $request->user()->id) {
-                throw ValidationException::withMessages(['is_system_admin' => 'You cannot remove your own administrator role.']);
+                throw ValidationException::withMessages(['is_system_admin' => __('You cannot remove your own administrator role.')]);
             }
             if (! $makeAdmin && $user->is_system_admin && $user->disabled_at === null) {
                 $this->assertAnotherActiveAdminExists();
@@ -155,7 +155,7 @@ class SystemUserController extends Controller
             $user->save();
         });
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => 'System role updated.']);
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('System role updated.')]);
 
         return back();
     }
@@ -171,7 +171,7 @@ class SystemUserController extends Controller
     {
         if (User::query()->where('is_system_admin', true)->whereNull('disabled_at')->lockForUpdate()->get(['id'])->count() <= 1) {
             throw ValidationException::withMessages([
-                'is_system_admin' => 'At least one active system administrator is required.',
+                'is_system_admin' => __('At least one active system administrator is required.'),
             ]);
         }
     }

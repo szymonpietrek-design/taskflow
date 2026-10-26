@@ -28,17 +28,22 @@ final class ReportPdfPresentation
             'nl' => ['Projectrapport', 'Werkrapport', 'Technisch rapport'],
             'uk' => ['Звіт про проєкт', 'Звіт про роботу', 'Технічний звіт'],
         ];
-        if (! isset($titles[$locale])) {
-            return $report->title;
-        }
-
         $index = match ($report->format) {
             ReportFormat::WORK_REPORT => 1,
             ReportFormat::TECHNICAL_REPORT => 2,
             default => 0,
         };
+        $key = match ($report->format) {
+            ReportFormat::WORK_REPORT => 'Work report',
+            ReportFormat::TECHNICAL_REPORT => 'Technical report',
+            default => 'Project report',
+        };
+        // Keep historical translated titles when a report language has no installed UI pack.
+        // Installed JSON always takes precedence, including newly added languages.
+        $legacy = $titles[$locale][$index] ?? ['Project report', 'Work report', 'Technical report'][$index];
+        $label = app(ReportDocumentLocale::class)->text($report->generated_locale ?: 'en', $key, $legacy);
 
-        return $titles[$locale][$index].' · '.$this->period($report);
+        return $label.' · '.$this->period($report);
     }
 
     public function period(Report $report): string

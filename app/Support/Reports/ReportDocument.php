@@ -17,6 +17,7 @@ final class ReportDocument
             : User::query()->whereIn('id', $report->contributor_ids)->orderBy('name')->pluck('name')->all();
 
         $pdfPresentation = new ReportPdfPresentation;
+        $generatedLocale = $report->generated_locale ?: 'en';
         $markdown = $publicHtml ? ($report->body ?? '') : $pdfPresentation->body($report);
 
         return view('reports.document', [
@@ -28,7 +29,8 @@ final class ReportDocument
                 : $pdfPresentation->period($report),
             'detailedReport' => $report->format === ReportFormat::WORK_REPORT,
             'people' => $people,
-            'locale' => $report->generated_locale ?: 'en',
+            'locale' => $generatedLocale,
+            'draftLabel' => app(ReportDocumentLocale::class)->text($generatedLocale, 'reports.document.draft', 'Draft'),
             'draft' => $draft,
             'publicHtml' => $publicHtml,
             'contentHtml' => app(ReportMarkdownPresentation::class)->render($markdown, $report->format),

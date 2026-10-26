@@ -47,10 +47,7 @@ final class ProjectPullRequestAiAnalysisController extends Controller
         $codeConsent = (bool) $validated['approve_code_sharing'];
         if ($patches !== $codeConsent) {
             throw ValidationException::withMessages([
-                'approve_code_sharing' => $this->message(
-                    'Zgoda na udostępnienie fragmentów kodu musi odpowiadać wybranemu zakresowi analizy.',
-                    'Code-sharing consent must match the selected analysis scope.',
-                ),
+                'approve_code_sharing' => __('Code-sharing consent must match the selected analysis scope.'),
             ]);
         }
 
@@ -64,35 +61,23 @@ final class ProjectPullRequestAiAnalysisController extends Controller
             );
         } catch (PullRequestAiQuotaExceeded) {
             throw ValidationException::withMessages([
-                'analysis' => $this->message(
-                    'Osiągnięto limit analiz AI dla projektu. Spróbuj ponownie po odnowieniu limitu.',
-                    'Project AI analysis limit reached. Please try again after the quota resets.',
-                ),
+                'analysis' => __('Project AI analysis limit reached. Please try again after the quota resets.'),
             ]);
         } catch (StalePullRequestAiEvidence) {
             throw ValidationException::withMessages([
-                'analysis' => $this->message(
-                    'Zsynchronizuj ponownie PR i zmienione pliki przed analizą.',
-                    'Sync the pull request and its changed files before analyzing.',
-                ),
+                'analysis' => __('Sync the pull request and its changed files before analyzing.'),
             ]);
         } catch (Throwable) {
             // Provider exceptions can include source code, prompts, token values or credentials.
             // Never log them or put their contents into validation/session responses.
             throw ValidationException::withMessages([
-                'analysis' => $this->message(
-                    'Nie udało się wygenerować analizy. Sprawdź aktualność danych i konfigurację AI.',
-                    'Analysis could not be generated. Check data freshness and AI configuration.',
-                ),
+                'analysis' => __('Analysis could not be generated. Check data freshness and AI configuration.'),
             ]);
         }
 
         Inertia::flash('toast', [
             'type' => 'success',
-            'message' => $this->message(
-                "Analiza AI v{$analysis->version} została dodana do kolejki.",
-                "AI analysis v{$analysis->version} has been queued.",
-            ),
+            'message' => __('AI analysis v:version has been queued.', ['version' => $analysis->version]),
         ]);
 
         return to_route('projects.github.pull.show', [
@@ -101,8 +86,4 @@ final class ProjectPullRequestAiAnalysisController extends Controller
         ]);
     }
 
-    private function message(string $pl, string $en): string
-    {
-        return app()->getLocale() === 'pl' ? $pl : $en;
-    }
 }

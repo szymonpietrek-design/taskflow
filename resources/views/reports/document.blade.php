@@ -139,7 +139,7 @@
     <header class="masthead">
         <div class="eyebrow">TaskFlow</div>
         <h1 class="document-title">{{ $displayTitle }}</h1>
-        @if($draft)<div class="draft">{{ str_starts_with(strtolower($locale), 'pl') ? 'Wersja robocza' : 'Draft' }}</div>@endif
+        @if($draft)<div class="draft">{{ $draftLabel }}</div>@endif
         <p class="meta">{{ $projectName }} · {{ $displayPeriod }}</p>
         @if($people !== null && count($people) > 0)
             <p class="meta">{{ implode(' · ', $people) }}</p>
