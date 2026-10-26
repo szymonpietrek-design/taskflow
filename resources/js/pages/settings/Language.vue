@@ -1,26 +1,42 @@
 <script setup lang="ts">
-import { Form, Head } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { Head, router } from '@inertiajs/vue3';
+import { ref, watch } from 'vue';
 import LocaleController from '@/actions/App/Http/Controllers/Settings/LocaleController';
 import Heading from '@/components/Heading.vue';
 import InputError from '@/components/InputError.vue';
-import { Button } from '@/components/ui/button';
+import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
 import { Label } from '@/components/ui/label';
-import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { useI18n } from '@/composables/useI18n';
 
-type LocaleOption = {
-    value: string;
-    label: string;
-};
-
 const props = defineProps<{
-    locales: LocaleOption[];
+    locales: Array<{ value: string; label: string }>;
     selectedLocale: string;
 }>();
 
 const selected = ref(props.selectedLocale);
+const processing = ref(false);
+const error = ref<string | undefined>();
 const { t } = useI18n();
+
+watch(() => props.selectedLocale, (value) => { selected.value = value; });
+
+function chooseLanguage(value: string): void {
+    if (processing.value || value === selected.value) return;
+
+    const previous = selected.value;
+    selected.value = value;
+    error.value = undefined;
+    processing.value = true;
+
+    router.patch(LocaleController.update.url(), { locale: value }, {
+        preserveScroll: true,
+        onError: (errors) => {
+            selected.value = previous;
+            error.value = errors.locale;
+        },
+        onFinish: () => { processing.value = false; },
+    });
+}
 
 defineOptions({
     layout: {
@@ -46,36 +62,19 @@ defineOptions({
             :description="t('language.description')"
         />
 
-        <Form
-            v-bind="LocaleController.update.form()"
-            class="space-y-6"
-            v-slot="{ errors, processing }"
-        >
-            <div class="grid gap-2">
-                <Label for="locale">{{ t('language.field') }}</Label>
-                <NativeSelect
-                    id="locale"
-                    name="locale"
-                    class="w-full"
-                    v-model="selected"
-                >
-                    <NativeSelectOption
-                        v-for="localeOption in locales"
-                        :key="localeOption.value"
-                        :value="localeOption.value"
-                    >
-                        {{ localeOption.label }}
-                    </NativeSelectOption>
-                </NativeSelect>
-                <InputError :message="errors.locale" />
-                <p class="text-sm text-muted-foreground">
-                    {{ t('language.note') }}
-                </p>
-            </div>
-
-            <Button :disabled="processing">
-                {{ t('common.save') }}
-            </Button>
-        </Form>
+        <div class="grid max-w-xs gap-2">
+            <Label for="locale">{{ t('language.field') }}</Label>
+            <LanguageSwitcher
+                id="locale"
+                :model-value="selected"
+                :options="locales"
+                :disabled="processing"
+                @update:model-value="chooseLanguage"
+            />
+            <InputError :message="error" />
+            <p class="text-sm text-muted-foreground">
+                {{ t('language.note') }}
+            </p>
+        </div>
     </div>
 </template>

@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { Link, router, usePage } from '@inertiajs/vue3';
+import { ref } from 'vue';
+import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
 import { useI18n } from '@/composables/useI18n';
 import AppLogoIcon from '@/components/AppLogoIcon.vue';
 import { home } from '@/routes';
@@ -10,11 +12,18 @@ defineProps<{
 }>();
 
 const page = usePage();
-const { locale } = useI18n();
-function chooseLanguage(language: string) {
-    if (language !== locale.value) {
-        router.post('/ui-locale', { locale: language }, { preserveState: false, preserveScroll: true });
-    }
+const { locale, t } = useI18n();
+const processing = ref(false);
+
+function chooseLanguage(language: string): void {
+    if (processing.value || language === locale.value) return;
+
+    processing.value = true;
+    router.post('/ui-locale', { locale: language }, {
+        preserveState: false,
+        preserveScroll: true,
+        onFinish: () => { processing.value = false; },
+    });
 }
 </script>
 
@@ -46,17 +55,24 @@ function chooseLanguage(language: string) {
                     </div>
                 </div>
                 <slot />
-                <nav v-if="!page.props.auth.user" class="flex flex-wrap justify-center gap-2 text-xs text-muted-foreground" aria-label="Language">
-                    <button
-                        v-for="option in page.props.locales"
-                        :key="option.value"
-                        type="button"
-                        class="rounded px-2 py-1 hover:text-foreground"
-                        :class="locale === option.value ? 'font-semibold text-foreground underline underline-offset-4' : ''"
-                        :aria-current="locale === option.value ? 'true' : undefined"
-                        @click="chooseLanguage(option.value)"
-                    >{{ option.label }}</button>
-                </nav>
+                <div v-if="!page.props.auth.user" class="flex flex-col items-center gap-2">
+                    <div class="flex w-44 max-w-full flex-col gap-1.5">
+                        <label for="guest-language" class="text-sm font-medium">
+                            {{ t('language.field') }}
+                        </label>
+                        <LanguageSwitcher
+                            id="guest-language"
+                            :model-value="locale"
+                            :options="page.props.locales"
+                            :disabled="processing"
+                            compact
+                            @update:model-value="chooseLanguage"
+                        />
+                    </div>
+                    <p class="max-w-xs text-center text-xs text-muted-foreground">
+                        {{ t('language.guestNote') }}
+                    </p>
+                </div>
             </div>
         </div>
     </div>

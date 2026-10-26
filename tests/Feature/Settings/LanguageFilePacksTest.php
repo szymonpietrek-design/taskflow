@@ -84,6 +84,37 @@ class LanguageFilePacksTest extends TestCase
         $this->assertArrayHasKey('Language updated.', $polish);
     }
 
+    public function test_built_in_languages_include_github_profile_and_guest_language_copy(): void
+    {
+        $english = json_decode(File::get(lang_path('en.json')), true, 512, JSON_THROW_ON_ERROR);
+        $polish = json_decode(File::get(lang_path('pl.json')), true, 512, JSON_THROW_ON_ERROR);
+
+        $keys = [
+            'profile.github.title',
+            'profile.github.description',
+            'profile.github.avatarAlt',
+            'profile.github.verified',
+            'profile.github.connectedOn',
+            'profile.github.openProfile',
+            'profile.github.disconnect',
+            'profile.github.notConnected',
+            'profile.github.optional',
+            'profile.github.connect',
+            'profile.github.verifyEmail',
+            'profile.github.unavailable',
+            'profile.github.confirmTitle',
+            'profile.github.confirmDescription',
+            'language.guestNote',
+        ];
+
+        foreach ([$english, $polish] as $dictionary) {
+            foreach ($keys as $key) {
+                $this->assertArrayHasKey($key, $dictionary);
+                $this->assertNotSame('', trim($dictionary[$key]));
+            }
+        }
+    }
+
     public function test_unsafe_paths_and_non_string_values_are_not_valid_packs(): void
     {
         $catalog = app(LanguageCatalog::class);
