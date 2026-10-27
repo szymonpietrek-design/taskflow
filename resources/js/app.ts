@@ -1,5 +1,6 @@
 import { createInertiaApp, router } from '@inertiajs/vue3';
 import { preloadLocale } from '@/i18n';
+import { readInitialPageLocale } from '@/i18n/initialPageLocale';
 import { initializeTheme } from '@/composables/useAppearance';
 import AppLayout from '@/layouts/AppLayout.vue';
 import AuthLayout from '@/layouts/AuthLayout.vue';
@@ -8,16 +9,10 @@ import { initializeFlashToast } from '@/lib/flashToast';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
-// Load the first dictionary before Vue mounts, avoiding flashes of English.
-// Inertia stores its initial page JSON in the root element's data-page attribute.
-const initialPage = document.getElementById('app')?.getAttribute('data-page');
-let initialLocale: unknown = 'en';
-if (initialPage) {
-    try {
-        const parsed = JSON.parse(initialPage) as { props?: { locale?: unknown } };
-        initialLocale = parsed.props?.locale;
-    } catch { /* retain English fallback */ }
-}
+// Inertia 3 places the initial page JSON in a script tag, not on #app.
+// Preload the actual account language *before* Vue mounts, so the interface
+// doesn't silently fall back to English on a full page load.
+const initialLocale = readInitialPageLocale(document);
 
 router.on('success', (event) => {
     void preloadLocale(event.detail.page.props.locale);

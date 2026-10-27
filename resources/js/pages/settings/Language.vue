@@ -57,7 +57,6 @@ defineOptions({
 
     <div class="space-y-6">
         <Heading
-            variant="small"
             :title="t('language.heading')"
             :description="t('language.description')"
         />

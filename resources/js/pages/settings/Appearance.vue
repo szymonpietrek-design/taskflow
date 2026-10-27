@@ -26,7 +26,6 @@ const { t } = useI18n();
 
     <div class="space-y-6">
         <Heading
-            variant="small"
             :title="t('appearance.heading')"
             :description="t('appearance.description')"
         />

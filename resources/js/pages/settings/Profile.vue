@@ -78,7 +78,6 @@ const connectedAtLabel = computed(() => {
 
     <div class="flex flex-col space-y-6">
         <Heading
-            variant="small"
             :title="t('profile.heading')"
             :description="t('profile.description')"
         />

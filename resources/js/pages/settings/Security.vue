@@ -40,11 +40,12 @@ defineOptions({
     <h1 class="sr-only">{{ t('security.pageTitle') }}</h1>
 
     <div class="space-y-6">
-        <Heading
-            variant="small"
-            :title="t('security.updatePassword')"
-            :description="t('security.description')"
-        />
+        <Heading :title="t('settings.security')" />
+
+        <div class="space-y-1">
+            <h2 class="text-base font-semibold">{{ t('security.updatePassword') }}</h2>
+            <p class="text-sm text-muted-foreground">{{ t('security.description') }}</p>
+        </div>
 
         <Form
             v-bind="SecurityController.update.form()"
