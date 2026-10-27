@@ -33,7 +33,15 @@ test('appearance and language offer radio selection in nested submenus', () => {
     assert.match(menu, /localeOptions/);
     assert.match(menu, /:disabled="localeSaving"/);
     assert.match(menu, /LocaleController\.update\.url\(\)/);
-    assert.match(menu, /from_menu: true/);
+    // Current implementation saves the preference with an ordinary JSON
+    // request, then reloads the current page after server confirmation.
+    assert.match(menu, /method: 'PATCH'/);
+    assert.match(menu, /'Accept': 'application\/json'/);
+    assert.match(menu, /'X-CSRF-TOKEN': csrfToken/);
+    assert.match(menu, /body: JSON\.stringify\(\{ locale: value \}\)/);
+    assert.match(menu, /saved\.locale !== value \|\| saved\.accountLocale !== value/);
+    assert.match(menu, /window\.location\.reload\(\)/);
+    assert.doesNotMatch(menu, /from_menu: true/);
     assert.match(menu, /updateAppearance\(value/);
 });
 
